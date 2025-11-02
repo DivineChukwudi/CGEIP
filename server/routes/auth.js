@@ -56,17 +56,18 @@ router.post('/register', async (req, res) => {
 
     await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
 
+    // OPTION B: Email sending temporarily disabled for testing
     // Send verification email
-    try {
-      const verificationLink = await auth.generateEmailVerificationLink(email);
-      await sendVerificationEmail(email, name, verificationLink);
-    } catch (emailError) {
-      console.log('Email sending failed:', emailError.message);
-      // Continue without blocking registration
-    }
+    // try {
+    //   const verificationLink = await auth.generateEmailVerificationLink(email);
+    //   await sendVerificationEmail(email, name, verificationLink);
+    // } catch (emailError) {
+    //   console.log('Email sending failed:', emailError.message);
+    //   // Continue without blocking registration
+    // }
 
     res.status(201).json({ 
-      message: 'Registration successful! Please check your email to verify your account.',
+      message: 'Registration successful! You can now login.',
       uid: userRecord.uid 
     });
   } catch (error) {
