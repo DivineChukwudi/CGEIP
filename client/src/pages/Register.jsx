@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
-import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaUserTag, FaSpinner, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaUserTag, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft } from 'react-icons/fa';
 import '../styles/global.css';
 
 export default function Register() {
@@ -71,6 +71,10 @@ export default function Register() {
 
   return (
     <div className="auth-container">
+      <Link to="/" className="auth-back-btn">
+        <FaArrowLeft /> Back to Home
+      </Link>
+      
       <div className="auth-card">
         <div className="auth-header">
           <FaGraduationCap className="auth-icon" />
@@ -140,7 +144,7 @@ export default function Register() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Enter your password"
+                placeholder="Enter your password (min. 6 characters)"
                 required
               />
               <button
@@ -148,6 +152,7 @@ export default function Register() {
                 className="password-toggle-btn"
                 onClick={togglePasswordVisibility}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex="-1"
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
@@ -173,6 +178,7 @@ export default function Register() {
                 className="password-toggle-btn"
                 onClick={toggleConfirmPasswordVisibility}
                 aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                tabIndex="-1"
               >
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
