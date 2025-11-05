@@ -1,7 +1,8 @@
 // client/src/App.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -10,6 +11,7 @@ import StudentDashboard from "./pages/StudentDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
 import { FaLinkedin, FaGithub, FaEnvelope } from "react-icons/fa";
 import "./styles/global.css";
+
 
 export default function App() {
   const linkedinUrl = "https://www.linkedin.com/in/divinechukwudi";
@@ -44,9 +46,12 @@ export default function App() {
       {user && <Navbar user={user} logout={logout} />}
       
       <Routes>
-        <Route path="/login" element={user ? <Navigate to={`/${user.role}`} /> : <Login setUser={setUser} />} />
-        <Route path="/register" element={user ? <Navigate to={`/${user.role}`} /> : <Register />} />
+        {/* Public Routes */}
+        <Route path="/" element={!user ? <LandingPage /> : <Navigate to={`/${user.role}`} />} />
+        <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to={`/${user.role}`} />} />
+        <Route path="/register" element={!user ? <Register /> : <Navigate to={`/${user.role}`} />} />
 
+        {/* Protected Routes */}
         <Route
           path="/admin"
           element={
@@ -83,26 +88,28 @@ export default function App() {
           }
         />
 
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Catch all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <footer className="app-footer">
-        <div className="footer-copy">
-          &copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved | Designed by etern.pptx
-        </div>
-        <div className="footer-links">
-          <a href={linkedinUrl} target="_blank" rel="noopener noreferrer">
-            <FaLinkedin /> LinkedIn
-          </a>
-          <a href={githubUrl} target="_blank" rel="noopener noreferrer">
-            <FaGithub /> GitHub
-          </a>
-          <a href={gmailUrl} target="_blank" rel="noopener noreferrer">
-            <FaEnvelope /> Gmail
-          </a>
-        </div>
-      </footer>
+      {user && (
+        <footer className="app-footer">
+          <div className="footer-copy">
+            &copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved | Designed by etern.pptx
+          </div>
+          <div className="footer-links">
+            <a href={linkedinUrl} target="_blank" rel="noopener noreferrer">
+              <FaLinkedin /> LinkedIn
+            </a>
+            <a href={githubUrl} target="_blank" rel="noopener noreferrer">
+              <FaGithub /> GitHub
+            </a>
+            <a href={gmailUrl} target="_blank" rel="noopener noreferrer">
+              <FaEnvelope /> Gmail
+            </a>
+          </div>
+        </footer>
+      )}
     </Router>
   );
 }
