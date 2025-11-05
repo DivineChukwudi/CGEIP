@@ -1,5 +1,5 @@
 // client/src/App.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
@@ -9,15 +9,11 @@ import AdminDashboard from "./pages/AdminDashboard";
 import InstitutionDashboard from "./pages/InstitutionDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
-import { FaLinkedin, FaGithub, FaEnvelope } from "react-icons/fa";
+import TeamManagement from "./pages/TeamManagement";
+import MeetTheTeam from "./pages/MeetTheTeam";
 import "./styles/global.css";
 
-
 export default function App() {
-  const linkedinUrl = "https://www.linkedin.com/in/divinechukwudi";
-  const githubUrl = "https://github.com/DivineChukwudi";
-  const gmailUrl = "mailto:chukwudidivine20@gmail.com";
-
   const [user, setUser] = useState(() => {
     try {
       const token = localStorage.getItem("token");
@@ -29,6 +25,22 @@ export default function App() {
       return null;
     }
   });
+
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  useEffect(() => {
+    loadTeamMembers();
+  }, []);
+
+  const loadTeamMembers = async () => {
+    try {
+      const response = await fetch('/api/public/team');
+      const data = await response.json();
+      setTeamMembers(data);
+    } catch (error) {
+      console.error('Failed to load team members');
+    }
+  };
 
   const logout = () => {
     localStorage.clear();
@@ -50,6 +62,7 @@ export default function App() {
         <Route path="/" element={!user ? <LandingPage /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to={`/${user.role}`} />} />
+        <Route path="/team" element={<MeetTheTeam members={teamMembers} />} />
 
         {/* Protected Routes */}
         <Route
@@ -57,6 +70,15 @@ export default function App() {
           element={
             <ProtectedRoute user={user} allowedRoles={["admin"]}>
               <AdminDashboard user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/team"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["admin"]}>
+              <TeamManagement user={user} onUpdate={loadTeamMembers} />
             </ProtectedRoute>
           }
         />
@@ -92,24 +114,14 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {user && (
-        <footer className="app-footer">
-          <div className="footer-copy">
-            &copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved | Designed by etern.pptx
-          </div>
-          <div className="footer-links">
-            <a href={linkedinUrl} target="_blank" rel="noopener noreferrer">
-              <FaLinkedin /> LinkedIn
-            </a>
-            <a href={githubUrl} target="_blank" rel="noopener noreferrer">
-              <FaGithub /> GitHub
-            </a>
-            <a href={gmailUrl} target="_blank" rel="noopener noreferrer">
-              <FaEnvelope /> Gmail
-            </a>
-          </div>
-        </footer>
-      )}
+      <footer className="app-footer">
+        <div className="footer-copy">
+          &copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved
+        </div>
+        <div className="footer-links">
+          <a href="/team">Meet the Team</a>
+        </div>
+      </footer>
     </Router>
   );
 }

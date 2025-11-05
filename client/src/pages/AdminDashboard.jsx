@@ -1,7 +1,7 @@
 // client/src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../utils/api';
-import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers } from 'react-icons/fa';
 import '../styles/global.css';
 
 export default function AdminDashboard({ user }) {
@@ -96,6 +96,12 @@ export default function AdminDashboard({ user }) {
           onClick={() => setActiveTab('companies')}
         >
           <FaBriefcase /> Companies
+        </button>
+        <button
+          className={activeTab === 'team' ? 'active' : ''}
+          onClick={() => window.location.href = '/admin/team'}
+        >
+          <FaUsers /> Manage Team
         </button>
       </div>
 
