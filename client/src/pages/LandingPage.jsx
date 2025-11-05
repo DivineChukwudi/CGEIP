@@ -86,7 +86,7 @@ export default function LandingPage() {
                 <button className="btn-large btn-primary" onClick={() => navigate('/register')}>
                   Start Your Journey <FaArrowRight />
                 </button>
-                <button className="btn-large btn-outline-white" onClick={() => navigate('/login')}>
+                <button className="btn-large btn-secondary" onClick={() => navigate('/login')}>
                   Sign In
                 </button>
               </div>
