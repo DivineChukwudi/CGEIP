@@ -5,7 +5,7 @@ const { verifyToken, checkRole } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// Public route - Get all team members
+// Public route - Get all team members (NO AUTH REQUIRED)
 router.get('/public/team', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.TEAM)
@@ -15,13 +15,14 @@ router.get('/public/team', async (req, res) => {
     const team = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(team);
   } catch (error) {
+    console.error('Error fetching team:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Admin only routes
-router.use(verifyToken);
-router.use(checkRole(['admin']));
+// Admin only routes below
+router.use('/admin/team', verifyToken);
+router.use('/admin/team', checkRole(['admin']));
 
 // Get all team members (admin)
 router.get('/admin/team', async (req, res) => {
@@ -33,6 +34,7 @@ router.get('/admin/team', async (req, res) => {
     const team = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(team);
   } catch (error) {
+    console.error('Error fetching team (admin):', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -62,6 +64,7 @@ router.post('/admin/team', async (req, res) => {
     const docRef = await db.collection(collections.TEAM).add(memberData);
     res.status(201).json({ id: docRef.id, ...memberData });
   } catch (error) {
+    console.error('Error adding team member:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -77,12 +80,14 @@ router.put('/admin/team/:id', async (req, res) => {
     };
 
     // Remove fields that shouldn't be updated
+    delete updateData.id;
     delete updateData.createdAt;
     delete updateData.createdBy;
 
     await db.collection(collections.TEAM).doc(id).update(updateData);
     res.json({ message: 'Team member updated successfully' });
   } catch (error) {
+    console.error('Error updating team member:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -94,41 +99,9 @@ router.delete('/admin/team/:id', async (req, res) => {
     await db.collection(collections.TEAM).doc(id).delete();
     res.json({ message: 'Team member deleted successfully' });
   } catch (error) {
+    console.error('Error deleting team member:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 module.exports = router;
-
-
-// ============================================
-// UPDATE server/config/firebase.js
-// Add 'TEAM' to collections object:
-// ============================================
-
-// Collections
-const collections = {
-  USERS: 'users',
-  INSTITUTIONS: 'institutions',
-  FACULTIES: 'faculties',
-  COURSES: 'courses',
-  APPLICATIONS: 'applications',
-  COMPANIES: 'companies',
-  JOBS: 'jobs',
-  JOB_APPLICATIONS: 'job_applications',
-  ADMISSIONS: 'admissions',
-  TRANSCRIPTS: 'transcripts',
-  NOTIFICATIONS: 'notifications',
-  TEAM: 'team' // ADD THIS LINE
-};
-
-
-// ============================================
-// UPDATE server/server.js
-// Add team routes:
-// ============================================
-
-const teamRoutes = require('./routes/team');
-
-// Add this with other routes:
-app.use('/api', teamRoutes);

@@ -10,6 +10,7 @@ const adminRoutes = require('./routes/admin');
 const institutionRoutes = require('./routes/institution');
 const studentRoutes = require('./routes/student');
 const companyRoutes = require('./routes/company');
+const teamRoutes = require('./routes/team'); // ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/institution', institutionRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/company', companyRoutes);
+app.use('/api', teamRoutes); // ADD THIS - Note: it's just /api because routes include /public/team
 
 // Health check
 app.get('/', (req, res) => {

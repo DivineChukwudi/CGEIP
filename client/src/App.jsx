@@ -32,15 +32,16 @@ export default function App() {
     loadTeamMembers();
   }, []);
 
-  const loadTeamMembers = async () => {
-    try {
-      const response = await fetch('/api/public/team');
-      const data = await response.json();
-      setTeamMembers(data);
-    } catch (error) {
-      console.error('Failed to load team members');
-    }
-  };
+  // In the loadTeamMembers function, change the URL:
+const loadTeamMembers = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/public/team'); // FULL URL
+    const data = await response.json();
+    setTeamMembers(data);
+  } catch (error) {
+    console.error('Failed to load team members:', error);
+  }
+};
 
   const logout = () => {
     localStorage.clear();

@@ -35,7 +35,8 @@ const collections = {
   JOB_APPLICATIONS: 'job_applications',
   ADMISSIONS: 'admissions',
   TRANSCRIPTS: 'transcripts',
-  NOTIFICATIONS: 'notifications'
+  NOTIFICATIONS: 'notifications',
+  TEAM: 'team'
 };
 
 module.exports = { admin, db, auth, collections };
