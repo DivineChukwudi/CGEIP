@@ -1,4 +1,4 @@
-// client/src/utils/api.js
+// client/src/utils/api.js - COMPLETE WITH ALL ADMIN ENDPOINTS
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Helper function to get auth headers
@@ -55,19 +55,39 @@ export const authAPI = {
     }),
 };
 
-// Admin API
+// Admin API - COMPLETE
 export const adminAPI = {
+  // Institutions
   getInstitutions: () => apiCall('/admin/institutions'),
   addInstitution: (data) => apiCall('/admin/institutions', { method: 'POST', body: JSON.stringify(data) }),
   updateInstitution: (id, data) => apiCall(`/admin/institutions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteInstitution: (id) => apiCall(`/admin/institutions/${id}`, { method: 'DELETE' }),
   
+  // Faculties - NEW
+  getAllFaculties: () => apiCall('/admin/faculties'),
+  addFaculty: (data) => apiCall('/admin/faculties', { method: 'POST', body: JSON.stringify(data) }),
+  updateFaculty: (id, data) => apiCall(`/admin/faculties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteFaculty: (id) => apiCall(`/admin/faculties/${id}`, { method: 'DELETE' }),
+  
+  // Courses - NEW
+  getAllCourses: () => apiCall('/admin/courses'),
+  addCourse: (data) => apiCall('/admin/courses', { method: 'POST', body: JSON.stringify(data) }),
+  updateCourse: (id, data) => apiCall(`/admin/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCourse: (id) => apiCall(`/admin/courses/${id}`, { method: 'DELETE' }),
+  
+  // Companies
   getCompanies: () => apiCall('/admin/companies'),
   updateCompanyStatus: (id, status) => apiCall(`/admin/companies/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   deleteCompany: (id) => apiCall(`/admin/companies/${id}`, { method: 'DELETE' }),
   
+  // Users
   getUsers: () => apiCall('/admin/users'),
+  
+  // Reports
   getReports: () => apiCall('/admin/reports'),
+  
+  // Admissions - NEW
+  publishAdmissions: (data) => apiCall('/admin/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // Institution API
