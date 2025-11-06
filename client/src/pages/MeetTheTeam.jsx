@@ -1,8 +1,8 @@
+// client/src/pages/MeetTheTeam.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaLinkedin, FaGithub, FaEnvelope, FaUser, FaArrowLeft } from 'react-icons/fa';
 import '../styles/MeetTheTeam.css';
-import axios from 'axios';
 
 export default function MeetTheTeam() {
   const navigate = useNavigate();
@@ -13,11 +13,18 @@ export default function MeetTheTeam() {
   useEffect(() => {
     const fetchTeam = async () => {
       try {
-        const response = await axios.get('/api/public/team');
-        setMembers(response.data);
+        const response = await fetch('http://localhost:5000/api/public/team');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch team members');
+        }
+        
+        const data = await response.json();
+        setMembers(data);
+        setError('');
       } catch (err) {
-        console.error(err);
-        setError('Failed to load team members.');
+        console.error('Error fetching team:', err);
+        setError('Failed to load team members. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -39,9 +46,13 @@ export default function MeetTheTeam() {
         </header>
 
         {loading ? (
-          <p>Loading team members...</p>
+          <div className="loading-state">
+            <p>Loading team members...</p>
+          </div>
         ) : error ? (
-          <p className="error-message">{error}</p>
+          <div className="error-state">
+            <p className="error-message">{error}</p>
+          </div>
         ) : members.length === 0 ? (
           <div className="no-members">
             <p>Team information coming soon...</p>
@@ -51,8 +62,8 @@ export default function MeetTheTeam() {
             {members.map((member) => (
               <div key={member.id} className="member-card">
                 <div className="member-image">
-                  {member.imageUrl ? (
-                    <img src={member.imageUrl} alt={member.name} />
+                  {member.photo ? (
+                    <img src={member.photo} alt={member.name} />
                   ) : (
                     <div className="member-placeholder">
                       <FaUser />
@@ -63,23 +74,38 @@ export default function MeetTheTeam() {
                   <h2>{member.name}</h2>
                   <p className="member-role">{member.role}</p>
                   {member.bio && <p className="member-bio">{member.bio}</p>}
-                  <div className="member-social">
-                    {member.linkedin && (
-                      <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-                        <FaLinkedin />
-                      </a>
-                    )}
-                    {member.github && (
-                      <a href={member.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-                        <FaGithub />
-                      </a>
-                    )}
-                    {member.email && (
-                      <a href={`mailto:${member.email}`} aria-label="Email">
-                        <FaEnvelope />
-                      </a>
-                    )}
-                  </div>
+                  {(member.linkedin || member.github || member.email) && (
+                    <div className="member-social">
+                      {member.linkedin && (
+                        <a 
+                          href={member.linkedin} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          aria-label={`${member.name}'s LinkedIn`}
+                        >
+                          <FaLinkedin />
+                        </a>
+                      )}
+                      {member.github && (
+                        <a 
+                          href={member.github} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          aria-label={`${member.name}'s GitHub`}
+                        >
+                          <FaGithub />
+                        </a>
+                      )}
+                      {member.email && (
+                        <a 
+                          href={`mailto:${member.email}`} 
+                          aria-label={`Email ${member.name}`}
+                        >
+                          <FaEnvelope />
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

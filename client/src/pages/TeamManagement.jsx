@@ -1,9 +1,9 @@
 // client/src/pages/TeamManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaLinkedin, FaGithub, FaEnvelope, FaUser } from 'react-icons/fa';
-import '../styles/global.css';
+import '../styles/TeamManagement.css'; // Move styles to separate CSS file
 
-export default function TeamManagement({ user }) {
+export default function TeamManagement({ user, onUpdate }) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -11,7 +11,7 @@ export default function TeamManagement({ user }) {
     name: '',
     role: '',
     bio: '',
-    imageUrl: '',
+    photo: '', // Changed from imageUrl to match Firebase
     linkedin: '',
     github: '',
     email: '',
@@ -19,6 +19,7 @@ export default function TeamManagement({ user }) {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadTeamMembers();
@@ -26,16 +27,25 @@ export default function TeamManagement({ user }) {
 
   const loadTeamMembers = async () => {
     try {
-      // Replace with actual API call
-      const response = await fetch('/api/admin/team', {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/api/admin/team', {
         headers: {
           'Authorization': `Bearer ${user.token}`
         }
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch team members');
+      }
+      
       const data = await response.json();
-      setTeamMembers(data.sort((a, b) => a.order - b.order));
+      setTeamMembers(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
+      setError('');
     } catch (err) {
-      setError('Failed to load team members');
+      console.error('Error loading team:', err);
+      setError('Failed to load team members: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,27 +55,43 @@ export default function TeamManagement({ user }) {
       name: '',
       role: '',
       bio: '',
-      imageUrl: '',
+      photo: '',
       linkedin: '',
       github: '',
       email: '',
       order: teamMembers.length
     });
     setShowModal(true);
+    setError('');
+    setSuccess('');
   };
 
   const handleEditMember = (member) => {
     setEditingMember(member);
-    setFormData(member);
+    setFormData({
+      name: member.name || '',
+      role: member.role || '',
+      bio: member.bio || '',
+      photo: member.photo || '',
+      linkedin: member.linkedin || '',
+      github: member.github || '',
+      email: member.email || '',
+      order: member.order || 0
+    });
     setShowModal(true);
+    setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
+    
     try {
       const url = editingMember 
-        ? `/api/admin/team/${editingMember.id}`
-        : '/api/admin/team';
+        ? `http://localhost:5000/api/admin/team/${editingMember.id}`
+        : 'http://localhost:5000/api/admin/team';
       
       const method = editingMember ? 'PUT' : 'POST';
       
@@ -78,29 +104,44 @@ export default function TeamManagement({ user }) {
         body: JSON.stringify(formData)
       });
 
-      if (response.ok) {
-        setSuccess(editingMember ? 'Member updated!' : 'Member added!');
-        setShowModal(false);
-        loadTeamMembers();
-        setTimeout(() => setSuccess(''), 3000);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save member');
       }
+
+      setSuccess(editingMember ? 'Member updated successfully!' : 'Member added successfully!');
+      setShowModal(false);
+      await loadTeamMembers();
+      if (onUpdate) onUpdate();
+      
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to save member');
+      console.error('Error saving member:', err);
+      setError(err.message);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this team member?')) {
+    if (window.confirm('Are you sure you want to delete this team member?')) {
       try {
-        await fetch(`/api/admin/team/${id}`, {
+        const response = await fetch(`http://localhost:5000/api/admin/team/${id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${user.token}`
           }
         });
-        loadTeamMembers();
+
+        if (!response.ok) {
+          throw new Error('Failed to delete member');
+        }
+
+        setSuccess('Member deleted successfully!');
+        await loadTeamMembers();
+        if (onUpdate) onUpdate();
+        setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
-        setError('Failed to delete member');
+        console.error('Error deleting member:', err);
+        setError(err.message);
       }
     }
   };
@@ -118,51 +159,59 @@ export default function TeamManagement({ user }) {
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
-        <div className="team-grid">
-          {teamMembers.map((member) => (
-            <div key={member.id} className="team-card">
-              <div className="team-card-image">
-                {member.imageUrl ? (
-                  <img src={member.imageUrl} alt={member.name} />
-                ) : (
-                  <div className="team-card-placeholder">
-                    <FaUser />
-                  </div>
-                )}
-              </div>
-              <div className="team-card-content">
-                <h3>{member.name}</h3>
-                <p className="team-role">{member.role}</p>
-                <p className="team-bio">{member.bio}</p>
-                <div className="team-social">
-                  {member.linkedin && (
-                    <a href={member.linkedin} target="_blank" rel="noopener noreferrer">
-                      <FaLinkedin />
-                    </a>
-                  )}
-                  {member.github && (
-                    <a href={member.github} target="_blank" rel="noopener noreferrer">
-                      <FaGithub />
-                    </a>
-                  )}
-                  {member.email && (
-                    <a href={`mailto:${member.email}`}>
-                      <FaEnvelope />
-                    </a>
+        {loading ? (
+          <div className="loading-message">Loading team members...</div>
+        ) : teamMembers.length === 0 ? (
+          <div className="no-members">
+            <p>No team members yet. Click "Add Team Member" to get started.</p>
+          </div>
+        ) : (
+          <div className="team-grid">
+            {teamMembers.map((member) => (
+              <div key={member.id} className="team-card">
+                <div className="team-card-image">
+                  {member.photo ? (
+                    <img src={member.photo} alt={member.name} />
+                  ) : (
+                    <div className="team-card-placeholder">
+                      <FaUser />
+                    </div>
                   )}
                 </div>
+                <div className="team-card-content">
+                  <h3>{member.name}</h3>
+                  <p className="team-role">{member.role}</p>
+                  {member.bio && <p className="team-bio">{member.bio}</p>}
+                  <div className="team-social">
+                    {member.linkedin && (
+                      <a href={member.linkedin} target="_blank" rel="noopener noreferrer">
+                        <FaLinkedin />
+                      </a>
+                    )}
+                    {member.github && (
+                      <a href={member.github} target="_blank" rel="noopener noreferrer">
+                        <FaGithub />
+                      </a>
+                    )}
+                    {member.email && (
+                      <a href={`mailto:${member.email}`}>
+                        <FaEnvelope />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="team-card-actions">
+                  <button className="btn-icon" onClick={() => handleEditMember(member)}>
+                    <FaEdit />
+                  </button>
+                  <button className="btn-icon danger" onClick={() => handleDelete(member.id)}>
+                    <FaTrash />
+                  </button>
+                </div>
               </div>
-              <div className="team-card-actions">
-                <button className="btn-icon" onClick={() => handleEditMember(member)}>
-                  <FaEdit />
-                </button>
-                <button className="btn-icon danger" onClick={() => handleDelete(member.id)}>
-                  <FaTrash />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
@@ -198,13 +247,14 @@ export default function TeamManagement({ user }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Image URL</label>
+                  <label>Photo URL</label>
                   <input
                     type="url"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    value={formData.photo}
+                    onChange={(e) => setFormData({ ...formData, photo: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                   />
+                  <small>For now, use an image URL. We'll add file upload later.</small>
                 </div>
                 <div className="form-group">
                   <label>LinkedIn</label>
@@ -238,7 +288,7 @@ export default function TeamManagement({ user }) {
                   <input
                     type="number"
                     value={formData.order}
-                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
                     min="0"
                   />
                 </div>
@@ -255,97 +305,6 @@ export default function TeamManagement({ user }) {
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        .team-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 24px;
-          margin-top: 24px;
-        }
-
-        .team-card {
-          background: white;
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-          border: 1px solid #e5e7eb;
-          transition: transform 0.2s;
-        }
-
-        .team-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-        }
-
-        .team-card-image {
-          width: 100%;
-          height: 250px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-        }
-
-        .team-card-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .team-card-placeholder {
-          font-size: 80px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .team-card-content {
-          padding: 20px;
-        }
-
-        .team-card-content h3 {
-          margin: 0 0 8px 0;
-          font-size: 20px;
-          color: #333;
-        }
-
-        .team-role {
-          color: #667eea;
-          font-weight: 600;
-          margin: 0 0 12px 0;
-          font-size: 14px;
-        }
-
-        .team-bio {
-          color: #666;
-          font-size: 14px;
-          line-height: 1.6;
-          margin: 0 0 16px 0;
-        }
-
-        .team-social {
-          display: flex;
-          gap: 12px;
-        }
-
-        .team-social a {
-          color: #667eea;
-          font-size: 20px;
-          transition: color 0.2s;
-        }
-
-        .team-social a:hover {
-          color: #764ba2;
-        }
-
-        .team-card-actions {
-          display: flex;
-          gap: 8px;
-          padding: 12px 20px;
-          border-top: 1px solid #e5e7eb;
-          background: #f9fafb;
-        }
-      `}</style>
     </div>
   );
 }

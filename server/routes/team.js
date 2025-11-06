@@ -12,95 +12,135 @@ router.get('/public/team', async (req, res) => {
       .orderBy('order', 'asc')
       .get();
     
-    const team = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const team = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }));
+    
     res.json(team);
   } catch (error) {
     console.error('Error fetching team:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch team members' });
   }
 });
 
 // Admin only routes below
-router.use('/admin/team', verifyToken);
-router.use('/admin/team', checkRole(['admin']));
-
 // Get all team members (admin)
-router.get('/admin/team', async (req, res) => {
+router.get('/admin/team', verifyToken, checkRole(['admin']), async (req, res) => {
   try {
     const snapshot = await db.collection(collections.TEAM)
       .orderBy('order', 'asc')
       .get();
     
-    const team = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const team = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }));
+    
     res.json(team);
   } catch (error) {
     console.error('Error fetching team (admin):', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch team members' });
   }
 });
 
 // Add team member
-router.post('/admin/team', async (req, res) => {
+router.post('/admin/team', verifyToken, checkRole(['admin']), async (req, res) => {
   try {
-    const { name, role, bio, imageUrl, linkedin, github, email, order } = req.body;
+    const { name, role, bio, photo, linkedin, github, email, order } = req.body;
 
     if (!name || !role) {
       return res.status(400).json({ error: 'Name and role are required' });
     }
 
     const memberData = {
-      name,
-      role,
-      bio: bio || '',
-      imageUrl: imageUrl || '',
-      linkedin: linkedin || '',
-      github: github || '',
-      email: email || '',
-      order: order || 0,
+      name: name.trim(),
+      role: role.trim(),
+      bio: bio?.trim() || '',
+      photo: photo?.trim() || '',
+      linkedin: linkedin?.trim() || '',
+      github: github?.trim() || '',
+      email: email?.trim() || '',
+      order: typeof order === 'number' ? order : 0,
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
 
     const docRef = await db.collection(collections.TEAM).add(memberData);
-    res.status(201).json({ id: docRef.id, ...memberData });
+    
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...memberData 
+    });
   } catch (error) {
     console.error('Error adding team member:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to add team member' });
   }
 });
 
 // Update team member
-router.put('/admin/team/:id', async (req, res) => {
+router.put('/admin/team/:id', verifyToken, checkRole(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = { 
-      ...req.body, 
+    
+    // Check if member exists
+    const memberDoc = await db.collection(collections.TEAM).doc(id).get();
+    if (!memberDoc.exists) {
+      return res.status(404).json({ error: 'Team member not found' });
+    }
+
+    const { name, role, bio, photo, linkedin, github, email, order } = req.body;
+
+    if (!name || !role) {
+      return res.status(400).json({ error: 'Name and role are required' });
+    }
+
+    const updateData = {
+      name: name.trim(),
+      role: role.trim(),
+      bio: bio?.trim() || '',
+      photo: photo?.trim() || '',
+      linkedin: linkedin?.trim() || '',
+      github: github?.trim() || '',
+      email: email?.trim() || '',
+      order: typeof order === 'number' ? order : 0,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user.uid
     };
 
-    // Remove fields that shouldn't be updated
-    delete updateData.id;
-    delete updateData.createdAt;
-    delete updateData.createdBy;
-
     await db.collection(collections.TEAM).doc(id).update(updateData);
-    res.json({ message: 'Team member updated successfully' });
+    
+    res.json({ 
+      message: 'Team member updated successfully',
+      id,
+      ...updateData
+    });
   } catch (error) {
     console.error('Error updating team member:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to update team member' });
   }
 });
 
 // Delete team member
-router.delete('/admin/team/:id', async (req, res) => {
+router.delete('/admin/team/:id', verifyToken, checkRole(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Check if member exists
+    const memberDoc = await db.collection(collections.TEAM).doc(id).get();
+    if (!memberDoc.exists) {
+      return res.status(404).json({ error: 'Team member not found' });
+    }
+
     await db.collection(collections.TEAM).doc(id).delete();
-    res.json({ message: 'Team member deleted successfully' });
+    
+    res.json({ 
+      message: 'Team member deleted successfully',
+      id 
+    });
   } catch (error) {
     console.error('Error deleting team member:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to delete team member' });
   }
 });
 
