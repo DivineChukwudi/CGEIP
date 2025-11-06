@@ -1,11 +1,10 @@
-// server/routes/student.js
+// server/routes/student.js - FIXED WITH WAITING LIST & PROPER VALIDATION
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// All routes require student authentication
 router.use(verifyToken);
 router.use(checkRole(['student']));
 
@@ -72,12 +71,25 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
   }
 });
 
-// Apply for course
+// Apply for course - FIXED WITH PROPER VALIDATION
 router.post('/applications', async (req, res) => {
   try {
     const { institutionId, courseId, documents } = req.body;
 
-    // Check if student already applied for 2 courses at this institution
+    // 1. Check if student already admitted to ANY institution
+    const admittedApps = await db.collection(collections.APPLICATIONS)
+      .where('studentId', '==', req.user.uid)
+      .where('status', '==', 'admitted')
+      .where('selected', '==', true) // Only check SELECTED admissions
+      .get();
+
+    if (!admittedApps.empty) {
+      return res.status(400).json({ 
+        error: 'You are already admitted and enrolled in an institution.' 
+      });
+    }
+
+    // 2. Check max 2 applications per institution
     const existingApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('institutionId', '==', institutionId)
@@ -85,43 +97,91 @@ router.post('/applications', async (req, res) => {
 
     if (existingApps.size >= 2) {
       return res.status(400).json({ 
-        error: 'You can only apply for a maximum of 2 courses per institution' 
+        error: 'Maximum 2 course applications per institution allowed' 
       });
     }
 
-    // Check if already applied for this specific course
+    // 3. Check duplicate course application
     const duplicateApp = existingApps.docs.find(doc => doc.data().courseId === courseId);
     if (duplicateApp) {
-      return res.status(400).json({ error: 'You have already applied for this course' });
+      return res.status(400).json({ error: 'You already applied for this course' });
     }
 
-    // Check if student is already admitted to another institution
-    const admittedApps = await db.collection(collections.APPLICATIONS)
-      .where('studentId', '==', req.user.uid)
-      .where('status', '==', 'admitted')
-      .get();
+    // 4. VALIDATE COURSE REQUIREMENTS - NEW!
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
 
-    if (!admittedApps.empty) {
+    const course = courseDoc.data();
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    const student = studentDoc.data();
+
+    // Check if student meets requirements
+    const meetsRequirements = checkCourseEligibility(student, course);
+    if (!meetsRequirements.eligible) {
       return res.status(400).json({ 
-        error: 'You are already admitted to an institution. Please select your choice first.' 
+        error: `You don't meet the requirements: ${meetsRequirements.reason}` 
       });
     }
 
+    // 5. Create application
     const applicationData = {
       studentId: req.user.uid,
       institutionId,
       courseId,
       documents,
       status: 'pending',
-      appliedAt: new Date().toISOString()
+      selected: false,
+      appliedAt: new Date().toISOString(),
+      studentInfo: {
+        name: student.name,
+        email: student.email,
+        qualifications: student.qualifications || []
+      }
     };
 
     const docRef = await db.collection(collections.APPLICATIONS).add(applicationData);
-    res.status(201).json({ id: docRef.id, ...applicationData });
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...applicationData,
+      message: 'Application submitted successfully'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Helper function to check course eligibility - NEW!
+function checkCourseEligibility(student, course) {
+  // Example: Check if student has required qualifications
+  const studentQualifications = student.qualifications || [];
+  const requiredLevel = course.level || 'Diploma';
+
+  // Simple validation - customize based on your requirements
+  if (requiredLevel === 'Masters' && !studentQualifications.includes('Degree')) {
+    return {
+      eligible: false,
+      reason: 'A Bachelor\'s Degree is required for Masters programs'
+    };
+  }
+
+  if (requiredLevel === 'PhD' && !studentQualifications.includes('Masters')) {
+    return {
+      eligible: false,
+      reason: 'A Master\'s Degree is required for PhD programs'
+    };
+  }
+
+  if (requiredLevel === 'Degree' && !studentQualifications.includes('Diploma')) {
+    return {
+      eligible: false,
+      reason: 'A Diploma or equivalent is required for Degree programs'
+    };
+  }
+
+  return { eligible: true };
+}
 
 // Get my applications
 router.get('/applications', async (req, res) => {
@@ -150,7 +210,7 @@ router.get('/applications', async (req, res) => {
   }
 });
 
-// Select admitted institution (when admitted to multiple)
+// Select institution - FIXED WITH WAITING LIST LOGIC
 router.post('/applications/:id/select', async (req, res) => {
   try {
     const { id } = req.params;
@@ -160,7 +220,9 @@ router.post('/applications/:id/select', async (req, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    if (appDoc.data().status !== 'admitted') {
+    const application = appDoc.data();
+
+    if (application.status !== 'admitted') {
       return res.status(400).json({ error: 'This application is not admitted' });
     }
 
@@ -170,20 +232,63 @@ router.post('/applications/:id/select', async (req, res) => {
       selectedAt: new Date().toISOString()
     });
 
-    // Reject all other admitted applications
-    const otherApps = await db.collection(collections.APPLICATIONS)
+    // Get all OTHER admitted applications for this student
+    const otherAdmittedApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('status', '==', 'admitted')
       .get();
 
-    const updatePromises = otherApps.docs
-      .filter(doc => doc.id !== id)
-      .map(doc => doc.ref.update({ status: 'rejected', reason: 'Student selected another institution' }));
+    // Process each rejected institution
+    const promises = [];
+    for (const doc of otherAdmittedApps.docs) {
+      if (doc.id !== id) { // Skip the selected one
+        const otherApp = doc.data();
+        
+        // Reject this application
+        promises.push(
+          doc.ref.update({ 
+            status: 'rejected', 
+            reason: 'Student selected another institution',
+            rejectedAt: new Date().toISOString()
+          })
+        );
 
-    await Promise.all(updatePromises);
+        // WAITING LIST LOGIC - Move first waiting list student to admitted
+        const waitingList = await db.collection(collections.APPLICATIONS)
+          .where('institutionId', '==', otherApp.institutionId)
+          .where('courseId', '==', otherApp.courseId)
+          .where('status', '==', 'waitlisted')
+          .orderBy('appliedAt', 'asc')
+          .limit(1)
+          .get();
 
-    res.json({ message: 'Institution selected successfully' });
+        if (!waitingList.empty) {
+          const nextStudent = waitingList.docs[0];
+          promises.push(
+            nextStudent.ref.update({
+              status: 'admitted',
+              admittedAt: new Date().toISOString(),
+              promotedFromWaitlist: true
+            })
+          );
+
+          // Send notification to promoted student
+          const nextStudentData = nextStudent.data();
+          const studentDoc = await db.collection(collections.USERS).doc(nextStudentData.studentId).get();
+          
+          // TODO: Send email notification here
+          console.log(`Promoted student ${studentDoc.data().email} from waiting list`);
+        }
+      }
+    }
+
+    await Promise.all(promises);
+
+    res.json({ 
+      message: 'Institution selected successfully. Other applications have been rejected and waiting list students promoted.' 
+    });
   } catch (error) {
+    console.error('Selection error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -191,13 +296,15 @@ router.post('/applications/:id/select', async (req, res) => {
 // Upload transcript (for graduates)
 router.post('/transcripts', async (req, res) => {
   try {
-    const { transcriptUrl, certificates, graduationYear } = req.body;
+    const { transcriptUrl, certificates, graduationYear, gpa, extraCurricularActivities } = req.body;
 
     const transcriptData = {
       studentId: req.user.uid,
       transcriptUrl,
-      certificates,
+      certificates: certificates || [],
       graduationYear,
+      gpa: gpa || null,
+      extraCurricularActivities: extraCurricularActivities || [],
       uploadedAt: new Date().toISOString()
     };
 
@@ -215,9 +322,14 @@ router.post('/transcripts', async (req, res) => {
   }
 });
 
-// Get available jobs
+// Get available jobs - FILTERED BY QUALIFICATION
 router.get('/jobs', async (req, res) => {
   try {
+    // Get student's qualifications
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    const student = studentDoc.data();
+
+    // Get all active jobs
     const snapshot = await db.collection(collections.JOBS)
       .where('status', '==', 'active').get();
     
@@ -225,18 +337,44 @@ router.get('/jobs', async (req, res) => {
       const jobData = doc.data();
       const companyDoc = await db.collection(collections.USERS).doc(jobData.companyId).get();
       
+      // Calculate qualification match
+      const qualificationMatch = calculateJobMatch(student, jobData);
+      
       return {
         id: doc.id,
         ...jobData,
-        company: companyDoc.exists ? companyDoc.data().name : 'Unknown'
+        company: companyDoc.exists ? companyDoc.data().name : 'Unknown',
+        qualificationMatch, // Show match percentage
+        qualifiedToApply: qualificationMatch >= 50 // Only show jobs with 50%+ match
       };
     }));
 
-    res.json(jobs);
+    // Filter to only show qualified jobs
+    const qualifiedJobs = jobs.filter(job => job.qualifiedToApply);
+
+    res.json(qualifiedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Helper function to calculate job match - IMPROVED
+function calculateJobMatch(student, job) {
+  let score = 0;
+  const transcript = student.transcriptId ? 50 : 0; // Has transcript
+
+  // Check qualifications match
+  if (student.qualifications && student.qualifications.includes(job.qualifications)) {
+    score += 30;
+  }
+
+  // Check experience
+  if (student.workExperience && student.workExperience.length > 0) {
+    score += 20;
+  }
+
+  return score + transcript;
+}
 
 // Apply for job
 router.post('/jobs/:jobId/apply', async (req, res) => {
@@ -251,7 +389,7 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       .get();
 
     if (!existingApp.empty) {
-      return res.status(400).json({ error: 'You have already applied for this job' });
+      return res.status(400).json({ error: 'You already applied for this job' });
     }
 
     // Check if student is a graduate with transcript

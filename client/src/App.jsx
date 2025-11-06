@@ -1,10 +1,11 @@
-// client/src/App.jsx
+// client/src/App.jsx - FIXED VERSION
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import EmailVerification from "./pages/EmailVerification"; // ADD THIS
 import AdminDashboard from "./pages/AdminDashboard";
 import InstitutionDashboard from "./pages/InstitutionDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -32,16 +33,15 @@ export default function App() {
     loadTeamMembers();
   }, []);
 
-  // In the loadTeamMembers function, change the URL:
-const loadTeamMembers = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/api/public/team'); // FULL URL
-    const data = await response.json();
-    setTeamMembers(data);
-  } catch (error) {
-    console.error('Failed to load team members:', error);
-  }
-};
+  const loadTeamMembers = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/public/team');
+      const data = await response.json();
+      setTeamMembers(data);
+    } catch (error) {
+      console.error('Failed to load team members:', error);
+    }
+  };
 
   const logout = () => {
     localStorage.clear();
@@ -63,6 +63,7 @@ const loadTeamMembers = async () => {
         <Route path="/" element={!user ? <LandingPage /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to={`/${user.role}`} />} />
+        <Route path="/verify-email" element={<EmailVerification />} /> {/* ADD THIS */}
         <Route path="/team" element={<MeetTheTeam members={teamMembers} />} />
 
         {/* Protected Routes */}
