@@ -1,4 +1,4 @@
-// server/routes/auth.js - UPDATED WITH EMAIL VERIFICATION
+// server/routes/auth.js - FIXED EMAIL VERSION
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -63,34 +63,49 @@ router.post('/register', async (req, res) => {
 
     await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
 
-    // Send verification email
+    // Send verification email - FIXED
+    let emailSent = false;
+    let emailError = null;
+
     try {
       const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}&uid=${userRecord.uid}`;
+      console.log('📧 Attempting to send verification email to:', email);
       await sendVerificationEmail(email, name, verificationLink);
-      
-      res.status(201).json({ 
-        message: 'Registration successful! Please check your email to verify your account.',
-        uid: userRecord.uid,
-        emailSent: true
-      });
-    } catch (emailError) {
-      console.log('Email sending failed:', emailError.message);
-      
-      // Still allow registration but notify user
-      res.status(201).json({ 
-        message: 'Registration successful! Email verification temporarily unavailable. You can still login.',
-        uid: userRecord.uid,
-        emailSent: false,
-        warning: 'Email service unavailable'
-      });
+      emailSent = true;
+      console.log('✅ Verification email sent successfully');
+    } catch (error) {
+      emailError = error.message;
+      console.error('❌ Email sending failed:', error.message);
+      // Don't throw error, just log it
     }
+
+    // Always return success (email is optional for now)
+    res.status(201).json({ 
+      message: emailSent 
+        ? 'Registration successful! Please check your email to verify your account.' 
+        : 'Registration successful! You can login now. (Email verification temporarily unavailable)',
+      uid: userRecord.uid,
+      emailSent,
+      ...(emailError && { emailWarning: 'Email service unavailable, but registration completed' })
+    });
+
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Clean up Firebase Auth user if Firestore fails
+    if (error.message.includes('Firestore') && error.uid) {
+      try {
+        await auth.deleteUser(error.uid);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
 
-// Verify Email - NEW ENDPOINT
+// Verify Email
 router.get('/verify-email/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -111,7 +126,11 @@ router.get('/verify-email/:token', async (req, res) => {
 
     // Check if already verified
     if (userData.emailVerified) {
-      return res.json({ message: 'Email already verified. You can login now.' });
+      return res.json({ 
+        message: 'Email already verified. You can login now.',
+        success: true,
+        alreadyVerified: true
+      });
     }
 
     // Check if token matches
@@ -122,7 +141,10 @@ router.get('/verify-email/:token', async (req, res) => {
     // Check if token expired
     const expirationDate = new Date(userData.verificationExpires);
     if (expirationDate < new Date()) {
-      return res.status(400).json({ error: 'Verification link has expired. Please request a new one.' });
+      return res.status(400).json({ 
+        error: 'Verification link has expired. Please request a new one.',
+        expired: true
+      });
     }
 
     // Verify email in Firebase Auth
@@ -146,7 +168,7 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Resend Verification Email - NEW ENDPOINT
+// Resend Verification Email
 router.post('/resend-verification', async (req, res) => {
   try {
     const { email } = req.body;
@@ -195,7 +217,7 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-// Login
+// Login with Email/Password
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -231,7 +253,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Warning if email not verified (but still allow login for testing)
+    // Warning if email not verified
     const emailWarning = !userData.emailVerified 
       ? 'Please verify your email address to access all features.' 
       : null;
@@ -243,7 +265,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // Remove password from response
+    // Remove sensitive data from response
     delete userData.password;
     delete userData.verificationToken;
 
@@ -256,6 +278,88 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Google Sign-In - NEW
+router.post('/google-signin', async (req, res) => {
+  try {
+    const { idToken, role } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'Google ID token is required' });
+    }
+
+    // Verify the Google ID token
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { uid, email, name, picture, email_verified } = decodedToken;
+
+    // Check if user exists
+    let userDoc = await db.collection(collections.USERS).doc(uid).get();
+    let userData;
+
+    if (!userDoc.exists) {
+      // New user - create account
+      if (!role || !['student', 'institution', 'company'].includes(role)) {
+        return res.status(400).json({ 
+          error: 'Please select your account type',
+          requiresRole: true
+        });
+      }
+
+      userData = {
+        uid,
+        email,
+        name: name || email.split('@')[0],
+        photoURL: picture || '',
+        emailVerified: email_verified || true,
+        role,
+        status: role === 'company' ? 'pending' : 'active',
+        authProvider: 'google',
+        createdAt: new Date().toISOString()
+      };
+
+      await db.collection(collections.USERS).doc(uid).set(userData);
+      console.log('✅ New Google user created:', email);
+    } else {
+      userData = userDoc.data();
+      
+      // Update last login
+      await db.collection(collections.USERS).doc(uid).update({
+        lastLogin: new Date().toISOString()
+      });
+    }
+
+    // Check account status
+    if (userData.status === 'suspended') {
+      return res.status(403).json({ error: 'Your account has been suspended.' });
+    }
+
+    if (userData.status === 'pending') {
+      return res.status(403).json({ error: 'Your account is pending admin approval.' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { uid: userData.uid, email: userData.email, role: userData.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Remove sensitive data
+    delete userData.password;
+    delete userData.verificationToken;
+
+    res.json({
+      message: userDoc.exists ? 'Login successful' : 'Account created successfully',
+      token,
+      user: userData,
+      isNewUser: !userDoc.exists
+    });
+
+  } catch (error) {
+    console.error('Google sign-in error:', error);
+    res.status(500).json({ error: 'Google sign-in failed: ' + error.message });
   }
 });
 

@@ -995,3 +995,160 @@ tbody tr:hover {
     padding: 24px 20px;
   }
 }
+/* Add these styles to client/src/styles/global.css */
+
+/* Google Sign-In Button */
+.btn-google {
+  width: 100%;
+  padding: 14px 24px;
+  background: white;
+  color: #444;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-google:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-google svg {
+  font-size: 20px;
+  color: #4285f4;
+}
+
+/* Divider */
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: #e1e8ed;
+}
+
+.divider::before {
+  left: 0;
+}
+
+.divider::after {
+  right: 0;
+}
+
+.divider span {
+  background: white;
+  padding: 0 16px;
+  color: #999;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Role Selection */
+.role-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.role-option:hover {
+  border-color: #667eea;
+  background: #f8f9fa;
+}
+
+.role-option input[type="radio"] {
+  margin-top: 2px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.role-option input[type="radio"]:checked + .role-details {
+  color: #667eea;
+}
+
+.role-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.role-details strong {
+  font-size: 16px;
+  color: #333;
+  display: block;
+}
+
+.role-details span {
+  font-size: 13px;
+  color: #666;
+  display: block;
+}
+
+/* Modal Updates for Role Selection */
+.modal-content h2 {
+  color: #333;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .btn-google {
+    font-size: 14px;
+    padding: 12px 20px;
+  }
+
+  .divider span {
+    font-size: 13px;
+    padding: 0 12px;
+  }
+
+  .role-option {
+    padding: 12px;
+  }
+
+  .role-details strong {
+    font-size: 15px;
+  }
+
+  .role-details span {
+    font-size: 12px;
+  }
+}

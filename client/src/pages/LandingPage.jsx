@@ -213,8 +213,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved.</p>
-            <p>Designed by etern.pptx</p>
+           {/* <p>&copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved.</p>*/}
           </div>
         </div>
       </footer>
