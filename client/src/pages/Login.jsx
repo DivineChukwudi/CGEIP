@@ -9,12 +9,12 @@ import '../styles/global.css';
 
 // Initialize Firebase for Google Auth
 const firebaseConfig = {
-  apiKey: "AIzaSyCJf2jeSq25Cwi5r6jrwwoIT2U4EUz1vo8",
-  authDomain: "limkokwingportal.firebaseapp.com",
-  projectId: "limkokwingportal",
-  storageBucket: "limkokwingportal.firebasestorage.app",
-  messagingSenderId: "242279719149",
-  appId: "1:242279719149:web:79f7e2dc3e9a829fb26ce4"
+  apiKey: process.env.REACT_APP_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId:  process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID,
 };
 
 
