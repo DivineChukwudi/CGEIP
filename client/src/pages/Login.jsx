@@ -1,8 +1,7 @@
-// client/src/pages/Login.jsx - FIXED VERSION
+// client/src/pages/Login.jsx - WITH GOOGLE SIGN-IN
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
-import { buildApiUrl } from '../utils/config';
 import { FaGraduationCap, FaEnvelope, FaLock, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle } from 'react-icons/fa';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
@@ -14,9 +13,10 @@ const firebaseConfig = {
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,
   projectId: process.env.REACT_APP_PROJECT_ID,
   storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  messagingSenderId:  process.env.REACT_APP_MESSAGING_SENDER_ID,
   appId: process.env.REACT_APP_APP_ID,
 };
+
 
 let firebaseAuth;
 try {
@@ -90,7 +90,7 @@ export default function Login({ setUser }) {
 
       // Try to sign in without role first
       try {
-        const response = await fetch(buildApiUrl('api/auth/google-signin'), {
+        const response = await fetch('http://localhost:5000/api/auth/google-signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken })
@@ -132,7 +132,7 @@ export default function Login({ setUser }) {
     setError('');
 
     try {
-      const response = await fetch(buildApiUrl('api/auth/google-signin'), {
+      const response = await fetch('http://localhost:5000/api/auth/google-signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
