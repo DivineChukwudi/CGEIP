@@ -22,7 +22,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   process.env.FRONTEND_URL, // Your production frontend URL
-  'https://cgeip.vercel.app/api', // Replace with actual URL
+  'https://cgeip.vercel.app', // Replace with actual URL
   
 ].filter(Boolean); // Remove undefined values
 
@@ -137,6 +137,16 @@ app.get('/test-email', async (req, res) => {
       ]
     });
   }
+});
+
+// Add this route in server.js
+app.get('/api/test-email-config', async (req, res) => {
+  res.json({
+    EMAIL_USER: process.env.EMAIL_USER ? 'Set ' : 'Missing ',
+    EMAIL_PASS: process.env.EMAIL_PASS ? 'Set  (length: ' + process.env.EMAIL_PASS.length + ')' : 'Missing ',
+    FRONTEND_URL: process.env.FRONTEND_URL || 'Using default',
+    NODE_ENV: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Quick status check

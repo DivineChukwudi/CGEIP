@@ -1,4 +1,4 @@
-// client/src/pages/Register.jsx
+// client/src/pages/Register.jsx - FIXED VERSION
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -56,14 +56,43 @@ export default function Register() {
       const { confirmPassword, ...registerData } = formData;
       const response = await authAPI.register(registerData);
       
-      setSuccess(response.message);
+      setSuccess(response.message || 'Registration successful! Please check your email to verify your account.');
       
-      // Redirect to login after 2 seconds
+      // Clear form
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'student'
+      });
+      
+      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login');
-      }, 2000);
+      }, 3000);
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      
+      // Handle specific error messages
+      let errorMessage = err.message || 'Registration failed. Please try again.';
+      
+      // Check for duplicate user errors
+      if (errorMessage.includes('already exists') || 
+          errorMessage.includes('already in use')) {
+        errorMessage = 'This email is already registered. Please login or use a different email.';
+      }
+      
+      // Check for Firebase errors
+      if (errorMessage.includes('email address is badly formatted')) {
+        errorMessage = 'Please enter a valid email address.';
+      }
+      
+      if (errorMessage.includes('weak-password')) {
+        errorMessage = 'Password should be at least 6 characters.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -82,7 +111,19 @@ export default function Register() {
           <p>Create your account</p>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="error-message">
+            {error}
+            {error.includes('already registered') && (
+              <div style={{ marginTop: '10px' }}>
+                <Link to="/login" style={{ color: '#721c24', textDecoration: 'underline' }}>
+                  Go to Login
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+        
         {success && <div className="success-message">{success}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -98,6 +139,7 @@ export default function Register() {
               onChange={handleChange}
               placeholder="Enter your full name"
               required
+              disabled={loading}
             />
           </div>
 
@@ -113,6 +155,7 @@ export default function Register() {
               onChange={handleChange}
               placeholder="Enter your email"
               required
+              disabled={loading}
             />
           </div>
 
@@ -126,6 +169,7 @@ export default function Register() {
               value={formData.role}
               onChange={handleChange}
               required
+              disabled={loading}
             >
               <option value="student">Student</option>
               <option value="institution">Institution</option>
@@ -146,6 +190,7 @@ export default function Register() {
                 onChange={handleChange}
                 placeholder="Enter your password (min. 6 characters)"
                 required
+                disabled={loading}
               />
               <button
                 type="button"
@@ -153,6 +198,7 @@ export default function Register() {
                 onClick={togglePasswordVisibility}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 tabIndex="-1"
+                disabled={loading}
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
@@ -172,6 +218,7 @@ export default function Register() {
                 onChange={handleChange}
                 placeholder="Confirm your password"
                 required
+                disabled={loading}
               />
               <button
                 type="button"
@@ -179,6 +226,7 @@ export default function Register() {
                 onClick={toggleConfirmPasswordVisibility}
                 aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 tabIndex="-1"
+                disabled={loading}
               >
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
