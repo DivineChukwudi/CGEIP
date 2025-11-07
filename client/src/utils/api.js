@@ -1,4 +1,4 @@
-// client/src/utils/api.js - COMPLETE WITH ALL ADMIN ENDPOINTS
+// client/src/utils/api.js - FIXED WITH PROPER AUTH HANDLING
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Helper function to get auth headers
@@ -10,7 +10,7 @@ const getAuthHeaders = () => {
   };
 };
 
-// Generic API call function
+// Generic API call function with improved error handling
 const apiCall = async (endpoint, options = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -21,10 +21,21 @@ const apiCall = async (endpoint, options = {}) => {
       },
     });
 
+    // Handle 401 Unauthorized - token is invalid or expired
+    if (response.status === 401) {
+      console.warn('Authentication failed - redirecting to login');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Redirect to login page
+      window.location.href = '/login';
+      throw new Error('Invalid token');
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'API request failed');
+      throw new Error(data.error || `API request failed: ${response.status}`);
     }
 
     return data;
@@ -53,6 +64,13 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ uid }),
     }),
+    
+  // Add logout method
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  },
 };
 
 // Admin API - COMPLETE
@@ -63,13 +81,13 @@ export const adminAPI = {
   updateInstitution: (id, data) => apiCall(`/admin/institutions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteInstitution: (id) => apiCall(`/admin/institutions/${id}`, { method: 'DELETE' }),
   
-  // Faculties - NEW
+  // Faculties
   getAllFaculties: () => apiCall('/admin/faculties'),
   addFaculty: (data) => apiCall('/admin/faculties', { method: 'POST', body: JSON.stringify(data) }),
   updateFaculty: (id, data) => apiCall(`/admin/faculties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteFaculty: (id) => apiCall(`/admin/faculties/${id}`, { method: 'DELETE' }),
   
-  // Courses - NEW
+  // Courses
   getAllCourses: () => apiCall('/admin/courses'),
   addCourse: (data) => apiCall('/admin/courses', { method: 'POST', body: JSON.stringify(data) }),
   updateCourse: (id, data) => apiCall(`/admin/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -86,12 +104,11 @@ export const adminAPI = {
   // Reports
   getReports: () => apiCall('/admin/reports'),
   
-  // Admissions - NEW
+  // Admissions
   publishAdmissions: (data) => apiCall('/admin/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // Institution API
-
 export const institutionAPI = {
   // Profile
   getProfile: () => apiCall('/institution/profile'),
@@ -117,7 +134,7 @@ export const institutionAPI = {
   publishAdmissions: (data) => apiCall('/institution/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
   getAdmissions: () => apiCall('/institution/admissions'),
   
-  // Statistics - NEW!
+  // Statistics
   getStatistics: () => apiCall('/institution/statistics'),
 };
 
