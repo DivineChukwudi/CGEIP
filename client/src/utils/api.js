@@ -91,24 +91,34 @@ export const adminAPI = {
 };
 
 // Institution API
+
 export const institutionAPI = {
+  // Profile
   getProfile: () => apiCall('/institution/profile'),
   updateProfile: (data) => apiCall('/institution/profile', { method: 'PUT', body: JSON.stringify(data) }),
   
+  // Faculties
   getFaculties: () => apiCall('/institution/faculties'),
   addFaculty: (data) => apiCall('/institution/faculties', { method: 'POST', body: JSON.stringify(data) }),
   updateFaculty: (id, data) => apiCall(`/institution/faculties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteFaculty: (id) => apiCall(`/institution/faculties/${id}`, { method: 'DELETE' }),
   
+  // Courses
   getCourses: () => apiCall('/institution/courses'),
   addCourse: (data) => apiCall('/institution/courses', { method: 'POST', body: JSON.stringify(data) }),
   updateCourse: (id, data) => apiCall(`/institution/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCourse: (id) => apiCall(`/institution/courses/${id}`, { method: 'DELETE' }),
   
+  // Applications
   getApplications: () => apiCall('/institution/applications'),
   updateApplicationStatus: (id, status) => apiCall(`/institution/applications/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   
+  // Admissions
   publishAdmissions: (data) => apiCall('/institution/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
+  getAdmissions: () => apiCall('/institution/admissions'),
+  
+  // Statistics - NEW!
+  getStatistics: () => apiCall('/institution/statistics'),
 };
 
 // Student API
