@@ -35,7 +35,8 @@ export default function App() {
 
   const loadTeamMembers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/public/team');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/public/team`);
+
       const data = await response.json();
       setTeamMembers(data);
     } catch (error) {
