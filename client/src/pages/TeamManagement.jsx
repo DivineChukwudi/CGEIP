@@ -1,7 +1,8 @@
-// client/src/pages/TeamManagement.jsx
+// client/src/pages/TeamManagement.jsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaLinkedin, FaGithub, FaEnvelope, FaUser } from 'react-icons/fa';
-import '../styles/TeamManagement.css'; // Move styles to separate CSS file
+import { buildApiUrl } from '../utils/config';
+import '../styles/TeamManagement.css';
 
 export default function TeamManagement({ user, onUpdate }) {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -11,7 +12,7 @@ export default function TeamManagement({ user, onUpdate }) {
     name: '',
     role: '',
     bio: '',
-    photo: '', // Changed from imageUrl to match Firebase
+    photo: '',
     linkedin: '',
     github: '',
     email: '',
@@ -28,7 +29,7 @@ export default function TeamManagement({ user, onUpdate }) {
   const loadTeamMembers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/admin/team', {
+      const response = await fetch(buildApiUrl('api/admin/team'), {
         headers: {
           'Authorization': `Bearer ${user.token}`
         }
@@ -90,8 +91,8 @@ export default function TeamManagement({ user, onUpdate }) {
     
     try {
       const url = editingMember 
-        ? `http://localhost:5000/api/admin/team/${editingMember.id}`
-        : 'http://localhost:5000/api/admin/team';
+        ? buildApiUrl(`api/admin/team/${editingMember.id}`)
+        : buildApiUrl('api/admin/team');
       
       const method = editingMember ? 'PUT' : 'POST';
       
@@ -124,7 +125,7 @@ export default function TeamManagement({ user, onUpdate }) {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this team member?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/admin/team/${id}`, {
+        const response = await fetch(buildApiUrl(`api/admin/team/${id}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${user.token}`

@@ -5,13 +5,14 @@ import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import EmailVerification from "./pages/EmailVerification"; // ADD THIS
+import EmailVerification from "./pages/EmailVerification";
 import AdminDashboard from "./pages/AdminDashboard";
 import InstitutionDashboard from "./pages/InstitutionDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
 import TeamManagement from "./pages/TeamManagement";
 import MeetTheTeam from "./pages/MeetTheTeam";
+import { buildApiUrl } from "./utils/config";
 import "./styles/global.css";
 
 export default function App() {
@@ -35,7 +36,7 @@ export default function App() {
 
   const loadTeamMembers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/public/team');
+      const response = await fetch(buildApiUrl('api/public/team'));
       const data = await response.json();
       setTeamMembers(data);
     } catch (error) {
@@ -63,7 +64,7 @@ export default function App() {
         <Route path="/" element={!user ? <LandingPage /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to={`/${user.role}`} />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to={`/${user.role}`} />} />
-        <Route path="/verify-email" element={<EmailVerification />} /> {/* ADD THIS */}
+        <Route path="/verify-email" element={<EmailVerification />} />
         <Route path="/team" element={<MeetTheTeam members={teamMembers} />} />
 
         {/* Protected Routes */}

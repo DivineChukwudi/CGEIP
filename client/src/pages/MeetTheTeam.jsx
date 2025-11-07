@@ -1,7 +1,8 @@
-// client/src/pages/MeetTheTeam.jsx
+// client/src/pages/MeetTheTeam.jsx - FIXED VERSION
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaLinkedin, FaGithub, FaEnvelope, FaUser, FaArrowLeft } from 'react-icons/fa';
+import { buildApiUrl } from '../utils/config';
 import '../styles/MeetTheTeam.css';
 
 export default function MeetTheTeam() {
@@ -13,7 +14,7 @@ export default function MeetTheTeam() {
   useEffect(() => {
     const fetchTeam = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/public/team');
+        const response = await fetch(buildApiUrl('api/public/team'));
         
         if (!response.ok) {
           throw new Error('Failed to fetch team members');
