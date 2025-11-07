@@ -97,11 +97,11 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
 
   const mailOptions = {
     from: {
-      name: 'Limkokwing Career Portal',
+      name: 'Career Portal',
       address: process.env.EMAIL_USER || 'noreply@limkokwing.edu'
     },
     to: email,
-    subject: 'Verify Your Email - Limkokwing Career Portal',
+    subject: 'Verify Your Email - Career Portal',
     html: `
       <!DOCTYPE html>
       <html>

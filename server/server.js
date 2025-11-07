@@ -22,8 +22,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   process.env.FRONTEND_URL, // Your production frontend URL
-  'https://your-app.vercel.app', // Replace with actual URL
-  'https://your-app.netlify.app' // Replace with actual URL
+  'https://cgeip.vercel.app/api', // Replace with actual URL
+  
 ].filter(Boolean); // Remove undefined values
 
 app.use(cors({
@@ -34,7 +34,7 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('⚠️  Blocked by CORS:', origin);
+      console.log('  Blocked by CORS:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -96,7 +96,7 @@ app.get('/test-email', async (req, res) => {
   }
 
   try {
-    console.log('\n📧 Attempting to send test email...');
+    console.log('\n Attempting to send test email...');
     
     // Use FRONTEND_URL for the verification link
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -108,7 +108,7 @@ app.get('/test-email', async (req, res) => {
       verificationLink
     );
     
-    console.log('✅ Test email sent successfully!\n');
+    console.log(' Test email sent successfully!\n');
     
     res.json({ 
       success: true, 
@@ -117,7 +117,7 @@ app.get('/test-email', async (req, res) => {
       note: 'Check backend console for detailed logs'
     });
   } catch (error) {
-    console.error('❌ Test email failed:', error.message);
+    console.error(' Test email failed:', error.message);
     console.error('Stack:', error.stack);
     
     res.json({ 
@@ -166,7 +166,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.stack);
+  console.error(' Error:', err.stack);
   
   // Don't leak error details in production
   if (process.env.NODE_ENV === 'production') {
@@ -181,14 +181,14 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log('\n╔════════════════════════════════════════════════╗');
-  console.log('║   🚀 SERVER STARTED SUCCESSFULLY              ║');
+  console.log('║    SERVER STARTED SUCCESSFULLY              ║');
   console.log('╚════════════════════════════════════════════════╝');
-  console.log(`\n📍 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📧 Email configured: ${!!(process.env.EMAIL_USER && process.env.EMAIL_PASS) ? '✅' : '❌'}`);
-  console.log(`🔥 Firebase configured: ${!!(process.env.FIREBASE_PROJECT_ID) ? '✅' : '❌'}`);
-  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-  console.log(`\n📝 Test endpoints:`);
+  console.log(`\n Server running on port ${PORT}`);
+  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(` Email configured: ${!!(process.env.EMAIL_USER && process.env.EMAIL_PASS) ? '✅' : '❌'}`);
+  console.log(` Firebase configured: ${!!(process.env.FIREBASE_PROJECT_ID) ? '✅' : '❌'}`);
+  console.log(` Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`\n Test endpoints:`);
   console.log(`   • Health: http://localhost:${PORT}/`);
   console.log(`   • Status: http://localhost:${PORT}/api/status`);
   console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
