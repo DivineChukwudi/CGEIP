@@ -1,106 +1,30 @@
-// server/utils/email.js - FIXED VERSION WITH MULTIPLE OPTIONS
-const nodemailer = require('nodemailer');
+// server/utils/email.js - SENDGRID VERSION
+const sgMail = require('@sendgrid/mail');
 
-// Option 1: Gmail with App Password (RECOMMENDED)
-// Option 2: Ethereal (for testing)
-// Option 3: Other SMTP providers
+// Initialize SendGrid with API key
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log(' SendGrid initialized successfully');
+} else {
+  console.warn('  SENDGRID_API_KEY not found in environment variables');
+}
 
-let transporter = null;
-
-const createTransporter = async () => {
-  // Check if Gmail credentials are provided
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    console.log('Setting up Gmail transporter...');
-    
-    try {
-      transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS // MUST be App Password, not regular password
-        },
-        // Add these options for better reliability
-        pool: true,
-        maxConnections: 1,
-        rateDelta: 20000,
-        rateLimit: 5
-      });
-
-      // Verify connection
-      await transporter.verify();
-      console.log('Gmail SMTP connection verified successfully');
-      return transporter;
-    } catch (error) {
-      console.error('Gmail SMTP verification failed:', error.message);
-      console.log('\nGmail Setup Instructions:');
-      console.log('1. Enable 2-Factor Authentication on your Google account');
-      console.log('2. Go to: https://myaccount.google.com/apppasswords');
-      console.log('3. Create an App Password for "Mail"');
-      console.log('4. Use that 16-character password in EMAIL_PASS');
-      console.log('5. Your .env should look like:');
-      console.log('   EMAIL_USER=your.email@gmail.com');
-      console.log('   EMAIL_PASS=abcd efgh ijkl mnop (16 chars, spaces optional)\n');
-      
-      // Fall back to Ethereal for testing
-      console.log('Falling back to Ethereal test email...');
-      return await createEtherealTransporter();
-    }
-  }
-
-  // No credentials - use Ethereal for testing
-  console.log('No email credentials found, using Ethereal test email');
-  return await createEtherealTransporter();
-};
-
-// Ethereal email for testing (creates fake inbox)
-const createEtherealTransporter = async () => {
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    
-    transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass
-      }
-    });
-
-    console.log('Ethereal email account created:');
-    console.log('   Username:', testAccount.user);
-    console.log('   Password:', testAccount.pass);
-    console.log('   Preview URL: Check console after sending email\n');
-    
-    return transporter;
-  } catch (error) {
-    console.error('Failed to create Ethereal account:', error.message);
-    return null;
-  }
-};
-
-// Initialize transporter on startup
-(async () => {
-  await createTransporter();
-})();
+// Your verified sender email (the one you verified in SendGrid)
+const SENDER_EMAIL = process.env.SENDER_EMAIL || 'chukwudidivine20@gmail.com';
 
 // Send verification email
 const sendVerificationEmail = async (email, name, verificationLink) => {
-  if (!transporter) {
-    console.log('transporter not initialized, attempting to create...');
-    await createTransporter();
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error(' SendGrid API key not configured');
+    throw new Error('Email service not configured');
   }
 
-  if (!transporter) {
-    throw new Error('Email service not available. Please configure email settings.');
-  }
-
-  const mailOptions = {
-    from: {
-      name: 'Career Portal',
-      address: process.env.EMAIL_USER || 'noreply@limkokwing.edu'
-    },
+  const msg = {
     to: email,
+    from: {
+      email: SENDER_EMAIL,
+      name: 'Career Portal'
+    },
     subject: 'Verify Your Email - Career Portal',
     html: `
       <!DOCTYPE html>
@@ -193,7 +117,7 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
       <body>
         <div class="container">
           <div class="logo">🎓</div>
-          <h1>Welcome to Limkokwing Career Portal!</h1>
+          <h1>Welcome to Career Portal!</h1>
           
           <div class="content">
             <h2 style="color: #333; margin-top: 0;">Hi ${name}! 👋</h2>
@@ -203,7 +127,7 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
             </div>
             
             <p style="font-size: 16px; color: #666;">
-              Thank you for registering with Limkokwing Career Portal. We're excited to have you on board!
+              Thank you for registering with Career Portal. We're excited to have you on board!
             </p>
             
             <p style="font-size: 16px; color: #666;">
@@ -217,7 +141,7 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
             </div>
             
             <div class="warning">
-              This verification link will expire in 24 hours
+              ⏰ This verification link will expire in 24 hours
             </div>
             
             <p style="font-size: 14px; color: #999;">
@@ -236,11 +160,11 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
         
         <div class="footer">
           <p>
-            <strong>Limkokwing Career Guidance Platform</strong><br>
-            Empowering Education & Career Success in Lesotho<br>
+            <strong>Career Guidance Platform</strong><br>
+            Empowering Education & Career Success<br>
             <br>
             This is an automated email, please do not reply.<br>
-            For support, contact: support@limkokwing.ac.ls
+            For support, contact: ${SENDER_EMAIL}
           </p>
         </div>
       </body>
@@ -249,36 +173,16 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
   };
 
   try {
-    console.log(`Attempting to send verification email to: ${email}`);
-    const info = await transporter.sendMail(mailOptions);
-    
-    console.log('Email sent successfully!');
-    console.log('   Message ID:', info.messageId);
-    
-    // If using Ethereal, log the preview URL
-    if (info.messageId.includes('ethereal')) {
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      console.log('Preview email at:', previewUrl);
-      console.log('   (This is a test email - not sent to real inbox)\n');
-    }
-    
-    return info;
+    console.log(` Sending verification email to: ${email}`);
+    await sgMail.send(msg);
+    console.log(' Verification email sent successfully to:', email);
+    return { success: true };
   } catch (error) {
-    console.error('Email sending failed:', error);
+    console.error(' SendGrid error:', error.message);
     
-    // Provide detailed error information
-    if (error.code === 'EAUTH') {
-      console.error('\nAUTHENTICATION ERROR:');
-      console.error('Your email credentials are incorrect.');
-      console.error('For Gmail, you MUST use an App Password, not your regular password.');
-      console.error('Steps:');
-      console.error('1. Go to: https://myaccount.google.com/apppasswords');
-      console.error('2. Create new App Password for "Mail"');
-      console.error('3. Update EMAIL_PASS in .env with the 16-character code\n');
-    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
-      console.error('\n🌐 CONNECTION ERROR:');
-      console.error('Cannot connect to email server.');
-      console.error('Check your internet connection and firewall settings.\n');
+    if (error.response) {
+      console.error('   Status:', error.response.statusCode);
+      console.error('   Body:', error.response.body);
     }
     
     throw error;
@@ -287,21 +191,17 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
 
 // Send notification email
 const sendNotificationEmail = async (email, subject, message) => {
-  if (!transporter) {
-    await createTransporter();
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error(' SendGrid API key not configured');
+    throw new Error('Email service not configured');
   }
 
-  if (!transporter) {
-    console.log('Notification would be sent to:', email);
-    return;
-  }
-
-  const mailOptions = {
-    from: {
-      name: 'Limkokwing Career Portal',
-      address: process.env.EMAIL_USER || 'noreply@limkokwing.edu'
-    },
+  const msg = {
     to: email,
+    from: {
+      email: SENDER_EMAIL,
+      name: 'Career Portal'
+    },
     subject: subject,
     html: `
       <!DOCTYPE html>
@@ -347,7 +247,7 @@ const sendNotificationEmail = async (email, subject, message) => {
       <body>
         <div class="container">
           <div class="header">
-            <h2 style="margin: 0;">🎓 Limkokwing Career Portal</h2>
+            <h2 style="margin: 0;">🎓 Career Portal</h2>
           </div>
           <div class="content">
             <h3>${subject}</h3>
@@ -355,7 +255,7 @@ const sendNotificationEmail = async (email, subject, message) => {
           </div>
           <div class="footer">
             <p>
-              Limkokwing Career Guidance Platform<br>
+              Career Guidance Platform<br>
               This is an automated email, please do not reply.
             </p>
           </div>
@@ -366,17 +266,15 @@ const sendNotificationEmail = async (email, subject, message) => {
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Notification sent:', info.messageId);
-    
-    if (info.messageId.includes('ethereal')) {
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      console.log('📬 Preview at:', previewUrl);
-    }
-    
-    return info;
+    console.log(`Sending notification to: ${email}`);
+    await sgMail.send(msg);
+    console.log('Notification sent successfully');
+    return { success: true };
   } catch (error) {
-    console.error('Notification sending failed:', error);
+    console.error(' SendGrid notification error:', error.message);
+    if (error.response) {
+      console.error('   Body:', error.response.body);
+    }
     throw error;
   }
 };
@@ -385,7 +283,7 @@ const sendNotificationEmail = async (email, subject, message) => {
 const sendApplicationStatusEmail = async (email, name, institutionName, courseName, status) => {
   const statusMessages = {
     admitted: {
-      subject: '🎉 Congratulations! You\'ve Been Admitted',
+      subject: 'Congratulations! You\'ve Been Admitted',
       message: `Great news, ${name}! You have been <strong>admitted</strong> to ${courseName} at ${institutionName}. Please log in to your account to view next steps and accept your offer.`,
       color: '#28a745'
     },
@@ -398,6 +296,11 @@ const sendApplicationStatusEmail = async (email, name, institutionName, courseNa
       subject: '⏳ Application Received',
       message: `Dear ${name}, your application for ${courseName} at ${institutionName} has been received and is currently under review. We will notify you once a decision has been made.`,
       color: '#ffc107'
+    },
+    waitlisted: {
+      subject: '📋 You\'ve Been Added to the Waiting List',
+      message: `Dear ${name}, your application for ${courseName} at ${institutionName} has been placed on the waiting list. We will notify you if a spot becomes available.`,
+      color: '#17a2b8'
     }
   };
 
@@ -412,35 +315,22 @@ const sendApplicationStatusEmail = async (email, name, institutionName, courseNa
 
 // Test email configuration
 const testEmailConfig = async () => {
-  console.log('\n=== EMAIL CONFIGURATION TEST ===');
-  console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
-  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✓ Set (length: ' + process.env.EMAIL_PASS?.length + ')' : '✗ Missing');
+  console.log('\n=== SENDGRID CONFIGURATION TEST ===');
+  console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? '✓ Set (length: ' + process.env.SENDGRID_API_KEY?.length + ')' : '✗ Missing');
+  console.log('SENDER_EMAIL:', SENDER_EMAIL);
   
-  if (!transporter) {
-    console.log('Transporter not initialized, creating...');
-    await createTransporter();
-  }
-
-  if (!transporter) {
-    console.log('❌ Email service not configured properly\n');
+  if (!process.env.SENDGRID_API_KEY) {
+    console.log('SendGrid API key not configured\n');
     return false;
   }
 
-  try {
-    await transporter.verify();
-    console.log('Email server is ready to send messages\n');
-    return true;
-  } catch (error) {
-    console.error('Email configuration error:', error.message);
-    console.log('');
-    return false;
-  }
+  console.log('SendGrid is configured\n');
+  return true;
 };
 
 module.exports = {
   sendVerificationEmail,
   sendNotificationEmail,
   sendApplicationStatusEmail,
-  testEmailConfig,
-  createTransporter
+  testEmailConfig
 };
