@@ -9,6 +9,7 @@ const { sendVerificationEmail } = require('../utils/email');
 const router = express.Router();
 
 // Register
+// Register - OPTIMIZED VERSION
 router.post('/register', async (req, res) => {
   try {
     const { email, password, role, name, ...additionalData } = req.body;
@@ -24,20 +25,76 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
-    // Check if user already exists
+    // Check if user already exists (single query)
     const existingUser = await db.collection(collections.USERS)
-      .where('email', '==', email).get();
+      .where('email', '==', email).limit(1).get();
     
     if (!existingUser.empty) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Create Firebase Auth user
+    // Generate verification token upfront
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    // Create Firebase Auth user (this handles password hashing internally)
     const userRecord = await auth.createUser({
       email,
       password,
       displayName: name,
+      emailVerified: false
     });
+
+    // Create user document WITHOUT password hashing (Firebase Auth handles auth)
+    const userData = {
+      uid: userRecord.uid,
+      email,
+      role,
+      name,
+      emailVerified: false,
+      verificationToken,
+      verificationExpires: verificationExpires.toISOString(),
+      status: role === 'company' ? 'pending' : 'active',
+      createdAt: new Date().toISOString(),
+      ...additionalData
+    };
+
+    // Save to Firestore
+    await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
+
+    // Send response IMMEDIATELY - don't wait for email
+    res.status(201).json({ 
+      message: 'Registration successful! Check your email to verify your account.',
+      uid: userRecord.uid
+    });
+
+    // Send verification email ASYNCHRONOUSLY (non-blocking)
+    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}&uid=${userRecord.uid}`;
+    
+    sendVerificationEmail(email, name, verificationLink)
+      .then(() => {
+        console.log('✅ Verification email sent to:', email);
+      })
+      .catch((error) => {
+        console.error('❌ Email sending failed:', error.message);
+        // Log but don't fail registration
+      });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    
+    // Clean up Firebase Auth user if created
+    if (error.uid) {
+      try {
+        await auth.deleteUser(error.uid);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ error: error.message });
+  }
+});
 
     // Hash password for Firestore
     const hashedPassword = await bcrypt.hash(password, 10);
