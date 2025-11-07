@@ -18,24 +18,36 @@ const PORT = process.env.PORT || 5000;
 // ===================================
 // UPDATED CORS CONFIGURATION
 // ===================================
+// server/server.js - UPDATED CORS SECTION
+
+// ===================================
+// FIXED CORS CONFIGURATION
+// ===================================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
-  process.env.FRONTEND_URL, // Your production frontend URL
-  'https://cgeip.vercel.app', // Replace with actual URL
-  
-].filter(Boolean); // Remove undefined values
+  'https://cgeip.vercel.app',
+  'https://cgeip-v7309mq74-divinechukwudi-3003s-projects.vercel.app', // Add this
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
+    // Check if origin matches any allowed origin
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('  Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
+      // For Vercel preview deployments, allow all vercel.app domains
+      if (origin && origin.includes('.vercel.app')) {
+        console.log('✅ Allowing Vercel preview deployment:', origin);
+        callback(null, true);
+      } else {
+        console.log('❌ Blocked by CORS:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
     }
   },
   credentials: true,
