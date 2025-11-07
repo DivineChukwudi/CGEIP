@@ -1,4 +1,4 @@
-// server/routes/institution.js - FIXED WITH WAITING LIST SUPPORT
+// server/routes/institution.js - COMPLETE WITH STATISTICS
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -7,6 +7,73 @@ const router = express.Router();
 
 router.use(verifyToken);
 router.use(checkRole(['institution']));
+
+// ==================== STATISTICS - NEW! ====================
+router.get('/statistics', async (req, res) => {
+  try {
+    const institutionId = req.user.institutionId || req.user.uid;
+
+    // Get all data in parallel
+    const [
+      facultiesSnapshot,
+      coursesSnapshot,
+      applicationsSnapshot
+    ] = await Promise.all([
+      db.collection(collections.FACULTIES)
+        .where('institutionId', '==', institutionId)
+        .get(),
+      db.collection(collections.COURSES)
+        .where('institutionId', '==', institutionId)
+        .get(),
+      db.collection(collections.APPLICATIONS)
+        .where('institutionId', '==', institutionId)
+        .get()
+    ]);
+
+    // Count applications by status
+    let totalApplications = 0;
+    let pendingApplications = 0;
+    let admittedStudents = 0;
+    let rejectedApplications = 0;
+    let totalEnrolled = 0;
+    let totalCapacity = 0;
+
+    applicationsSnapshot.forEach(doc => {
+      const app = doc.data();
+      totalApplications++;
+      
+      if (app.status === 'pending') pendingApplications++;
+      if (app.status === 'admitted') admittedStudents++;
+      if (app.status === 'rejected') rejectedApplications++;
+    });
+
+    // Count course capacity
+    coursesSnapshot.forEach(doc => {
+      const course = doc.data();
+      totalCapacity += course.capacity || 50;
+      totalEnrolled += course.enrolledCount || 0;
+    });
+
+    const statistics = {
+      totalFaculties: facultiesSnapshot.size,
+      totalCourses: coursesSnapshot.size,
+      totalApplications,
+      pendingApplications,
+      admittedStudents,
+      rejectedApplications,
+      totalEnrolled,
+      totalCapacity,
+      enrollmentPercentage: totalCapacity > 0 
+        ? Math.round((totalEnrolled / totalCapacity) * 100) 
+        : 0
+    };
+
+    res.json(statistics);
+  } catch (error) {
+    console.error('Statistics error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Get institution profile
 router.get('/profile', async (req, res) => {
@@ -35,6 +102,7 @@ router.put('/profile', async (req, res) => {
   }
 });
 
+// ==================== FACULTIES ====================
 // Get faculties
 router.get('/faculties', async (req, res) => {
   try {
@@ -52,11 +120,16 @@ router.post('/faculties', async (req, res) => {
   try {
     const { name, description } = req.body;
 
+    if (!name) {
+      return res.status(400).json({ error: 'Faculty name is required' });
+    }
+
     const facultyData = {
       name,
-      description,
+      description: description || '',
       institutionId: req.user.institutionId || req.user.uid,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: req.user.uid
     };
 
     const docRef = await db.collection(collections.FACULTIES).add(facultyData);
@@ -70,7 +143,20 @@ router.post('/faculties', async (req, res) => {
 router.put('/faculties/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = { ...req.body, updatedAt: new Date().toISOString() };
+    const { name, description } = req.body;
+
+    // Verify faculty belongs to this institution
+    const facultyDoc = await db.collection(collections.FACULTIES).doc(id).get();
+    if (!facultyDoc.exists || facultyDoc.data().institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(404).json({ error: 'Faculty not found' });
+    }
+
+    const updateData = {
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user.uid
+    };
 
     await db.collection(collections.FACULTIES).doc(id).update(updateData);
     res.json({ message: 'Faculty updated successfully' });
@@ -83,6 +169,12 @@ router.put('/faculties/:id', async (req, res) => {
 router.delete('/faculties/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Verify faculty belongs to this institution
+    const facultyDoc = await db.collection(collections.FACULTIES).doc(id).get();
+    if (!facultyDoc.exists || facultyDoc.data().institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(404).json({ error: 'Faculty not found' });
+    }
     
     // Delete related courses
     const coursesSnapshot = await db.collection(collections.COURSES)
@@ -98,12 +190,25 @@ router.delete('/faculties/:id', async (req, res) => {
   }
 });
 
+// ==================== COURSES ====================
 // Get courses
 router.get('/courses', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.COURSES)
       .where('institutionId', '==', req.user.institutionId || req.user.uid).get();
-    const courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Include faculty information
+    const courses = await Promise.all(snapshot.docs.map(async doc => {
+      const courseData = doc.data();
+      const facultyDoc = await db.collection(collections.FACULTIES).doc(courseData.facultyId).get();
+      
+      return {
+        id: doc.id,
+        ...courseData,
+        faculty: facultyDoc.exists ? facultyDoc.data() : null
+      };
+    }));
+    
     res.json(courses);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -115,17 +220,28 @@ router.post('/courses', async (req, res) => {
   try {
     const { name, facultyId, description, duration, requirements, level, capacity } = req.body;
 
+    if (!name || !facultyId) {
+      return res.status(400).json({ error: 'Course name and faculty are required' });
+    }
+
+    // Verify faculty belongs to this institution
+    const facultyDoc = await db.collection(collections.FACULTIES).doc(facultyId).get();
+    if (!facultyDoc.exists || facultyDoc.data().institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(400).json({ error: 'Invalid faculty selected' });
+    }
+
     const courseData = {
       name,
       facultyId,
-      description,
-      duration,
-      requirements,
-      level,
-      capacity: capacity || 50, // Default capacity
+      description: description || '',
+      duration: duration || '',
+      requirements: requirements || '',
+      level: level || 'Diploma',
+      capacity: capacity || 50,
       enrolledCount: 0,
       institutionId: req.user.institutionId || req.user.uid,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: req.user.uid
     };
 
     const docRef = await db.collection(collections.COURSES).add(courseData);
@@ -139,7 +255,25 @@ router.post('/courses', async (req, res) => {
 router.put('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = { ...req.body, updatedAt: new Date().toISOString() };
+    
+    // Verify course belongs to this institution
+    const courseDoc = await db.collection(collections.COURSES).doc(id).get();
+    if (!courseDoc.exists || courseDoc.data().institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const { name, description, duration, requirements, level, capacity } = req.body;
+
+    const updateData = {
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      ...(duration && { duration }),
+      ...(requirements !== undefined && { requirements }),
+      ...(level && { level }),
+      ...(capacity !== undefined && { capacity }),
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user.uid
+    };
 
     await db.collection(collections.COURSES).doc(id).update(updateData);
     res.json({ message: 'Course updated successfully' });
@@ -152,6 +286,13 @@ router.put('/courses/:id', async (req, res) => {
 router.delete('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Verify course belongs to this institution
+    const courseDoc = await db.collection(collections.COURSES).doc(id).get();
+    if (!courseDoc.exists || courseDoc.data().institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+    
     await db.collection(collections.COURSES).doc(id).delete();
     res.json({ message: 'Course deleted successfully' });
   } catch (error) {
@@ -159,6 +300,7 @@ router.delete('/courses/:id', async (req, res) => {
   }
 });
 
+// ==================== APPLICATIONS ====================
 // Get student applications
 router.get('/applications', async (req, res) => {
   try {
@@ -189,7 +331,7 @@ router.get('/applications', async (req, res) => {
   }
 });
 
-// Update application status - FIXED WITH CAPACITY & WAITING LIST
+// Update application status - WITH CAPACITY & WAITING LIST
 router.put('/applications/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -206,7 +348,12 @@ router.put('/applications/:id/status', async (req, res) => {
 
     const application = appDoc.data();
 
-    // PREVENT ADMITTING STUDENT TO MULTIPLE COURSES IN SAME INSTITUTION
+    // Verify application belongs to this institution
+    if (application.institutionId !== (req.user.institutionId || req.user.uid)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Handle admission with capacity check
     if (status === 'admitted') {
       // Check if student already admitted to another course in this institution
       const existingAdmission = await db.collection(collections.APPLICATIONS)
@@ -250,10 +397,6 @@ router.put('/applications/:id/status', async (req, res) => {
         })
       ]);
 
-      // Send email notification
-      const studentDoc = await db.collection(collections.USERS).doc(application.studentId).get();
-      // TODO: Send admission email here
-
       return res.json({ 
         message: 'Student admitted successfully',
         status: 'admitted'
@@ -275,85 +418,32 @@ router.put('/applications/:id/status', async (req, res) => {
   }
 });
 
-// Bulk admit students - NEW FEATURE
-router.post('/applications/bulk-admit', async (req, res) => {
-  try {
-    const { applicationIds } = req.body; // Array of application IDs
-
-    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
-      return res.status(400).json({ error: 'Invalid application IDs' });
-    }
-
-    const results = {
-      admitted: [],
-      waitlisted: [],
-      failed: []
-    };
-
-    for (const appId of applicationIds) {
-      try {
-        const appDoc = await db.collection(collections.APPLICATIONS).doc(appId).get();
-        if (!appDoc.exists) {
-          results.failed.push({ id: appId, reason: 'Application not found' });
-          continue;
-        }
-
-        const application = appDoc.data();
-
-        // Check capacity
-        const courseDoc = await db.collection(collections.COURSES).doc(application.courseId).get();
-        const course = courseDoc.data();
-
-        if (course.enrolledCount >= course.capacity) {
-          // Waitlist
-          await appDoc.ref.update({
-            status: 'waitlisted',
-            waitlistedAt: new Date().toISOString()
-          });
-          results.waitlisted.push(appId);
-        } else {
-          // Admit
-          await Promise.all([
-            appDoc.ref.update({
-              status: 'admitted',
-              admittedAt: new Date().toISOString()
-            }),
-            courseDoc.ref.update({
-              enrolledCount: (course.enrolledCount || 0) + 1
-            })
-          ]);
-          results.admitted.push(appId);
-        }
-      } catch (error) {
-        results.failed.push({ id: appId, reason: error.message });
-      }
-    }
-
-    res.json({
-      message: 'Bulk admission completed',
-      results
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// ==================== ADMISSIONS ====================
 // Publish admissions
 router.post('/admissions/publish', async (req, res) => {
   try {
-    const { year, semester, deadline } = req.body;
+    const { title, message, deadline } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ error: 'Title and message are required' });
+    }
 
     const admissionData = {
       institutionId: req.user.institutionId || req.user.uid,
-      year,
-      semester,
-      deadline,
+      title,
+      message,
+      deadline: deadline || null,
       published: true,
-      publishedAt: new Date().toISOString()
+      publishedAt: new Date().toISOString(),
+      publishedBy: req.user.uid
     };
 
     const docRef = await db.collection(collections.ADMISSIONS).add(admissionData);
-    res.status(201).json({ id: docRef.id, ...admissionData });
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...admissionData,
+      message: 'Admission announcement published successfully'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
