@@ -1,8 +1,11 @@
-// client/src/pages/EmailVerification.jsx - NEW FILE
+// client/src/pages/EmailVerification.jsx - FIXED VERSION
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FaCheckCircle, FaTimesCircle, FaSpinner, FaEnvelope } from 'react-icons/fa';
 import '../styles/global.css';
+
+// Get API URL from environment variable
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function EmailVerification() {
   const navigate = useNavigate();
@@ -27,8 +30,9 @@ export default function EmailVerification() {
     }
 
     try {
+      // Use API_URL from environment variable
       const response = await fetch(
-        `http://localhost:5000/api/auth/verify-email/${token}?uid=${uid}`
+        `${API_URL}/auth/verify-email/${token}?uid=${uid}`
       );
       
       const data = await response.json();
