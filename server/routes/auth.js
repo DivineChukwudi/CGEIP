@@ -1,4 +1,4 @@
-// server/routes/auth.js - PRODUCTION-READY VERSION
+// server/routes/auth.js - COMPLETE MERGED VERSION
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -7,7 +7,7 @@ const { sendVerificationEmail } = require('../utils/email');
 
 const router = express.Router();
 
-// Register - Production-Ready with Better Error Handling
+// Register - Production-Ready with Enhanced Logging
 router.post('/register', async (req, res) => {
   let userCreated = false;
   let firebaseUid = null;
@@ -74,11 +74,17 @@ router.post('/register', async (req, res) => {
       uid: userRecord.uid
     });
 
-    // Send verification email ASYNCHRONOUSLY
+    // ============================================
+    // ENHANCED: Better logging for debugging
+    // ============================================
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}&uid=${userRecord.uid}`;
     
-    // Send email without blocking response
+    console.log('🔗 Verification Link:', verificationLink);
+    console.log('📧 Sending to:', email);
+    console.log('🌍 Frontend URL:', frontendUrl);
+    
+    // Send verification email ASYNCHRONOUSLY
     sendVerificationEmail(email, name, verificationLink)
       .then(() => {
         console.log('✅ Verification email sent to:', email);
@@ -198,7 +204,7 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Resend Verification Email
+// Resend Verification Email - RESTORED
 router.post('/resend-verification', async (req, res) => {
   try {
     const { email } = req.body;
@@ -234,15 +240,22 @@ router.post('/resend-verification', async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}&uid=${userData.uid}`;
     
+    // Enhanced logging
+    console.log('🔁 Resending verification email');
+    console.log('🔗 Verification Link:', verificationLink);
+    console.log('📧 Sending to:', email);
+    console.log('🌍 Frontend URL:', frontendUrl);
+    
     // Send email and handle errors
     try {
       await sendVerificationEmail(email, userData.name, verificationLink);
+      console.log('✅ Verification email resent to:', email);
       res.json({ 
         message: 'Verification email sent! Please check your inbox.',
         success: true 
       });
     } catch (emailError) {
-      console.error('Resend email error:', emailError);
+      console.error('❌ Resend email error:', emailError);
       res.status(500).json({ 
         error: 'Failed to send email. Please try again later or contact support.',
         verificationLink // In dev, you can manually use this link
@@ -313,7 +326,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Google Sign-In (keeping existing code)
+// Google Sign-In - RESTORED
 router.post('/google-signin', async (req, res) => {
   try {
     const { idToken, role } = req.body;
@@ -349,11 +362,13 @@ router.post('/google-signin', async (req, res) => {
       };
 
       await db.collection(collections.USERS).doc(uid).set(userData);
+      console.log('✅ New Google user created:', email);
     } else {
       userData = userDoc.data();
       await db.collection(collections.USERS).doc(uid).update({
         lastLogin: new Date().toISOString()
       });
+      console.log('✅ Existing Google user logged in:', email);
     }
 
     if (userData.status === 'suspended') {

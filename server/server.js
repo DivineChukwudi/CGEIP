@@ -189,6 +189,16 @@ app.use((err, req, res, next) => {
   }
 });
 
+// Debug environment variables
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    FRONTEND_URL: process.env.FRONTEND_URL || 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV || 'NOT SET',
+    hasEmailUser: !!process.env.EMAIL_USER,
+    hasEmailPass: !!process.env.EMAIL_PASS
+  });
+});
+
 app.listen(PORT, () => {
   console.log('\n╔════════════════════════════════════════════════╗');
   console.log('║    SERVER STARTED SUCCESSFULLY              ║');
