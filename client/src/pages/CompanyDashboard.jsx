@@ -1,7 +1,7 @@
 // client/src/pages/CompanyDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { companyAPI } from '../utils/api';
-import { FaPlus, FaTrash, FaBriefcase, FaUsers, FaEye } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaBriefcase, FaEye } from 'react-icons/fa';
 import '../styles/global.css';
 
 export default function CompanyDashboard({ user }) {

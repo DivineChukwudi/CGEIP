@@ -189,34 +189,34 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="landing-footer">
-        <div className="landing-container">
-          <div className="footer-content">
-            <div className="footer-brand">
-              <div className="logo">
-                <FaGraduationCap className="logo-icon" />
-                <span>Limkokwing Career Portal</span>
-              </div>
-              <p>Empowering education and career success in Lesotho</p>
-            </div>
-            <div className="footer-links">
-              <div className="footer-column">
-                <h4>Platform</h4>
-                <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>Register</a>
-                <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>Login</a>
-              </div>
-              <div className="footer-column">
-                <h4>Resources</h4>
-                <a href="#">About Us</a>
-                <a href="#">Contact</a>
-              </div>
-            </div>
-          </div>
-          <div className="footer-bottom">
-           {/* <p>&copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved.</p>*/}
-          </div>
+      // Find the footer section and replace with:
+<footer className="landing-footer">
+  <div className="landing-container">
+    <div className="footer-content">
+      <div className="footer-brand">
+        <div className="logo">
+          <FaGraduationCap className="logo-icon" />
+          <span>Limkokwing Career Portal</span>
         </div>
-      </footer>
+        <p>Empowering education and career success in Lesotho</p>
+      </div>
+      <div className="footer-links">
+        <div className="footer-column">
+          <h4>Platform</h4>
+          <Link to="/register" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Register</Link>
+          <Link to="/login" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Login</Link>
+        </div>
+        <div className="footer-column">
+          <h4>Resources</h4>
+          <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>About Us</Link>
+          <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Contact</Link>
+        </div>
+      </div>
+    </div>
+    <div className="footer-bottom">
+    </div>
+  </div>
+</footer>
     </div>
   );
 }

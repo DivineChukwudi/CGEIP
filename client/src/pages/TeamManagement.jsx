@@ -22,8 +22,9 @@ export default function TeamManagement({ user, onUpdate }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTeamMembers();
-  }, []);
+  loadTeamMembers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   const loadTeamMembers = async () => {
     try {

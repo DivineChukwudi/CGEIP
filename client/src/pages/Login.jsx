@@ -1,5 +1,5 @@
 // client/src/pages/Login.jsx - WITH GOOGLE SIGN-IN
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
 import { FaGraduationCap, FaEnvelope, FaLock, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle } from 'react-icons/fa';

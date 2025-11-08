@@ -1,24 +1,19 @@
-// client/src/pages/EmailVerification.jsx - FIXED VERSION
-import React, { useEffect, useState } from 'react';
+// Replace the entire file with:
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { FaCheckCircle, FaTimesCircle, FaSpinner, FaEnvelope } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
 import '../styles/global.css';
 
-// Get API URL from environment variable
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function EmailVerification() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('verifying'); // verifying, success, error
+  const [status, setStatus] = useState('verifying');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    verifyEmail();
-  }, []);
-
-  const verifyEmail = async () => {
+  const verifyEmail = useCallback(async () => {
     const token = searchParams.get('token');
     const uid = searchParams.get('uid');
 
@@ -30,7 +25,6 @@ export default function EmailVerification() {
     }
 
     try {
-      // Use API_URL from environment variable
       const response = await fetch(
         `${API_URL}/auth/verify-email/${token}?uid=${uid}`
       );
@@ -41,7 +35,6 @@ export default function EmailVerification() {
         setStatus('success');
         setMessage(data.message);
         
-        // Redirect to login after 3 seconds
         setTimeout(() => {
           navigate('/login');
         }, 3000);
@@ -56,12 +49,11 @@ export default function EmailVerification() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchParams, navigate]);
 
-  const handleResendEmail = async () => {
-    // You can implement resend functionality here
-    alert('Please contact support to resend verification email.');
-  };
+  useEffect(() => {
+    verifyEmail();
+  }, [verifyEmail]);
 
   return (
     <div className="auth-container">

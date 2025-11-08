@@ -1,5 +1,5 @@
-// client/src/pages/InstitutionDashboard.jsx - COMPLETE FIXED VERSION
-import React, { useState, useEffect } from 'react';
+// client/src/pages/InstitutionDashboard.jsx - FIXED ESLint Issues
+import React, { useState, useEffect, useCallback } from 'react';
 import { institutionAPI } from '../utils/api';
 import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn } from 'react-icons/fa';
 import '../styles/global.css';
@@ -16,14 +16,8 @@ export default function InstitutionDashboard({ user }) {
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [activeTab]);
-
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     setError('');
     try {
       if (activeTab === 'dashboard') {
@@ -45,10 +39,12 @@ export default function InstitutionDashboard({ user }) {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const showSuccess = (message) => {
     setSuccess(message);

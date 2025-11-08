@@ -171,4 +171,5 @@ export const companyAPI = {
   updateApplicationStatus: (id, status) => apiCall(`/company/applications/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
 
-export default { authAPI, adminAPI, institutionAPI, studentAPI, companyAPI };
+const apiExport = { authAPI, adminAPI, institutionAPI, studentAPI, companyAPI };
+export default apiExport;

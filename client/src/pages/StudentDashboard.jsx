@@ -1,5 +1,5 @@
 // client/src/pages/StudentDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { studentAPI } from '../utils/api';
 import { FaGraduationCap, FaBriefcase, FaFileUpload, FaEye, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
 import '../styles/global.css';
@@ -23,8 +23,7 @@ export default function StudentDashboard({ user }) {
     loadData();
   }, [activeTab]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     try {
       if (activeTab === 'institutions') {
         const data = await studentAPI.getInstitutions();
@@ -41,10 +40,12 @@ export default function StudentDashboard({ user }) {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleViewCourses = async (institution) => {
     setSelectedInstitution(institution);

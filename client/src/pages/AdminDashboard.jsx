@@ -1,5 +1,5 @@
-// client/src/pages/AdminDashboard.jsx - COMPLETE ADMIN MODULE
-import React, { useState, useEffect } from 'react';
+// client/src/pages/AdminDashboard.jsx - FIXED ALL ESLINT ISSUES
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate } from 'react-icons/fa';
 import '../styles/global.css';
@@ -7,13 +7,11 @@ import '../styles/global.css';
 export default function AdminDashboard({ user }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [institutions, setInstitutions] = useState([]);
-  const [selectedInstitution, setSelectedInstitution] = useState(null);
   const [faculties, setFaculties] = useState([]);
   const [courses, setCourses] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
@@ -21,12 +19,7 @@ export default function AdminDashboard({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [activeTab]);
-
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     setError('');
     try {
       if (activeTab === 'dashboard') {
@@ -60,10 +53,12 @@ export default function AdminDashboard({ user }) {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const showSuccess = (message) => {
     setSuccess(message);
@@ -572,22 +567,22 @@ export default function AdminDashboard({ user }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {allUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
+                  {allUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.name}</td>
+                      <td>{u.email}</td>
                       <td>
                         <span className="status-badge" style={{ textTransform: 'capitalize' }}>
-                          {user.role}
+                          {u.role}
                         </span>
                       </td>
                       <td>
-                        <span className={`status-badge status-${user.status || 'active'}`}>
-                          {user.status || 'active'}
+                        <span className={`status-badge status-${u.status || 'active'}`}>
+                          {u.status || 'active'}
                         </span>
                       </td>
-                      <td>{user.emailVerified ? '✓ Yes' : '✗ No'}</td>
-                      <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                      <td>{u.emailVerified ? '✓ Yes' : '✗ No'}</td>
+                      <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>
