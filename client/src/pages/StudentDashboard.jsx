@@ -12,16 +12,11 @@ export default function StudentDashboard({ user }) {
   const [applications, setApplications] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [jobApplications, setJobApplications] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  useEffect(() => {
-    loadData();
-  }, [activeTab]);
 
   const loadData = useCallback(async () => {
     try {
