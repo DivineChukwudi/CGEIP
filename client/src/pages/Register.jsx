@@ -87,13 +87,7 @@ export default function Register() {
       });
 
       setGoogleLoading(false);
-      
-      // Scroll to password field so user can fill it in
-      setTimeout(() => {
-        document.getElementById('password')?.scrollIntoView({ behavior: 'smooth' });
-        document.getElementById('password')?.focus();
-      }, 300);
-
+        
     } catch (error) {
       console.error('✗ Google sign-up error:', error);
       setError(error.message || 'Google sign-up failed. Please try again.');
