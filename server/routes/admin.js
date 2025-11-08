@@ -1,6 +1,6 @@
-// server/routes/admin.js - COMPLETE ADMIN MODULE
+// server/routes/admin.js - ENHANCED WITH COMPREHENSIVE USER DELETION
 const express = require('express');
-const { db, collections } = require('../config/firebase');
+const { db, auth, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -322,7 +322,8 @@ router.delete('/companies/:id', async (req, res) => {
   }
 });
 
-// ==================== USERS ====================
+// ==================== USER MANAGEMENT - ENHANCED ====================
+
 // Get all users
 router.get('/users', async (req, res) => {
   try {
@@ -336,6 +337,333 @@ router.get('/users', async (req, res) => {
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single user details
+router.get('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const userDoc = await db.collection(collections.USERS).doc(id).get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    delete userData.password;
+    delete userData.verificationToken;
+
+    // Get additional user statistics
+    let userStats = {};
+
+    if (userData.role === 'student') {
+      const [appsSnapshot, jobAppsSnapshot] = await Promise.all([
+        db.collection(collections.APPLICATIONS).where('studentId', '==', id).get(),
+        db.collection(collections.JOB_APPLICATIONS).where('studentId', '==', id).get()
+      ]);
+
+      userStats = {
+        totalApplications: appsSnapshot.size,
+        admittedCount: appsSnapshot.docs.filter(doc => doc.data().status === 'admitted').length,
+        totalJobApplications: jobAppsSnapshot.size
+      };
+    } else if (userData.role === 'company') {
+      const [jobsSnapshot, appsSnapshot] = await Promise.all([
+        db.collection(collections.JOBS).where('companyId', '==', id).get(),
+        db.collection(collections.JOB_APPLICATIONS).get()
+      ]);
+
+      const jobIds = jobsSnapshot.docs.map(doc => doc.id);
+      const companyApplications = appsSnapshot.docs.filter(doc => 
+        jobIds.includes(doc.data().jobId)
+      );
+
+      userStats = {
+        totalJobs: jobsSnapshot.size,
+        totalApplicationsReceived: companyApplications.length
+      };
+    } else if (userData.role === 'institution') {
+      const [facultiesSnapshot, coursesSnapshot, appsSnapshot] = await Promise.all([
+        db.collection(collections.FACULTIES).where('institutionId', '==', id).get(),
+        db.collection(collections.COURSES).where('institutionId', '==', id).get(),
+        db.collection(collections.APPLICATIONS).where('institutionId', '==', id).get()
+      ]);
+
+      userStats = {
+        totalFaculties: facultiesSnapshot.size,
+        totalCourses: coursesSnapshot.size,
+        totalApplicationsReceived: appsSnapshot.size
+      };
+    }
+
+    res.json({
+      id,
+      ...userData,
+      stats: userStats
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user status
+router.put('/users/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['active', 'suspended', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    // Prevent admin from suspending themselves
+    if (id === req.user.uid) {
+      return res.status(400).json({ error: 'You cannot change your own status' });
+    }
+
+    await db.collection(collections.USERS).doc(id).update({
+      status,
+      statusUpdatedAt: new Date().toISOString(),
+      statusUpdatedBy: req.user.uid
+    });
+
+    res.json({ message: `User status updated to ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== DELETE USER - COMPREHENSIVE ====================
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { force } = req.query; // ?force=true to skip confirmation
+
+    console.log(`Admin ${req.user.uid} attempting to delete user ${id}`);
+
+    // Prevent admin from deleting themselves
+    if (id === req.user.uid) {
+      return res.status(400).json({ 
+        error: 'You cannot delete your own account' 
+      });
+    }
+
+    // Check if user exists
+    const userDoc = await db.collection(collections.USERS).doc(id).get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    const userRole = userData.role;
+
+    console.log(`User role: ${userRole}`);
+
+    // Count related data
+    let relatedData = {
+      applications: 0,
+      jobApplications: 0,
+      jobs: 0,
+      faculties: 0,
+      courses: 0,
+      notifications: 0,
+      transcripts: 0
+    };
+
+    // Get all related data counts based on role
+    if (userRole === 'student') {
+      const [apps, jobApps, notifs, transcripts] = await Promise.all([
+        db.collection(collections.APPLICATIONS).where('studentId', '==', id).get(),
+        db.collection(collections.JOB_APPLICATIONS).where('studentId', '==', id).get(),
+        db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get(),
+        db.collection(collections.TRANSCRIPTS).where('studentId', '==', id).get()
+      ]);
+
+      relatedData.applications = apps.size;
+      relatedData.jobApplications = jobApps.size;
+      relatedData.notifications = notifs.size;
+      relatedData.transcripts = transcripts.size;
+
+    } else if (userRole === 'company') {
+      const [jobs, notifs] = await Promise.all([
+        db.collection(collections.JOBS).where('companyId', '==', id).get(),
+        db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get()
+      ]);
+
+      relatedData.jobs = jobs.size;
+      relatedData.notifications = notifs.size;
+
+      // Count job applications for company's jobs
+      const jobIds = jobs.docs.map(doc => doc.id);
+      if (jobIds.length > 0) {
+        // Process in batches of 10 (Firestore 'in' limit)
+        let totalJobApps = 0;
+        for (let i = 0; i < jobIds.length; i += 10) {
+          const batch = jobIds.slice(i, i + 10);
+          const appsSnap = await db.collection(collections.JOB_APPLICATIONS)
+            .where('jobId', 'in', batch).get();
+          totalJobApps += appsSnap.size;
+        }
+        relatedData.jobApplications = totalJobApps;
+      }
+
+    } else if (userRole === 'institution') {
+      const [faculties, courses, apps, notifs] = await Promise.all([
+        db.collection(collections.FACULTIES).where('institutionId', '==', id).get(),
+        db.collection(collections.COURSES).where('institutionId', '==', id).get(),
+        db.collection(collections.APPLICATIONS).where('institutionId', '==', id).get(),
+        db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get()
+      ]);
+
+      relatedData.faculties = faculties.size;
+      relatedData.courses = courses.size;
+      relatedData.applications = apps.size;
+      relatedData.notifications = notifs.size;
+    }
+
+    const totalRelatedItems = Object.values(relatedData).reduce((a, b) => a + b, 0);
+
+    console.log(`Related data count:`, relatedData);
+    console.log(`Total items to delete: ${totalRelatedItems + 1}`);
+
+    // Return summary if not forced
+    if (!force || force !== 'true') {
+      return res.json({
+        user: {
+          id,
+          name: userData.name,
+          email: userData.email,
+          role: userRole
+        },
+        relatedData,
+        totalRelatedItems,
+        message: 'Add ?force=true to confirm deletion',
+        warning: 'This action cannot be undone!'
+      });
+    }
+
+    // ==================== PERFORM DELETION ====================
+    console.log(`Starting deletion process...`);
+
+    const deletePromises = [];
+
+    // Delete based on role
+    if (userRole === 'student') {
+      // Delete applications
+      const appsSnapshot = await db.collection(collections.APPLICATIONS)
+        .where('studentId', '==', id).get();
+      appsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete job applications
+      const jobAppsSnapshot = await db.collection(collections.JOB_APPLICATIONS)
+        .where('studentId', '==', id).get();
+      jobAppsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete transcripts
+      const transcriptsSnapshot = await db.collection(collections.TRANSCRIPTS)
+        .where('studentId', '==', id).get();
+      transcriptsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete notifications
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', id).get();
+      notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+    } else if (userRole === 'company') {
+      // Get all jobs
+      const jobsSnapshot = await db.collection(collections.JOBS)
+        .where('companyId', '==', id).get();
+      
+      const jobIds = jobsSnapshot.docs.map(doc => doc.id);
+
+      // Delete job applications in batches
+      if (jobIds.length > 0) {
+        for (let i = 0; i < jobIds.length; i += 10) {
+          const batch = jobIds.slice(i, i + 10);
+          const jobAppsSnap = await db.collection(collections.JOB_APPLICATIONS)
+            .where('jobId', 'in', batch).get();
+          jobAppsSnap.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+        }
+      }
+
+      // Delete jobs
+      jobsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete notifications
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', id).get();
+      notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+    } else if (userRole === 'institution') {
+      // Delete courses
+      const coursesSnapshot = await db.collection(collections.COURSES)
+        .where('institutionId', '==', id).get();
+      coursesSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete faculties
+      const facultiesSnapshot = await db.collection(collections.FACULTIES)
+        .where('institutionId', '==', id).get();
+      facultiesSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete applications
+      const appsSnapshot = await db.collection(collections.APPLICATIONS)
+        .where('institutionId', '==', id).get();
+      appsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete notifications
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', id).get();
+      notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+
+      // Delete institution record if it exists
+      const instSnapshot = await db.collection(collections.INSTITUTIONS)
+        .where('email', '==', userData.email).get();
+      instSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+    }
+
+    // Execute all deletions
+    console.log(`Deleting ${deletePromises.length} related items...`);
+    await Promise.all(deletePromises);
+
+    // Delete from Firebase Auth
+    try {
+      await auth.deleteUser(id);
+      console.log(`Deleted from Firebase Auth`);
+    } catch (authError) {
+      console.warn(`Could not delete from Firebase Auth:`, authError.message);
+    }
+
+    // Finally, delete user document
+    await db.collection(collections.USERS).doc(id).delete();
+    console.log(`User document deleted`);
+
+    console.log(`Deletion complete!`);
+
+    res.json({ 
+      message: 'User and all related data deleted successfully',
+      deletedUser: {
+        id,
+        name: userData.name,
+        email: userData.email,
+        role: userRole
+      },
+      deletedItems: {
+        ...relatedData,
+        user: 1
+      },
+      totalDeleted: deletePromises.length + 1
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Failed to delete user. Check server logs for details.'
+    });
   }
 });
 
