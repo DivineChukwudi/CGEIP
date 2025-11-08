@@ -13,7 +13,7 @@ export default function MeetTheTeam() {
   useEffect(() => {
     const fetchTeam = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/public/team');
+        const response = await fetch('https://cgeip.onrender.com/api/public/team');
         
         if (!response.ok) {
           throw new Error('Failed to fetch team members');
