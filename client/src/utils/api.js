@@ -1,175 +1,509 @@
-// client/src/utils/api.js - FIXED WITH PROPER AUTH HANDLING
+// client/src/utils/api.js - MERGED & COMPLETE VERSION
+import axios from 'axios';
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
-};
+  },
+});
 
-// Generic API call function with improved error handling
-const apiCall = async (endpoint, options = {}) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...getAuthHeaders(),
-        ...options.headers,
-      },
-    });
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-    // Handle 401 Unauthorized - token is invalid or expired
-    if (response.status === 401) {
+// Handle response errors - redirect on 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
       console.warn('Authentication failed - redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      
-      // Redirect to login page
       window.location.href = '/login';
-      throw new Error('Invalid token');
     }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || `API request failed: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
+    return Promise.reject(error);
   }
-};
+);
 
-// Auth API
+// ============================================
+// AUTH API
+// ============================================
 export const authAPI = {
-  register: (userData) =>
-    apiCall('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    }),
+  register: async (userData) => {
+    const { data } = await api.post('/auth/register', userData);
+    return data;
+  },
 
-  login: (credentials) =>
-    apiCall('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
+  login: async (credentials) => {
+    const { data } = await api.post('/auth/login', credentials);
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    }
+    return data;
+  },
 
-  verifyEmail: (uid) =>
-    apiCall('/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ uid }),
-    }),
-    
-  // Add logout method
+  verifyEmail: async (uid) => {
+    const { data } = await api.post('/auth/verify-email', { uid });
+    return data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login';
   },
+
+  getCurrentUser: () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  },
 };
 
-// Admin API - COMPLETE
+// ============================================
+// ADMIN API - COMPLETE
+// ============================================
 export const adminAPI = {
   // Institutions
-  getInstitutions: () => apiCall('/admin/institutions'),
-  addInstitution: (data) => apiCall('/admin/institutions', { method: 'POST', body: JSON.stringify(data) }),
-  updateInstitution: (id, data) => apiCall(`/admin/institutions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteInstitution: (id) => apiCall(`/admin/institutions/${id}`, { method: 'DELETE' }),
-  
+  getInstitutions: async () => {
+    const { data } = await api.get('/admin/institutions');
+    return data;
+  },
+
+  addInstitution: async (institutionData) => {
+    const { data } = await api.post('/admin/institutions', institutionData);
+    return data;
+  },
+
+  updateInstitution: async (id, institutionData) => {
+    const { data } = await api.put(`/admin/institutions/${id}`, institutionData);
+    return data;
+  },
+
+  deleteInstitution: async (id) => {
+    const { data } = await api.delete(`/admin/institutions/${id}`);
+    return data;
+  },
+
   // Faculties
-  getAllFaculties: () => apiCall('/admin/faculties'),
-  addFaculty: (data) => apiCall('/admin/faculties', { method: 'POST', body: JSON.stringify(data) }),
-  updateFaculty: (id, data) => apiCall(`/admin/faculties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteFaculty: (id) => apiCall(`/admin/faculties/${id}`, { method: 'DELETE' }),
-  
+  getAllFaculties: async () => {
+    const { data } = await api.get('/admin/faculties');
+    return data;
+  },
+
+  addFaculty: async (facultyData) => {
+    const { data } = await api.post('/admin/faculties', facultyData);
+    return data;
+  },
+
+  updateFaculty: async (id, facultyData) => {
+    const { data } = await api.put(`/admin/faculties/${id}`, facultyData);
+    return data;
+  },
+
+  deleteFaculty: async (id) => {
+    const { data } = await api.delete(`/admin/faculties/${id}`);
+    return data;
+  },
+
   // Courses
-  getAllCourses: () => apiCall('/admin/courses'),
-  addCourse: (data) => apiCall('/admin/courses', { method: 'POST', body: JSON.stringify(data) }),
-  updateCourse: (id, data) => apiCall(`/admin/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCourse: (id) => apiCall(`/admin/courses/${id}`, { method: 'DELETE' }),
-  
+  getAllCourses: async () => {
+    const { data } = await api.get('/admin/courses');
+    return data;
+  },
+
+  addCourse: async (courseData) => {
+    const { data } = await api.post('/admin/courses', courseData);
+    return data;
+  },
+
+  updateCourse: async (id, courseData) => {
+    const { data } = await api.put(`/admin/courses/${id}`, courseData);
+    return data;
+  },
+
+  deleteCourse: async (id) => {
+    const { data } = await api.delete(`/admin/courses/${id}`);
+    return data;
+  },
+
   // Companies
-  getCompanies: () => apiCall('/admin/companies'),
-  updateCompanyStatus: (id, status) => apiCall(`/admin/companies/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
-  deleteCompany: (id) => apiCall(`/admin/companies/${id}`, { method: 'DELETE' }),
-  
+  getCompanies: async () => {
+    const { data } = await api.get('/admin/companies');
+    return data;
+  },
+
+  updateCompanyStatus: async (id, status) => {
+    const { data } = await api.put(`/admin/companies/${id}/status`, { status });
+    return data;
+  },
+
+  deleteCompany: async (id) => {
+    const { data } = await api.delete(`/admin/companies/${id}`);
+    return data;
+  },
+
   // Users
-  getUsers: () => apiCall('/admin/users'),
-  
-  // Reports
-  getReports: () => apiCall('/admin/reports'),
-  
+  getUsers: async () => {
+    const { data } = await api.get('/admin/users');
+    return data;
+  },
+
+  getAllUsers: async () => {
+    const { data } = await api.get('/admin/users');
+    return data;
+  },
+
+  updateUserStatus: async (userId, status) => {
+    const { data } = await api.put(`/admin/users/${userId}/status`, { status });
+    return data;
+  },
+
+  deleteUser: async (userId) => {
+    const { data } = await api.delete(`/admin/users/${userId}`);
+    return data;
+  },
+
+  // Reports & Statistics
+  getReports: async () => {
+    const { data } = await api.get('/admin/reports');
+    return data;
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/admin/stats');
+    return data;
+  },
+
   // Admissions
-  publishAdmissions: (data) => apiCall('/admin/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
+  publishAdmissions: async (admissionsData) => {
+    const { data } = await api.post('/admin/admissions/publish', admissionsData);
+    return data;
+  },
+
+  // System Management
+  getSystemLogs: async () => {
+    const { data } = await api.get('/admin/logs');
+    return data;
+  },
 };
 
-// Institution API
+// ============================================
+// INSTITUTION API - COMPLETE
+// ============================================
 export const institutionAPI = {
   // Profile
-  getProfile: () => apiCall('/institution/profile'),
-  updateProfile: (data) => apiCall('/institution/profile', { method: 'PUT', body: JSON.stringify(data) }),
-  
+  getProfile: async () => {
+    const { data } = await api.get('/institution/profile');
+    return data;
+  },
+
+  updateProfile: async (profileData) => {
+    const { data } = await api.put('/institution/profile', profileData);
+    return data;
+  },
+
   // Faculties
-  getFaculties: () => apiCall('/institution/faculties'),
-  addFaculty: (data) => apiCall('/institution/faculties', { method: 'POST', body: JSON.stringify(data) }),
-  updateFaculty: (id, data) => apiCall(`/institution/faculties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteFaculty: (id) => apiCall(`/institution/faculties/${id}`, { method: 'DELETE' }),
-  
+  getFaculties: async () => {
+    const { data } = await api.get('/institution/faculties');
+    return data;
+  },
+
+  addFaculty: async (facultyData) => {
+    const { data } = await api.post('/institution/faculties', facultyData);
+    return data;
+  },
+
+  createFaculty: async (facultyData) => {
+    const { data } = await api.post('/institution/faculties', facultyData);
+    return data;
+  },
+
+  updateFaculty: async (id, facultyData) => {
+    const { data } = await api.put(`/institution/faculties/${id}`, facultyData);
+    return data;
+  },
+
+  deleteFaculty: async (id) => {
+    const { data } = await api.delete(`/institution/faculties/${id}`);
+    return data;
+  },
+
   // Courses
-  getCourses: () => apiCall('/institution/courses'),
-  addCourse: (data) => apiCall('/institution/courses', { method: 'POST', body: JSON.stringify(data) }),
-  updateCourse: (id, data) => apiCall(`/institution/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCourse: (id) => apiCall(`/institution/courses/${id}`, { method: 'DELETE' }),
-  
+  getCourses: async () => {
+    const { data } = await api.get('/institution/courses');
+    return data;
+  },
+
+  addCourse: async (courseData) => {
+    const { data } = await api.post('/institution/courses', courseData);
+    return data;
+  },
+
+  createCourse: async (courseData) => {
+    const { data } = await api.post('/institution/courses', courseData);
+    return data;
+  },
+
+  updateCourse: async (id, courseData) => {
+    const { data } = await api.put(`/institution/courses/${id}`, courseData);
+    return data;
+  },
+
+  deleteCourse: async (id) => {
+    const { data } = await api.delete(`/institution/courses/${id}`);
+    return data;
+  },
+
   // Applications
-  getApplications: () => apiCall('/institution/applications'),
-  updateApplicationStatus: (id, status) => apiCall(`/institution/applications/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
-  
+  getApplications: async (filters) => {
+    const { data } = await api.get('/institution/applications', { params: filters });
+    return data;
+  },
+
+  updateApplicationStatus: async (id, status, reason) => {
+    const { data } = await api.put(`/institution/applications/${id}/status`, {
+      status,
+      reason,
+    });
+    return data;
+  },
+
   // Admissions
-  publishAdmissions: (data) => apiCall('/institution/admissions/publish', { method: 'POST', body: JSON.stringify(data) }),
-  getAdmissions: () => apiCall('/institution/admissions'),
-  
+  publishAdmissions: async (admissionsData) => {
+    const { data } = await api.post('/institution/admissions/publish', admissionsData);
+    return data;
+  },
+
+  getAdmissions: async () => {
+    const { data } = await api.get('/institution/admissions');
+    return data;
+  },
+
   // Statistics
-  getStatistics: () => apiCall('/institution/statistics'),
+  getStatistics: async () => {
+    const { data } = await api.get('/institution/statistics');
+    return data;
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/institution/stats');
+    return data;
+  },
 };
 
-// Student API
+// ============================================
+// STUDENT API - ENHANCED & COMPLETE
+// ============================================
 export const studentAPI = {
-  getProfile: () => apiCall('/student/profile'),
-  updateProfile: (data) => apiCall('/student/profile', { method: 'PUT', body: JSON.stringify(data) }),
-  
-  getInstitutions: () => apiCall('/student/institutions'),
-  getInstitutionCourses: (institutionId) => apiCall(`/student/institutions/${institutionId}/courses`),
-  
-  applyForCourse: (data) => apiCall('/student/applications', { method: 'POST', body: JSON.stringify(data) }),
-  getApplications: () => apiCall('/student/applications'),
-  selectInstitution: (id) => apiCall(`/student/applications/${id}/select`, { method: 'POST' }),
-  
-  uploadTranscript: (data) => apiCall('/student/transcripts', { method: 'POST', body: JSON.stringify(data) }),
-  
-  getJobs: () => apiCall('/student/jobs'),
-  applyForJob: (jobId, data) => apiCall(`/student/jobs/${jobId}/apply`, { method: 'POST', body: JSON.stringify(data) }),
-  getJobApplications: () => apiCall('/student/job-applications'),
+  // Profile Management
+  getProfile: async () => {
+    const { data } = await api.get('/student/profile');
+    return data;
+  },
+
+  updateProfile: async (profileData) => {
+    const { data } = await api.put('/student/profile', profileData);
+    return data;
+  },
+
+  uploadDocument: async (documentData) => {
+    const { data } = await api.post('/student/documents', documentData);
+    return data;
+  },
+
+  // Institutions & Courses
+  getInstitutions: async () => {
+    const { data } = await api.get('/student/institutions');
+    return data;
+  },
+
+  getInstitutionCourses: async (institutionId) => {
+    const { data } = await api.get(`/student/institutions/${institutionId}/courses`);
+    return data;
+  },
+
+  // Course Applications (Max 2 per institution)
+  applyForCourse: async (applicationData) => {
+    // applicationData should include: institutionId, courseId, documents
+    const { data } = await api.post('/student/applications', applicationData);
+    return data;
+  },
+
+  getApplications: async () => {
+    const { data } = await api.get('/student/applications');
+    return data;
+  },
+
+  selectInstitution: async (applicationId) => {
+    // Selects institution, rejects other applications, promotes waitlisted students
+    const { data } = await api.post(`/student/applications/${applicationId}/select`);
+    return data;
+  },
+
+  // Transcript Management (For Graduates)
+  uploadTranscript: async (transcriptData) => {
+    // transcriptData: { transcriptUrl, certificates, graduationYear, gpa, extraCurricularActivities }
+    const { data } = await api.post('/student/transcripts', transcriptData);
+    return data;
+  },
+
+  getTranscript: async () => {
+    // Returns null if no transcript exists
+    const { data } = await api.get('/student/transcripts');
+    return data;
+  },
+
+  // Job Applications (Requires transcript upload first)
+  getJobs: async () => {
+    // Returns jobs filtered by qualification match (40%+ match)
+    const { data } = await api.get('/student/jobs');
+    return data;
+  },
+
+  applyForJob: async (jobId, applicationData) => {
+    // applicationData: { coverLetter } - minimum 50 characters required
+    const { data } = await api.post(`/student/jobs/${jobId}/apply`, applicationData);
+    return data;
+  },
+
+  getJobApplications: async () => {
+    // Returns all job applications with job details
+    const { data } = await api.get('/student/job-applications');
+    return data;
+  },
+
+  // Notifications
+  getNotifications: async () => {
+    const { data } = await api.get('/student/notifications');
+    return data;
+  },
+
+  markNotificationAsRead: async (notificationId) => {
+    const { data } = await api.put(`/student/notifications/${notificationId}/read`);
+    return data;
+  },
+
+  markAllNotificationsAsRead: async () => {
+    const { data } = await api.put('/student/notifications/read-all');
+    return data;
+  },
 };
 
-// Company API
+// ============================================
+// COMPANY API - COMPLETE
+// ============================================
 export const companyAPI = {
-  getProfile: () => apiCall('/company/profile'),
-  updateProfile: (data) => apiCall('/company/profile', { method: 'PUT', body: JSON.stringify(data) }),
-  
-  getJobs: () => apiCall('/company/jobs'),
-  postJob: (data) => apiCall('/company/jobs', { method: 'POST', body: JSON.stringify(data) }),
-  updateJob: (id, data) => apiCall(`/company/jobs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteJob: (id) => apiCall(`/company/jobs/${id}`, { method: 'DELETE' }),
-  
-  getJobApplicants: (jobId) => apiCall(`/company/jobs/${jobId}/applicants`),
-  updateApplicationStatus: (id, status) => apiCall(`/company/applications/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  // Profile
+  getProfile: async () => {
+    const { data } = await api.get('/company/profile');
+    return data;
+  },
+
+  updateProfile: async (profileData) => {
+    const { data } = await api.put('/company/profile', profileData);
+    return data;
+  },
+
+  // Job Postings
+  getJobs: async () => {
+    const { data } = await api.get('/company/jobs');
+    return data;
+  },
+
+  postJob: async (jobData) => {
+    const { data } = await api.post('/company/jobs', jobData);
+    return data;
+  },
+
+  createJob: async (jobData) => {
+    const { data } = await api.post('/company/jobs', jobData);
+    return data;
+  },
+
+  updateJob: async (id, jobData) => {
+    const { data } = await api.put(`/company/jobs/${id}`, jobData);
+    return data;
+  },
+
+  deleteJob: async (id) => {
+    const { data } = await api.delete(`/company/jobs/${id}`);
+    return data;
+  },
+
+  // Job Applications & Applicants
+  getJobApplicants: async (jobId) => {
+    const { data } = await api.get(`/company/jobs/${jobId}/applicants`);
+    return data;
+  },
+
+  getJobApplications: async (jobId) => {
+    const { data } = await api.get(`/company/jobs/${jobId}/applications`);
+    return data;
+  },
+
+  getAllApplications: async () => {
+    const { data } = await api.get('/company/applications');
+    return data;
+  },
+
+  updateApplicationStatus: async (id, status, feedback) => {
+    const { data } = await api.put(`/company/applications/${id}/status`, {
+      status,
+      feedback,
+    });
+    return data;
+  },
+
+  // Statistics
+  getStats: async () => {
+    const { data } = await api.get('/company/stats');
+    return data;
+  },
 };
 
-const apiExport = { authAPI, adminAPI, institutionAPI, studentAPI, companyAPI };
+// ============================================
+// PUBLIC API
+// ============================================
+export const publicAPI = {
+  getInstitutions: async () => {
+    const { data } = await api.get('/public/institutions');
+    return data;
+  },
+
+  getJobs: async () => {
+    const { data } = await api.get('/public/jobs');
+    return data;
+  },
+
+  getStats: async () => {
+    const { data } = await api.get('/public/stats');
+    return data;
+  },
+};
+
+// Default export
+const apiExport = {
+  authAPI,
+  adminAPI,
+  institutionAPI,
+  studentAPI,
+  companyAPI,
+  publicAPI,
+};
+
 export default apiExport;

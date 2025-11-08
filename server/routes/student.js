@@ -1,4 +1,4 @@
-// server/routes/student.js - FIXED WITH WAITING LIST & PROPER VALIDATION
+// server/routes/student.js - FIXED VERSION (No orderBy to avoid index errors)
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -8,12 +8,24 @@ const router = express.Router();
 router.use(verifyToken);
 router.use(checkRole(['student']));
 
+// ============================================
+// PROFILE MANAGEMENT
+// ============================================
+
 // Get student profile
 router.get('/profile', async (req, res) => {
   try {
     const userDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const userData = userDoc.data();
     delete userData.password;
+    
+    // Get transcript info if exists
+    if (userData.transcriptId) {
+      const transcriptDoc = await db.collection(collections.TRANSCRIPTS)
+        .doc(userData.transcriptId).get();
+      userData.transcript = transcriptDoc.exists ? transcriptDoc.data() : null;
+    }
+    
     res.json(userData);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -23,45 +35,116 @@ router.get('/profile', async (req, res) => {
 // Update student profile
 router.put('/profile', async (req, res) => {
   try {
-    const updateData = { ...req.body, updatedAt: new Date().toISOString() };
+    const updateData = { 
+      ...req.body, 
+      updatedAt: new Date().toISOString() 
+    };
+    
+    // Remove protected fields
     delete updateData.password;
     delete updateData.role;
     delete updateData.email;
+    delete updateData.isGraduate;
+    delete updateData.transcriptId;
 
     await db.collection(collections.USERS).doc(req.user.uid).update(updateData);
+    
+    // Create notification
+    await createNotification(req.user.uid, {
+      type: 'general',
+      title: 'Profile Updated',
+      message: 'Your profile has been successfully updated.'
+    });
+    
     res.json({ message: 'Profile updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// Upload additional documents
+router.post('/documents', async (req, res) => {
+  try {
+    const { documentType, documentUrl, description } = req.body;
+
+    const documentData = {
+      studentId: req.user.uid,
+      documentType,
+      documentUrl,
+      description,
+      uploadedAt: new Date().toISOString()
+    };
+
+    const docRef = await db.collection(collections.DOCUMENTS).add(documentData);
+    
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...documentData,
+      message: 'Document uploaded successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// INSTITUTIONS & COURSES
+// ============================================
+
 // Get all institutions
 router.get('/institutions', async (req, res) => {
   try {
-    const snapshot = await db.collection(collections.INSTITUTIONS).get();
-    const institutions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const snapshot = await db.collection(collections.INSTITUTIONS)
+      .where('status', '==', 'active')
+      .get();
+    
+    const institutions = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }));
+    
     res.json(institutions);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get courses by institution
+// Get courses by institution with detailed info
 router.get('/institutions/:institutionId/courses', async (req, res) => {
   try {
     const { institutionId } = req.params;
     
+    // Verify institution exists
+    const instDoc = await db.collection(collections.INSTITUTIONS)
+      .doc(institutionId).get();
+    
+    if (!instDoc.exists) {
+      return res.status(404).json({ error: 'Institution not found' });
+    }
+    
     const snapshot = await db.collection(collections.COURSES)
-      .where('institutionId', '==', institutionId).get();
+      .where('institutionId', '==', institutionId)
+      .where('status', '==', 'active')
+      .get();
     
     const courses = await Promise.all(snapshot.docs.map(async doc => {
       const courseData = doc.data();
-      const facultyDoc = await db.collection(collections.FACULTIES).doc(courseData.facultyId).get();
+      
+      // Get faculty info
+      const facultyDoc = await db.collection(collections.FACULTIES)
+        .doc(courseData.facultyId).get();
+      
+      // Get application count for this course
+      const appCount = await db.collection(collections.APPLICATIONS)
+        .where('courseId', '==', doc.id)
+        .get();
       
       return {
         id: doc.id,
         ...courseData,
-        faculty: facultyDoc.exists ? facultyDoc.data() : null
+        faculty: facultyDoc.exists ? facultyDoc.data() : null,
+        applicationCount: appCount.size,
+        availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null
       };
     }));
 
@@ -71,21 +154,24 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
   }
 });
 
-// Apply for course - FIXED WITH PROPER VALIDATION
+// ============================================
+// COURSE APPLICATIONS (Max 2 per institution)
+// ============================================
+
+// Apply for course with comprehensive validation
 router.post('/applications', async (req, res) => {
   try {
     const { institutionId, courseId, documents } = req.body;
 
-    // 1. Check if student already admitted to ANY institution
-    const admittedApps = await db.collection(collections.APPLICATIONS)
+    // 1. CRITICAL: Check if student already SELECTED an institution
+    const selectedAdmission = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
-      .where('status', '==', 'admitted')
-      .where('selected', '==', true) // Only check SELECTED admissions
+      .where('selected', '==', true)
       .get();
 
-    if (!admittedApps.empty) {
+    if (!selectedAdmission.empty) {
       return res.status(400).json({ 
-        error: 'You are already admitted and enrolled in an institution.' 
+        error: 'You have already selected an institution and cannot apply to others.' 
       });
     }
 
@@ -97,100 +183,166 @@ router.post('/applications', async (req, res) => {
 
     if (existingApps.size >= 2) {
       return res.status(400).json({ 
-        error: 'Maximum 2 course applications per institution allowed' 
+        error: 'You can only apply to a maximum of 2 courses per institution' 
       });
     }
 
     // 3. Check duplicate course application
-    const duplicateApp = existingApps.docs.find(doc => doc.data().courseId === courseId);
+    const duplicateApp = existingApps.docs.find(doc => 
+      doc.data().courseId === courseId
+    );
+    
     if (duplicateApp) {
-      return res.status(400).json({ error: 'You already applied for this course' });
+      return res.status(400).json({ 
+        error: 'You have already applied for this course' 
+      });
     }
 
-    // 4. VALIDATE COURSE REQUIREMENTS - NEW!
+    // 4. Validate course exists and is active
     const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
     if (!courseDoc.exists) {
       return res.status(404).json({ error: 'Course not found' });
     }
 
     const course = courseDoc.data();
+    if (course.status !== 'active') {
+      return res.status(400).json({ error: 'This course is not accepting applications' });
+    }
+
+    // 5. Get student info
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const student = studentDoc.data();
 
-    // Check if student meets requirements
-    const meetsRequirements = checkCourseEligibility(student, course);
-    if (!meetsRequirements.eligible) {
+    // 6. Check course eligibility
+    const eligibility = checkCourseEligibility(student, course);
+    if (!eligibility.eligible) {
       return res.status(400).json({ 
-        error: `You don't meet the requirements: ${meetsRequirements.reason}` 
+        error: `You don't meet the requirements: ${eligibility.reason}` 
       });
     }
 
-    // 5. Create application
+    // 7. Check course capacity
+    if (course.capacity) {
+      const currentApps = await db.collection(collections.APPLICATIONS)
+        .where('courseId', '==', courseId)
+        .where('status', 'in', ['pending', 'admitted'])
+        .get();
+      
+      if (currentApps.size >= course.capacity) {
+        return res.status(400).json({ 
+          error: 'This course has reached its maximum capacity' 
+        });
+      }
+    }
+
+    // 8. Create application
     const applicationData = {
       studentId: req.user.uid,
       institutionId,
       courseId,
-      documents,
+      documents: documents || [],
       status: 'pending',
       selected: false,
       appliedAt: new Date().toISOString(),
       studentInfo: {
         name: student.name,
         email: student.email,
+        phone: student.phone,
         qualifications: student.qualifications || []
       }
     };
 
     const docRef = await db.collection(collections.APPLICATIONS).add(applicationData);
+    
+    // Create notification
+    await createNotification(req.user.uid, {
+      type: 'admission',
+      title: 'Application Submitted',
+      message: `Your application for ${course.name} has been submitted successfully.`,
+      relatedId: docRef.id
+    });
+    
     res.status(201).json({ 
       id: docRef.id, 
       ...applicationData,
       message: 'Application submitted successfully'
     });
   } catch (error) {
+    console.error('Application error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Helper function to check course eligibility - NEW!
+// Helper: Check course eligibility
 function checkCourseEligibility(student, course) {
-  // Example: Check if student has required qualifications
   const studentQualifications = student.qualifications || [];
-  const requiredLevel = course.level || 'Diploma';
+  const requiredLevel = course.level || 'Certificate';
 
-  // Simple validation - customize based on your requirements
-  if (requiredLevel === 'Masters' && !studentQualifications.includes('Degree')) {
+  // Qualification hierarchy
+  const qualificationHierarchy = {
+    'High School': 0,
+    'Certificate': 1,
+    'Diploma': 2,
+    'Degree': 3,
+    'Masters': 4,
+    'PhD': 5
+  };
+
+  const studentHighestLevel = Math.max(
+    ...studentQualifications.map(q => qualificationHierarchy[q] || 0)
+  );
+
+  const requiredLevelValue = qualificationHierarchy[requiredLevel] || 0;
+
+  // Check if student meets minimum requirement
+  if (requiredLevel === 'Masters' && studentHighestLevel < qualificationHierarchy['Degree']) {
     return {
       eligible: false,
       reason: 'A Bachelor\'s Degree is required for Masters programs'
     };
   }
 
-  if (requiredLevel === 'PhD' && !studentQualifications.includes('Masters')) {
+  if (requiredLevel === 'PhD' && studentHighestLevel < qualificationHierarchy['Masters']) {
     return {
       eligible: false,
       reason: 'A Master\'s Degree is required for PhD programs'
     };
   }
 
-  if (requiredLevel === 'Degree' && !studentQualifications.includes('Diploma')) {
+  if (requiredLevel === 'Degree' && studentHighestLevel < qualificationHierarchy['Diploma']) {
     return {
       eligible: false,
       reason: 'A Diploma or equivalent is required for Degree programs'
     };
   }
 
+  if (requiredLevel === 'Diploma' && studentHighestLevel < qualificationHierarchy['Certificate']) {
+    return {
+      eligible: false,
+      reason: 'A Certificate or equivalent is required for Diploma programs'
+    };
+  }
+
   return { eligible: true };
 }
 
-// Get my applications
+// Get my applications - FIXED: Removed orderBy
 router.get('/applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.APPLICATIONS)
-      .where('studentId', '==', req.user.uid).get();
+      .where('studentId', '==', req.user.uid)
+      .get();
     
-    const applications = await Promise.all(snapshot.docs.map(async doc => {
+    // Sort in JavaScript instead of Firestore
+    const docs = snapshot.docs.sort((a, b) => {
+      const dateA = new Date(a.data().appliedAt);
+      const dateB = new Date(b.data().appliedAt);
+      return dateB - dateA; // Descending order
+    });
+    
+    const applications = await Promise.all(docs.map(async doc => {
       const appData = doc.data();
+      
       const [institutionDoc, courseDoc] = await Promise.all([
         db.collection(collections.INSTITUTIONS).doc(appData.institutionId).get(),
         db.collection(collections.COURSES).doc(appData.courseId).get()
@@ -206,16 +358,23 @@ router.get('/applications', async (req, res) => {
 
     res.json(applications);
   } catch (error) {
+    console.error('Get applications error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Select institution - FIXED WITH WAITING LIST LOGIC
+// ============================================
+// INSTITUTION SELECTION (Waitlist Management)
+// ============================================
+
+// Select institution - ENHANCED with waitlist promotion
 router.post('/applications/:id/select', async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Get the application
     const appDoc = await db.collection(collections.APPLICATIONS).doc(id).get();
+    
     if (!appDoc.exists || appDoc.data().studentId !== req.user.uid) {
       return res.status(404).json({ error: 'Application not found' });
     }
@@ -223,10 +382,30 @@ router.post('/applications/:id/select', async (req, res) => {
     const application = appDoc.data();
 
     if (application.status !== 'admitted') {
-      return res.status(400).json({ error: 'This application is not admitted' });
+      return res.status(400).json({ 
+        error: 'You can only select applications that have been admitted' 
+      });
     }
 
-    // Mark this as selected
+    if (application.selected) {
+      return res.status(400).json({ 
+        error: 'This application is already selected' 
+      });
+    }
+
+    // Check if student already selected another institution
+    const otherSelected = await db.collection(collections.APPLICATIONS)
+      .where('studentId', '==', req.user.uid)
+      .where('selected', '==', true)
+      .get();
+
+    if (!otherSelected.empty) {
+      return res.status(400).json({ 
+        error: 'You have already selected another institution' 
+      });
+    }
+
+    // Mark this application as selected
     await db.collection(collections.APPLICATIONS).doc(id).update({
       selected: true,
       selectedAt: new Date().toISOString()
@@ -238,10 +417,11 @@ router.post('/applications/:id/select', async (req, res) => {
       .where('status', '==', 'admitted')
       .get();
 
-    // Process each rejected institution
+    // Reject other applications and promote waitlisted students
     const promises = [];
+    
     for (const doc of otherAdmittedApps.docs) {
-      if (doc.id !== id) { // Skip the selected one
+      if (doc.id !== id) {
         const otherApp = doc.data();
         
         // Reject this application
@@ -253,17 +433,26 @@ router.post('/applications/:id/select', async (req, res) => {
           })
         );
 
-        // WAITING LIST LOGIC - Move first waiting list student to admitted
+        // WAITLIST PROMOTION LOGIC - Removed orderBy
         const waitingList = await db.collection(collections.APPLICATIONS)
           .where('institutionId', '==', otherApp.institutionId)
           .where('courseId', '==', otherApp.courseId)
           .where('status', '==', 'waitlisted')
-          .orderBy('appliedAt', 'asc')
           .limit(1)
           .get();
 
         if (!waitingList.empty) {
-          const nextStudent = waitingList.docs[0];
+          // Sort in JavaScript to get the earliest
+          const sortedWaitlist = waitingList.docs.sort((a, b) => {
+            const dateA = new Date(a.data().appliedAt);
+            const dateB = new Date(b.data().appliedAt);
+            return dateA - dateB; // Ascending order
+          });
+
+          const nextStudent = sortedWaitlist[0];
+          const nextStudentData = nextStudent.data();
+          
+          // Promote from waitlist
           promises.push(
             nextStudent.ref.update({
               status: 'admitted',
@@ -272,20 +461,32 @@ router.post('/applications/:id/select', async (req, res) => {
             })
           );
 
-          // Send notification to promoted student
-          const nextStudentData = nextStudent.data();
-          const studentDoc = await db.collection(collections.USERS).doc(nextStudentData.studentId).get();
-          
-          // TODO: Send email notification here
-          console.log(`Promoted student ${studentDoc.data().email} from waiting list`);
+          // Notify promoted student
+          promises.push(
+            createNotification(nextStudentData.studentId, {
+              type: 'admission',
+              title: 'Congratulations! You\'ve been Admitted',
+              message: 'You have been promoted from the waiting list and admitted to your chosen course.',
+              relatedId: nextStudent.id
+            })
+          );
         }
       }
     }
 
     await Promise.all(promises);
 
+    // Create notification for the student
+    await createNotification(req.user.uid, {
+      type: 'admission',
+      title: 'Institution Selected',
+      message: 'You have successfully selected your institution. Your other applications have been rejected.',
+      relatedId: id
+    });
+
     res.json({ 
-      message: 'Institution selected successfully. Other applications have been rejected and waiting list students promoted.' 
+      message: 'Institution selected successfully! Other applications rejected and waiting list students promoted.',
+      waitlistPromoted: promises.length > 1
     });
   } catch (error) {
     console.error('Selection error:', error);
@@ -293,49 +494,108 @@ router.post('/applications/:id/select', async (req, res) => {
   }
 });
 
-// Upload transcript (for graduates)
+// ============================================
+// TRANSCRIPT UPLOAD (For Graduates)
+// ============================================
+
+// Upload transcript and certificates
 router.post('/transcripts', async (req, res) => {
   try {
-    const { transcriptUrl, certificates, graduationYear, gpa, extraCurricularActivities } = req.body;
+    const { 
+      transcriptUrl, 
+      certificates, 
+      graduationYear, 
+      gpa, 
+      extraCurricularActivities 
+    } = req.body;
+
+    // Validate required fields
+    if (!transcriptUrl || !graduationYear) {
+      return res.status(400).json({ 
+        error: 'Transcript URL and graduation year are required' 
+      });
+    }
 
     const transcriptData = {
       studentId: req.user.uid,
       transcriptUrl,
       certificates: certificates || [],
-      graduationYear,
-      gpa: gpa || null,
+      graduationYear: parseInt(graduationYear),
+      gpa: gpa ? parseFloat(gpa) : null,
       extraCurricularActivities: extraCurricularActivities || [],
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
+      verified: false
     };
 
     const docRef = await db.collection(collections.TRANSCRIPTS).add(transcriptData);
     
-    // Update user profile to indicate graduation
+    // Update user profile to mark as graduate
     await db.collection(collections.USERS).doc(req.user.uid).update({
       isGraduate: true,
-      transcriptId: docRef.id
+      transcriptId: docRef.id,
+      updatedAt: new Date().toISOString()
     });
 
-    res.status(201).json({ id: docRef.id, ...transcriptData });
+    // Create notification
+    await createNotification(req.user.uid, {
+      type: 'general',
+      title: 'Transcript Uploaded',
+      message: 'Your academic transcript has been uploaded successfully. You can now apply for jobs!'
+    });
+
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...transcriptData,
+      message: 'Transcript uploaded successfully. You can now apply for jobs!'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get available jobs - FILTERED BY QUALIFICATION
+// Get my transcript
+router.get('/transcripts', async (req, res) => {
+  try {
+    const snapshot = await db.collection(collections.TRANSCRIPTS)
+      .where('studentId', '==', req.user.uid)
+      .get();
+    
+    if (snapshot.empty) {
+      return res.json(null);
+    }
+
+    const transcriptDoc = snapshot.docs[0];
+    res.json({
+      id: transcriptDoc.id,
+      ...transcriptDoc.data()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// JOB OPPORTUNITIES
+// ============================================
+
+// Get available jobs (filtered by qualification)
 router.get('/jobs', async (req, res) => {
   try {
-    // Get student's qualifications
+    // Get student profile
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const student = studentDoc.data();
 
     // Get all active jobs
     const snapshot = await db.collection(collections.JOBS)
-      .where('status', '==', 'active').get();
+      .where('status', '==', 'active')
+      .get();
     
     const jobs = await Promise.all(snapshot.docs.map(async doc => {
       const jobData = doc.data();
-      const companyDoc = await db.collection(collections.USERS).doc(jobData.companyId).get();
+      
+      // Get company info
+      const companyDoc = await db.collection(collections.USERS)
+        .doc(jobData.companyId).get();
       
       // Calculate qualification match
       const qualificationMatch = calculateJobMatch(student, jobData);
@@ -343,37 +603,46 @@ router.get('/jobs', async (req, res) => {
       return {
         id: doc.id,
         ...jobData,
-        company: companyDoc.exists ? companyDoc.data().name : 'Unknown',
-        qualificationMatch, // Show match percentage
-        qualifiedToApply: qualificationMatch >= 50 // Only show jobs with 50%+ match
+        company: companyDoc.exists ? companyDoc.data().name : 'Unknown Company',
+        qualificationMatch,
+        qualifiedToApply: qualificationMatch >= 40 // Show jobs with 40%+ match
       };
     }));
 
-    // Filter to only show qualified jobs
-    const qualifiedJobs = jobs.filter(job => job.qualifiedToApply);
+    // Filter to show relevant jobs
+    const relevantJobs = jobs.filter(job => job.qualifiedToApply);
 
-    res.json(qualifiedJobs);
+    res.json(relevantJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Helper function to calculate job match - IMPROVED
+// Helper: Calculate job match score
 function calculateJobMatch(student, job) {
   let score = 0;
-  const transcript = student.transcriptId ? 50 : 0; // Has transcript
 
-  // Check qualifications match
-  if (student.qualifications && student.qualifications.includes(job.qualifications)) {
-    score += 30;
+  // Has transcript (50 points)
+  if (student.transcriptId) {
+    score += 50;
   }
 
-  // Check experience
+  // Qualifications match (30 points)
+  if (student.qualifications && job.qualifications) {
+    const hasRequiredQual = student.qualifications.some(q => 
+      job.qualifications.toLowerCase().includes(q.toLowerCase())
+    );
+    if (hasRequiredQual) {
+      score += 30;
+    }
+  }
+
+  // Work experience (20 points)
   if (student.workExperience && student.workExperience.length > 0) {
     score += 20;
   }
 
-  return score + transcript;
+  return Math.min(score, 100);
 }
 
 // Apply for job
@@ -382,6 +651,13 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
     const { jobId } = req.params;
     const { coverLetter } = req.body;
 
+    // Validate cover letter
+    if (!coverLetter || coverLetter.trim().length < 50) {
+      return res.status(400).json({ 
+        error: 'Cover letter must be at least 50 characters long' 
+      });
+    }
+
     // Check if already applied
     const existingApp = await db.collection(collections.JOB_APPLICATIONS)
       .where('studentId', '==', req.user.uid)
@@ -389,55 +665,212 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       .get();
 
     if (!existingApp.empty) {
-      return res.status(400).json({ error: 'You already applied for this job' });
+      return res.status(400).json({ 
+        error: 'You have already applied for this job' 
+      });
     }
 
-    // Check if student is a graduate with transcript
+    // Verify student is graduate with transcript
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const studentData = studentDoc.data();
 
     if (!studentData.isGraduate || !studentData.transcriptId) {
       return res.status(400).json({ 
-        error: 'You must upload your transcript before applying for jobs' 
+        error: 'You must upload your academic transcript before applying for jobs' 
       });
     }
 
+    // Verify job exists
+    const jobDoc = await db.collection(collections.JOBS).doc(jobId).get();
+    if (!jobDoc.exists) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const job = jobDoc.data();
+    if (job.status !== 'active') {
+      return res.status(400).json({ error: 'This job is no longer accepting applications' });
+    }
+
+    // Create application
     const applicationData = {
       studentId: req.user.uid,
       jobId,
-      coverLetter,
+      coverLetter: coverLetter.trim(),
       status: 'pending',
-      appliedAt: new Date().toISOString()
+      appliedAt: new Date().toISOString(),
+      studentInfo: {
+        name: studentData.name,
+        email: studentData.email,
+        phone: studentData.phone,
+        transcriptId: studentData.transcriptId
+      }
     };
 
     const docRef = await db.collection(collections.JOB_APPLICATIONS).add(applicationData);
-    res.status(201).json({ id: docRef.id, ...applicationData });
+    
+    // Create notification
+    await createNotification(req.user.uid, {
+      type: 'job',
+      title: 'Job Application Submitted',
+      message: `Your application for ${job.title} has been submitted successfully.`,
+      relatedId: docRef.id
+    });
+
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...applicationData,
+      message: 'Job application submitted successfully'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get my job applications
+// Get my job applications - FIXED: Removed orderBy
 router.get('/job-applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.JOB_APPLICATIONS)
-      .where('studentId', '==', req.user.uid).get();
+      .where('studentId', '==', req.user.uid)
+      .get();
     
-    const applications = await Promise.all(snapshot.docs.map(async doc => {
+    // Sort in JavaScript
+    const docs = snapshot.docs.sort((a, b) => {
+      const dateA = new Date(a.data().appliedAt);
+      const dateB = new Date(b.data().appliedAt);
+      return dateB - dateA; // Descending order
+    });
+    
+    const applications = await Promise.all(docs.map(async doc => {
       const appData = doc.data();
       const jobDoc = await db.collection(collections.JOBS).doc(appData.jobId).get();
+      
+      let jobDetails = null;
+      if (jobDoc.exists) {
+        const jobData = jobDoc.data();
+        const companyDoc = await db.collection(collections.USERS)
+          .doc(jobData.companyId).get();
+        
+        jobDetails = {
+          ...jobData,
+          company: companyDoc.exists ? companyDoc.data().name : 'Unknown'
+        };
+      }
       
       return {
         id: doc.id,
         ...appData,
-        job: jobDoc.exists ? jobDoc.data() : null
+        job: jobDetails
       };
     }));
 
     res.json(applications);
   } catch (error) {
+    console.error('Get job applications error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+// Get notifications - FIXED: Removed orderBy
+router.get('/notifications', async (req, res) => {
+  try {
+    const snapshot = await db.collection(collections.NOTIFICATIONS)
+      .where('userId', '==', req.user.uid)
+      .limit(50)
+      .get();
+    
+    // Sort in JavaScript
+    const notifications = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB - dateA; // Descending order
+      });
+
+    res.json(notifications);
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark notification as read
+router.put('/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const notifDoc = await db.collection(collections.NOTIFICATIONS).doc(id).get();
+    
+    if (!notifDoc.exists || notifDoc.data().userId !== req.user.uid) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    await db.collection(collections.NOTIFICATIONS).doc(id).update({
+      read: true,
+      readAt: new Date().toISOString()
+    });
+
+    res.json({ message: 'Notification marked as read' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark all notifications as read
+router.put('/notifications/read-all', async (req, res) => {
+  try {
+    const snapshot = await db.collection(collections.NOTIFICATIONS)
+      .where('userId', '==', req.user.uid)
+      .where('read', '==', false)
+      .get();
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        read: true,
+        readAt: new Date().toISOString()
+      });
+    });
+
+    await batch.commit();
+
+    res.json({ 
+      message: 'All notifications marked as read',
+      count: snapshot.size
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Create notification helper
+async function createNotification(userId, { type, title, message, relatedId }) {
+  try {
+    const notificationData = {
+      userId,
+      type,
+      title,
+      message,
+      relatedId: relatedId || null,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+
+    await db.collection(collections.NOTIFICATIONS).add(notificationData);
+  } catch (error) {
+    console.error('Failed to create notification:', error);
+  }
+}
 
 module.exports = router;
