@@ -1,4 +1,4 @@
-// client/src/pages/Register.jsx - FIXED VERSION
+// client/src/pages/Register.jsx - COMPLETE VERSION WITH SPAM WARNING
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -124,7 +124,27 @@ export default function Register() {
           </div>
         )}
         
-        {success && <div className="success-message">{success}</div>}
+        {success && (
+          <div className="success-message">
+            {success}
+            <div style={{ 
+              marginTop: '15px', 
+              padding: '12px', 
+              background: '#fff3cd', 
+              border: '1px solid #ffc107',
+              borderRadius: '6px',
+              fontSize: '13px'
+            }}>
+              <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#856404' }}>
+                📧 Check your email inbox
+              </p>
+              <p style={{ margin: '0', color: '#856404' }}>
+                If you don't see the verification email, <strong>please check your spam/junk folder</strong>. 
+                Mark it as "Not Spam" to ensure you receive future emails.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
