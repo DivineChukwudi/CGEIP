@@ -1724,3 +1724,331 @@ tr.selected-row {
     background: white;
   }
 }
+/* ============================================
+   REQUIREMENTS #2 & #4 STYLES
+   Add these to the END of your global.css file
+   ============================================ */
+
+/* REQUIREMENT #2: Course Eligibility Styling */
+.course-item.not-eligible {
+  opacity: 0.7;
+  border: 2px solid #e74c3c;
+  background-color: #fee;
+}
+
+.eligibility-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  margin: 10px 0;
+}
+
+.eligibility-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 18px;
+}
+
+.eligibility-warning div {
+  flex: 1;
+}
+
+.eligibility-warning strong {
+  display: block;
+  color: #856404;
+  margin-bottom: 4px;
+}
+
+.eligibility-warning p {
+  margin: 4px 0;
+  color: #856404;
+  font-size: 14px;
+}
+
+.eligibility-warning small {
+  display: block;
+  color: #856404;
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.eligibility-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  margin: 10px 0;
+  color: #155724;
+  font-size: 14px;
+}
+
+/* REQUIREMENT #4: Job Match Badge */
+.match-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.job-header h3 {
+  flex: 1;
+  margin: 0;
+}
+
+/* Info banner for transcript upload */
+.info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.info-banner svg {
+  flex-shrink: 0;
+  font-size: 32px;
+  opacity: 0.9;
+}
+
+.info-banner div {
+  flex: 1;
+}
+
+.info-banner strong {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.info-banner p {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.info-banner .btn-secondary {
+  margin-top: 12px;
+  background-color: white;
+  color: #667eea;
+  border: none;
+}
+
+.info-banner .btn-secondary:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+/* Application status icons */
+.status-icon {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 16px;
+  vertical-align: middle;
+}
+
+.status-icon.success {
+  color: #27ae60;
+}
+
+.status-icon.danger {
+  color: #e74c3c;
+}
+
+.status-icon.warning {
+  color: #f39c12;
+}
+
+.status-icon.pending {
+  color: #95a5a6;
+}
+
+/* Selected row highlighting */
+.selected-row {
+  background-color: #e8f5e9 !important;
+  border-left: 4px solid #27ae60;
+}
+
+.selected-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: #27ae60;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  text-transform: uppercase;
+}
+
+/* Graduate badge */
+.graduate-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background-color: #d4edda;
+  border: 2px solid #27ae60;
+  border-radius: 8px;
+  color: #155724;
+  font-weight: 600;
+  margin: 20px 0;
+}
+
+.graduate-badge svg {
+  font-size: 24px;
+  color: #27ae60;
+}
+
+/* Notification types */
+.notification-item.job {
+  border-left: 4px solid #3498db;
+}
+
+.notification-item.job.unread {
+  background-color: #e8f4f8;
+}
+
+.notification-item.admission {
+  border-left: 4px solid #9b59b6;
+}
+
+.notification-item.general {
+  border-left: 4px solid #95a5a6;
+}
+
+/* Success text */
+.text-success {
+  color: #27ae60;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #7f8c8d;
+}
+
+.empty-state svg {
+  color: #bdc3c7;
+  margin-bottom: 20px;
+}
+
+.empty-state h3 {
+  color: #2c3e50;
+  margin: 20px 0 10px;
+}
+
+.empty-state p {
+  margin-bottom: 24px;
+}
+
+/* App count badge */
+.app-count {
+  font-size: 13px;
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+/* Filter select */
+.filter-select {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-select:hover {
+  border-color: #3498db;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Modal filters */
+.modal-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.modal-filters .search-bar {
+  flex: 1;
+  min-width: 200px;
+}
+
+.modal-filters .filter-select {
+  min-width: 150px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .eligibility-warning,
+  .eligibility-success {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .info-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .info-banner svg {
+    font-size: 48px;
+  }
+
+  .job-header {
+    flex-direction: column;
+  }
+
+  .match-badge {
+    margin-top: 8px;
+  }
+}
+
+/* Pulse animation for new job notifications */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+  }
+}
+
+.notification-item.job.unread {
+  animation: pulse 2s infinite;
+}

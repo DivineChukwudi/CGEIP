@@ -1,7 +1,7 @@
 // client/src/pages/CompanyDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { companyAPI } from '../utils/api';
-import { FaPlus, FaTrash, FaBriefcase, FaEye } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle } from 'react-icons/fa';
 import '../styles/global.css';
 
 export default function CompanyDashboard({ user }) {
@@ -90,6 +90,20 @@ export default function CompanyDashboard({ user }) {
     }
   };
 
+  const getScoreColor = (score) => {
+    if (score >= 90) return '#10b981'; // Excellent - Green
+    if (score >= 80) return '#3b82f6'; // Very Good - Blue
+    if (score >= 70) return '#f59e0b'; // Good - Orange
+    return '#ef4444'; // Below threshold - Red
+  };
+
+  const getScoreLabel = (score) => {
+    if (score >= 90) return 'Excellent Match';
+    if (score >= 80) return 'Very Good Match';
+    if (score >= 70) return 'Good Match';
+    return 'Below Threshold';
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-sidebar">
@@ -154,7 +168,7 @@ export default function CompanyDashboard({ user }) {
                           className="btn-info btn-sm"
                           onClick={() => handleViewApplicants(job)}
                         >
-                          <FaEye /> View Applicants
+                          <FaEye /> View Qualified
                         </button>
                         <button
                           className="btn-icon danger"
@@ -266,18 +280,127 @@ export default function CompanyDashboard({ user }) {
 
         {showModal && modalType === 'view-applicants' && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Qualified Applicants for: {selectedJob?.title}</h2>
+            <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>
+              <h2>Interview-Ready Applicants: {selectedJob?.title}</h2>
+              <p style={{ color: '#10b981', fontSize: '14px', marginBottom: '20px' }}>
+                <FaCheckCircle style={{ marginRight: '5px' }} />
+                Showing only applicants with ≥70% qualification match
+              </p>
+              
               <div className="applicants-list">
                 {applicants.length === 0 ? (
-                  <p>No qualified applicants yet.</p>
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                    <p>No interview-ready applicants yet.</p>
+                    <p style={{ fontSize: '14px', marginTop: '10px' }}>
+                      Applicants must score at least 70% to appear here.
+                    </p>
+                  </div>
                 ) : (
                   applicants.map((app) => (
-                    <div key={app.id} className="applicant-card">
-                      <h3>{app.student?.name}</h3>
-                      <p><strong>Email:</strong> {app.student?.email}</p>
-                      <p><strong>Qualification Score:</strong> {app.qualificationScore}%</p>
-                      <p><strong>Cover Letter:</strong> {app.coverLetter}</p>
+                    <div key={app.id} className="applicant-card-enhanced">
+                      {/* Header Section */}
+                      <div className="applicant-header">
+                        <div>
+                          <h3>{app.student?.name}</h3>
+                          <p style={{ color: '#6b7280', fontSize: '14px' }}>{app.student?.email}</p>
+                        </div>
+                        <div className="qualification-badge" style={{ 
+                          backgroundColor: getScoreColor(app.qualificationScore),
+                          color: 'white',
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                            {app.qualificationScore}%
+                          </div>
+                          <div style={{ fontSize: '12px' }}>
+                            {getScoreLabel(app.qualificationScore)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Score Breakdown */}
+                      <div className="score-breakdown">
+                        <h4>Qualification Breakdown</h4>
+                        <div className="score-bars">
+                          <div className="score-item">
+                            <div className="score-label">
+                              <FaGraduationCap style={{ color: '#3b82f6' }} />
+                              <span>Academic Performance</span>
+                            </div>
+                            <div className="score-bar">
+                              <div 
+                                className="score-fill" 
+                                style={{ 
+                                  width: `${(app.scoreBreakdown.academic / 30) * 100}%`,
+                                  backgroundColor: '#3b82f6'
+                                }}
+                              />
+                            </div>
+                            <span className="score-value">{app.scoreBreakdown.academic}/30</span>
+                          </div>
+
+                          <div className="score-item">
+                            <div className="score-label">
+                              <FaCertificate style={{ color: '#10b981' }} />
+                              <span>Extra Certificates</span>
+                            </div>
+                            <div className="score-bar">
+                              <div 
+                                className="score-fill" 
+                                style={{ 
+                                  width: `${(app.scoreBreakdown.certificates / 20) * 100}%`,
+                                  backgroundColor: '#10b981'
+                                }}
+                              />
+                            </div>
+                            <span className="score-value">{app.scoreBreakdown.certificates}/20</span>
+                          </div>
+
+                          <div className="score-item">
+                            <div className="score-label">
+                              <FaWork style={{ color: '#f59e0b' }} />
+                              <span>Work Experience</span>
+                            </div>
+                            <div className="score-bar">
+                              <div 
+                                className="score-fill" 
+                                style={{ 
+                                  width: `${(app.scoreBreakdown.experience / 25) * 100}%`,
+                                  backgroundColor: '#f59e0b'
+                                }}
+                              />
+                            </div>
+                            <span className="score-value">{app.scoreBreakdown.experience}/25</span>
+                          </div>
+
+                          <div className="score-item">
+                            <div className="score-label">
+                              <FaCheckCircle style={{ color: '#8b5cf6' }} />
+                              <span>Job Relevance</span>
+                            </div>
+                            <div className="score-bar">
+                              <div 
+                                className="score-fill" 
+                                style={{ 
+                                  width: `${(app.scoreBreakdown.relevance / 25) * 100}%`,
+                                  backgroundColor: '#8b5cf6'
+                                }}
+                              />
+                            </div>
+                            <span className="score-value">{app.scoreBreakdown.relevance}/25</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cover Letter */}
+                      <div className="cover-letter-section">
+                        <h4>Cover Letter</h4>
+                        <p>{app.coverLetter}</p>
+                      </div>
+
+                      {/* Actions */}
                       <div className="applicant-actions">
                         <button
                           className="btn-success btn-sm"
@@ -302,6 +425,7 @@ export default function CompanyDashboard({ user }) {
                   ))
                 )}
               </div>
+              
               <button className="btn-secondary" onClick={() => setShowModal(false)}>
                 Close
               </button>
@@ -309,6 +433,99 @@ export default function CompanyDashboard({ user }) {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .applicant-card-enhanced {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 24px;
+          margin-bottom: 20px;
+        }
+
+        .applicant-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #f3f4f6;
+        }
+
+        .score-breakdown {
+          margin-bottom: 20px;
+        }
+
+        .score-breakdown h4 {
+          margin-bottom: 16px;
+          color: #1f2937;
+          font-size: 16px;
+        }
+
+        .score-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .score-item {
+          display: grid;
+          grid-template-columns: 200px 1fr 60px;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .score-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          color: #4b5563;
+        }
+
+        .score-bar {
+          height: 24px;
+          background: #f3f4f6;
+          border-radius: 12px;
+          overflow: hidden;
+        }
+
+        .score-fill {
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+
+        .score-value {
+          font-weight: 600;
+          font-size: 14px;
+          text-align: right;
+        }
+
+        .cover-letter-section {
+          margin-bottom: 20px;
+          padding: 16px;
+          background: #f9fafb;
+          border-radius: 8px;
+        }
+
+        .cover-letter-section h4 {
+          margin-bottom: 8px;
+          color: #1f2937;
+          font-size: 14px;
+        }
+
+        .cover-letter-section p {
+          color: #4b5563;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .modal-content.extra-large {
+          max-width: 900px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+      `}</style>
     </div>
   );
 }

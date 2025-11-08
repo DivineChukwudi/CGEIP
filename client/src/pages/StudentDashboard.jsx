@@ -693,19 +693,44 @@ export default function StudentDashboard({ user }) {
       </div>
 
       <div className="courses-list">
-        {filteredCourses.map((course) => (
-          <div key={course.id} className="course-item">
-            <h3>{course.name}</h3>
-            <p><strong>Faculty:</strong> {course.faculty?.name}</p>
-            <p><strong>Duration:</strong> {course.duration}</p>
-            <p><strong>Level:</strong> {course.level}</p>
-            <p>{course.description}</p>
-            <button className="btn-primary" onClick={() => handleApplyCourse(course)}>
-              Apply for this Course
-            </button>
+  {filteredCourses.map((course) => (
+    <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
+      <h3>{course.name}</h3>
+      <p><strong>Faculty:</strong> {course.faculty?.name}</p>
+      <p><strong>Duration:</strong> {course.duration}</p>
+      <p><strong>Level:</strong> {course.level}</p>
+      <p>{course.description}</p>
+      
+      {/* REQUIREMENT #2: Show eligibility status */}
+      {!course.eligible && (
+        <div className="eligibility-warning">
+          <FaTimesCircle style={{ color: '#e74c3c' }} />
+          <div>
+            <strong>Not Eligible</strong>
+            <p>{course.eligibilityReason}</p>
+            <small>Required: {course.requiredQualification}</small>
+            <small>Your qualifications: {course.yourQualifications || 'None listed'}</small>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+      
+      {course.eligible && (
+        <div className="eligibility-success">
+          <FaCheckCircle style={{ color: '#27ae60' }} />
+          <span>{course.eligibilityReason}</span>
+        </div>
+      )}
+      
+      <button 
+        className="btn-primary" 
+        onClick={() => handleApplyCourse(course)}
+        disabled={!course.eligible}
+      >
+        {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
+      </button>
+    </div>
+  ))}
+</div>
       <button className="btn-secondary" onClick={() => {
         setShowModal(false);
         setSearchTerm('');

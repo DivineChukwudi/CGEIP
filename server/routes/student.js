@@ -1,4 +1,3 @@
-// server/routes/student.js - FIXED VERSION
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -11,7 +10,7 @@ router.use(verifyToken);
 router.use(checkRole(['student']));
 
 // ============================================
-// HELPER FUNCTION
+// HELPER FUNCTIONS
 // ============================================
 
 async function createNotification(userId, { type, title, message, relatedId }) {
@@ -31,18 +30,153 @@ async function createNotification(userId, { type, title, message, relatedId }) {
   }
 }
 
+// REQUIREMENT #2: Enhanced eligibility check with detailed feedback
+function checkCourseEligibility(student, course) {
+  const studentQualifications = student.qualifications || [];
+  const requiredLevel = course.level || 'Certificate';
+
+  // Qualification hierarchy
+  const qualificationHierarchy = {
+    'High School': 0,
+    'Certificate': 1,
+    'Diploma': 2,
+    'Degree': 3,
+    'Masters': 4,
+    'PhD': 5
+  };
+
+  const studentHighestLevel = Math.max(
+    ...studentQualifications.map(q => qualificationHierarchy[q] || 0),
+    0
+  );
+
+  const requiredLevelValue = qualificationHierarchy[requiredLevel] || 0;
+
+  // Check specific requirements for each level
+  if (requiredLevel === 'PhD') {
+    if (studentHighestLevel < qualificationHierarchy['Masters']) {
+      return {
+        eligible: false,
+        reason: 'A Master\'s Degree is required for PhD programs',
+        requiredQualification: 'Masters',
+        yourQualifications: studentQualifications.join(', ') || 'None'
+      };
+    }
+  }
+
+  if (requiredLevel === 'Masters') {
+    if (studentHighestLevel < qualificationHierarchy['Degree']) {
+      return {
+        eligible: false,
+        reason: 'A Bachelor\'s Degree is required for Masters programs',
+        requiredQualification: 'Degree',
+        yourQualifications: studentQualifications.join(', ') || 'None'
+      };
+    }
+  }
+
+  if (requiredLevel === 'Degree') {
+    if (studentHighestLevel < qualificationHierarchy['Diploma']) {
+      return {
+        eligible: false,
+        reason: 'At least a Diploma or High School Certificate is required for Degree programs',
+        requiredQualification: 'Diploma or High School',
+        yourQualifications: studentQualifications.join(', ') || 'None'
+      };
+    }
+  }
+
+  if (requiredLevel === 'Diploma') {
+    if (studentHighestLevel < qualificationHierarchy['Certificate']) {
+      return {
+        eligible: false,
+        reason: 'At least a Certificate or High School is required for Diploma programs',
+        requiredQualification: 'Certificate or High School',
+        yourQualifications: studentQualifications.join(', ') || 'None'
+      };
+    }
+  }
+
+  if (requiredLevel === 'Certificate') {
+    if (studentHighestLevel < qualificationHierarchy['High School']) {
+      return {
+        eligible: false,
+        reason: 'High School education is required for Certificate programs',
+        requiredQualification: 'High School',
+        yourQualifications: studentQualifications.join(', ') || 'None'
+      };
+    }
+  }
+
+  return { 
+    eligible: true,
+    message: 'You meet the qualification requirements'
+  };
+}
+
+// REQUIREMENT #4: Calculate job match and check if student should be notified
+function calculateJobMatchAndEligibility(student, job) {
+  let score = 0;
+  let eligible = false;
+
+  // Must be a graduate with transcript to be eligible
+  if (!student.isGraduate || !student.transcriptId) {
+    return { score: 0, eligible: false, reason: 'Must be a verified graduate' };
+  }
+
+  // Has verified transcript (40 points)
+  if (student.transcriptId && student.transcriptVerified) {
+    score += 40;
+    eligible = true;
+  } else if (student.transcriptId) {
+    score += 20;
+  }
+
+  // Qualifications match (40 points)
+  if (student.qualifications && job.qualifications) {
+    const studentQuals = student.qualifications.map(q => q.toLowerCase());
+    const jobQuals = job.qualifications.toLowerCase();
+    
+    const hasRequiredQual = studentQuals.some(q => jobQuals.includes(q));
+    if (hasRequiredQual) {
+      score += 40;
+      eligible = true;
+    } else {
+      // Partial match (20 points)
+      const partialMatch = studentQuals.some(q => 
+        jobQuals.split(' ').some(word => word.includes(q) || q.includes(word))
+      );
+      if (partialMatch) {
+        score += 20;
+      }
+    }
+  }
+
+  // Work experience (20 points)
+  if (student.workExperience && student.workExperience.length > 0) {
+    score += 20;
+  }
+
+  // Student is eligible if they have at least 50% match
+  eligible = score >= 50;
+
+  return { 
+    score: Math.min(score, 100), 
+    eligible,
+    reason: eligible ? 'Qualified for this position' : 'Does not meet minimum requirements'
+  };
+}
+
 // ============================================
 // PROFILE MANAGEMENT
 // ============================================
 
-// Get student profile
 router.get('/profile', async (req, res) => {
   try {
     const userDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const userData = userDoc.data();
     delete userData.password;
     
-    // Get transcript info if exists
     if (userData.transcriptId) {
       const transcriptDoc = await db.collection(collections.TRANSCRIPTS)
         .doc(userData.transcriptId).get();
@@ -55,7 +189,6 @@ router.get('/profile', async (req, res) => {
   }
 });
 
-// Update student profile
 router.put('/profile', async (req, res) => {
   try {
     const updateData = { 
@@ -63,7 +196,6 @@ router.put('/profile', async (req, res) => {
       updatedAt: new Date().toISOString() 
     };
     
-    // Remove protected fields
     delete updateData.password;
     delete updateData.role;
     delete updateData.email;
@@ -72,7 +204,6 @@ router.put('/profile', async (req, res) => {
 
     await db.collection(collections.USERS).doc(req.user.uid).update(updateData);
     
-    // Create notification
     await createNotification(req.user.uid, {
       type: 'general',
       title: 'Profile Updated',
@@ -85,36 +216,10 @@ router.put('/profile', async (req, res) => {
   }
 });
 
-// Upload additional documents
-router.post('/documents', async (req, res) => {
-  try {
-    const { documentType, documentUrl, description } = req.body;
-
-    const documentData = {
-      studentId: req.user.uid,
-      documentType,
-      documentUrl,
-      description,
-      uploadedAt: new Date().toISOString()
-    };
-
-    const docRef = await db.collection(collections.DOCUMENTS).add(documentData);
-    
-    res.status(201).json({ 
-      id: docRef.id, 
-      ...documentData,
-      message: 'Document uploaded successfully'
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // ============================================
 // INSTITUTIONS & COURSES
 // ============================================
 
-// Get all institutions
 router.get('/institutions', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.INSTITUTIONS)
@@ -132,18 +237,21 @@ router.get('/institutions', async (req, res) => {
   }
 });
 
-// Get courses by institution with detailed info
+// REQUIREMENT #2: Get courses with eligibility check
 router.get('/institutions/:institutionId/courses', async (req, res) => {
   try {
     const { institutionId } = req.params;
     
-    // Verify institution exists
     const instDoc = await db.collection(collections.INSTITUTIONS)
       .doc(institutionId).get();
     
     if (!instDoc.exists) {
       return res.status(404).json({ error: 'Institution not found' });
     }
+
+    // Get student profile for eligibility check
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    const student = studentDoc.data();
     
     const snapshot = await db.collection(collections.COURSES)
       .where('institutionId', '==', institutionId)
@@ -153,21 +261,27 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
     const courses = await Promise.all(snapshot.docs.map(async doc => {
       const courseData = doc.data();
       
-      // Get faculty info
       const facultyDoc = await db.collection(collections.FACULTIES)
         .doc(courseData.facultyId).get();
       
-      // Get application count for this course
       const appCount = await db.collection(collections.APPLICATIONS)
         .where('courseId', '==', doc.id)
         .get();
+
+      // REQUIREMENT #2: Check eligibility for this course
+      const eligibility = checkCourseEligibility(student, courseData);
       
       return {
         id: doc.id,
         ...courseData,
         faculty: facultyDoc.exists ? facultyDoc.data() : null,
         applicationCount: appCount.size,
-        availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null
+        availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null,
+        // Add eligibility info
+        eligible: eligibility.eligible,
+        eligibilityReason: eligibility.reason || eligibility.message,
+        requiredQualification: eligibility.requiredQualification,
+        yourQualifications: eligibility.yourQualifications
       };
     }));
 
@@ -178,15 +292,14 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
 });
 
 // ============================================
-// COURSE APPLICATIONS (Max 2 per institution)
+// COURSE APPLICATIONS (REQUIREMENT #2 ENFORCED)
 // ============================================
 
-// Apply for course with comprehensive validation
 router.post('/applications', async (req, res) => {
   try {
     const { institutionId, courseId, documents } = req.body;
 
-    // 1. CRITICAL: Check if student already SELECTED an institution
+    // Check if student already SELECTED an institution
     const selectedAdmission = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('selected', '==', true)
@@ -198,7 +311,7 @@ router.post('/applications', async (req, res) => {
       });
     }
 
-    // 2. Check max 2 applications per institution
+    // Check max 2 applications per institution
     const existingApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('institutionId', '==', institutionId)
@@ -210,7 +323,7 @@ router.post('/applications', async (req, res) => {
       });
     }
 
-    // 3. Check duplicate course application
+    // Check duplicate course application
     const duplicateApp = existingApps.docs.find(doc => 
       doc.data().courseId === courseId
     );
@@ -221,7 +334,7 @@ router.post('/applications', async (req, res) => {
       });
     }
 
-    // 4. Validate course exists and is active
+    // Validate course exists and is active
     const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
     if (!courseDoc.exists) {
       return res.status(404).json({ error: 'Course not found' });
@@ -232,19 +345,23 @@ router.post('/applications', async (req, res) => {
       return res.status(400).json({ error: 'This course is not accepting applications' });
     }
 
-    // 5. Get student info
+    // Get student info
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const student = studentDoc.data();
 
-    // 6. Check course eligibility
+    // REQUIREMENT #2: Strict eligibility check
     const eligibility = checkCourseEligibility(student, course);
     if (!eligibility.eligible) {
-      return res.status(400).json({ 
-        error: `You don't meet the requirements: ${eligibility.reason}` 
+      return res.status(403).json({ 
+        error: 'You do not meet the qualification requirements for this course',
+        reason: eligibility.reason,
+        requiredQualification: eligibility.requiredQualification,
+        yourQualifications: eligibility.yourQualifications,
+        message: 'Please update your profile with the required qualifications before applying.'
       });
     }
 
-    // 7. Check course capacity
+    // Check course capacity
     if (course.capacity) {
       const currentApps = await db.collection(collections.APPLICATIONS)
         .where('courseId', '==', courseId)
@@ -258,7 +375,7 @@ router.post('/applications', async (req, res) => {
       }
     }
 
-    // 8. Create application
+    // Create application
     const applicationData = {
       studentId: req.user.uid,
       institutionId,
@@ -277,7 +394,6 @@ router.post('/applications', async (req, res) => {
 
     const docRef = await db.collection(collections.APPLICATIONS).add(applicationData);
     
-    // Create notification
     await createNotification(req.user.uid, {
       type: 'admission',
       title: 'Application Submitted',
@@ -296,71 +412,16 @@ router.post('/applications', async (req, res) => {
   }
 });
 
-// Helper: Check course eligibility
-function checkCourseEligibility(student, course) {
-  const studentQualifications = student.qualifications || [];
-  const requiredLevel = course.level || 'Certificate';
-
-  // Qualification hierarchy
-  const qualificationHierarchy = {
-    'High School': 0,
-    'Certificate': 1,
-    'Diploma': 2,
-    'Degree': 3,
-    'Masters': 4,
-    'PhD': 5
-  };
-
-  const studentHighestLevel = Math.max(
-    ...studentQualifications.map(q => qualificationHierarchy[q] || 0)
-  );
-
-  const requiredLevelValue = qualificationHierarchy[requiredLevel] || 0;
-
-  // Check if student meets minimum requirement
-  if (requiredLevel === 'Masters' && studentHighestLevel < qualificationHierarchy['Degree']) {
-    return {
-      eligible: false,
-      reason: 'A Bachelor\'s Degree is required for Masters programs'
-    };
-  }
-
-  if (requiredLevel === 'PhD' && studentHighestLevel < qualificationHierarchy['Masters']) {
-    return {
-      eligible: false,
-      reason: 'A Master\'s Degree is required for PhD programs'
-    };
-  }
-
-  if (requiredLevel === 'Degree' && studentHighestLevel < qualificationHierarchy['Diploma']) {
-    return {
-      eligible: false,
-      reason: 'A Diploma or equivalent is required for Degree programs'
-    };
-  }
-
-  if (requiredLevel === 'Diploma' && studentHighestLevel < qualificationHierarchy['Certificate']) {
-    return {
-      eligible: false,
-      reason: 'A Certificate or equivalent is required for Diploma programs'
-    };
-  }
-
-  return { eligible: true };
-}
-
-// Get my applications
 router.get('/applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .get();
     
-    // Sort in JavaScript instead of Firestore
     const docs = snapshot.docs.sort((a, b) => {
       const dateA = new Date(a.data().appliedAt);
       const dateB = new Date(b.data().appliedAt);
-      return dateB - dateA; // Descending order
+      return dateB - dateA;
     });
     
     const applications = await Promise.all(docs.map(async doc => {
@@ -387,15 +448,13 @@ router.get('/applications', async (req, res) => {
 });
 
 // ============================================
-// INSTITUTION SELECTION (Waitlist Management)
+// INSTITUTION SELECTION
 // ============================================
 
-// Select institution - ENHANCED with waitlist promotion
 router.post('/applications/:id/select', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get the application
     const appDoc = await db.collection(collections.APPLICATIONS).doc(id).get();
     
     if (!appDoc.exists || appDoc.data().studentId !== req.user.uid) {
@@ -416,7 +475,6 @@ router.post('/applications/:id/select', async (req, res) => {
       });
     }
 
-    // Check if student already selected another institution
     const otherSelected = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('selected', '==', true)
@@ -428,26 +486,22 @@ router.post('/applications/:id/select', async (req, res) => {
       });
     }
 
-    // Mark this application as selected
     await db.collection(collections.APPLICATIONS).doc(id).update({
       selected: true,
       selectedAt: new Date().toISOString()
     });
 
-    // Get all OTHER admitted applications for this student
     const otherAdmittedApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('status', '==', 'admitted')
       .get();
 
-    // Reject other applications and promote waitlisted students
     const promises = [];
     
     for (const doc of otherAdmittedApps.docs) {
       if (doc.id !== id) {
         const otherApp = doc.data();
         
-        // Reject this application
         promises.push(
           doc.ref.update({ 
             status: 'rejected', 
@@ -456,7 +510,6 @@ router.post('/applications/:id/select', async (req, res) => {
           })
         );
 
-        // WAITLIST PROMOTION LOGIC
         const waitingList = await db.collection(collections.APPLICATIONS)
           .where('institutionId', '==', otherApp.institutionId)
           .where('courseId', '==', otherApp.courseId)
@@ -464,17 +517,15 @@ router.post('/applications/:id/select', async (req, res) => {
           .get();
 
         if (!waitingList.empty) {
-          // Sort in JavaScript to get the earliest
           const sortedWaitlist = waitingList.docs.sort((a, b) => {
             const dateA = new Date(a.data().appliedAt);
             const dateB = new Date(b.data().appliedAt);
-            return dateA - dateB; // Ascending order
+            return dateA - dateB;
           });
 
           const nextStudent = sortedWaitlist[0];
           const nextStudentData = nextStudent.data();
           
-          // Promote from waitlist
           promises.push(
             nextStudent.ref.update({
               status: 'admitted',
@@ -483,7 +534,6 @@ router.post('/applications/:id/select', async (req, res) => {
             })
           );
 
-          // Notify promoted student
           promises.push(
             createNotification(nextStudentData.studentId, {
               type: 'admission',
@@ -498,7 +548,6 @@ router.post('/applications/:id/select', async (req, res) => {
 
     await Promise.all(promises);
 
-    // Create notification for the student
     await createNotification(req.user.uid, {
       type: 'admission',
       title: 'Institution Selected',
@@ -517,10 +566,9 @@ router.post('/applications/:id/select', async (req, res) => {
 });
 
 // ============================================
-// TRANSCRIPT UPLOAD WITH FILE UPLOAD (CLOUDINARY)
+// TRANSCRIPT UPLOAD
 // ============================================
 
-// Upload transcript and certificates
 router.post('/transcripts', upload.fields([
   { name: 'transcript', maxCount: 1 },
   { name: 'certificates', maxCount: 5 }
@@ -528,14 +576,12 @@ router.post('/transcripts', upload.fields([
   try {
     const { graduationYear, gpa, extraCurricularActivities } = req.body;
 
-    // Validate required fields
     if (!req.files?.transcript || !graduationYear) {
       return res.status(400).json({
         error: 'Transcript file and graduation year are required'
       });
     }
 
-    // Validate graduation year
     const year = parseInt(graduationYear);
     if (year < 2000 || year > new Date().getFullYear()) {
       return res.status(400).json({
@@ -543,19 +589,15 @@ router.post('/transcripts', upload.fields([
       });
     }
 
-    // Upload transcript to Cloudinary
     console.log('Uploading transcript to Cloudinary...');
     const transcriptUrl = await uploadToCloudinary(
       req.files.transcript[0],
       req.user.uid,
       'transcripts'
     );
-    console.log('Transcript URL:', transcriptUrl);
 
-    // Upload certificates if any
     let certificateUrls = [];
     if (req.files?.certificates) {
-      console.log(`Uploading ${req.files.certificates.length} certificates...`);
       certificateUrls = await Promise.all(
         req.files.certificates.map(file =>
           uploadToCloudinary(file, req.user.uid, 'certificates')
@@ -563,7 +605,6 @@ router.post('/transcripts', upload.fields([
       );
     }
 
-    // Prepare transcript data
     const transcriptData = {
       studentId: req.user.uid,
       transcriptUrl,
@@ -577,10 +618,8 @@ router.post('/transcripts', upload.fields([
       verified: false
     };
 
-    // Save to Firestore
     const docRef = await db.collection(collections.TRANSCRIPTS).add(transcriptData);
 
-    // Update user profile
     await db.collection(collections.USERS).doc(req.user.uid).update({
       isGraduate: true,
       transcriptId: docRef.id,
@@ -588,13 +627,14 @@ router.post('/transcripts', upload.fields([
       updatedAt: new Date().toISOString()
     });
 
-    // Create notification
     await createNotification(req.user.uid, {
-      type: 'transcript_uploaded',
+      type: 'general',
       title: 'Transcript Uploaded Successfully',
-      message: 'Your academic transcript has been received. Admins will verify it shortly, and you\'ll be able to apply for jobs once approved!',
-      actionUrl: '/student/dashboard'
+      message: 'Your academic transcript has been received. Admins will verify it shortly, and you\'ll be able to apply for jobs once approved!'
     });
+
+    // REQUIREMENT #4: Check for matching jobs and send notifications
+    await notifyStudentOfMatchingJobs(req.user.uid);
 
     res.status(201).json({
       id: docRef.id,
@@ -609,7 +649,6 @@ router.post('/transcripts', upload.fields([
   }
 });
 
-// Get my transcript
 router.get('/transcripts', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.TRANSCRIPTS)
@@ -631,17 +670,51 @@ router.get('/transcripts', async (req, res) => {
 });
 
 // ============================================
-// JOB OPPORTUNITIES
+// JOB OPPORTUNITIES (REQUIREMENT #4)
 // ============================================
 
-// Get available jobs (filtered by qualification)
+// REQUIREMENT #4: Helper function to notify student of matching jobs
+async function notifyStudentOfMatchingJobs(studentId) {
+  try {
+    const studentDoc = await db.collection(collections.USERS).doc(studentId).get();
+    const student = studentDoc.data();
+
+    if (!student.isGraduate || !student.transcriptId) {
+      return;
+    }
+
+    const jobsSnapshot = await db.collection(collections.JOBS)
+      .where('status', '==', 'active')
+      .get();
+
+    let matchCount = 0;
+
+    for (const jobDoc of jobsSnapshot.docs) {
+      const job = jobDoc.data();
+      const match = calculateJobMatchAndEligibility(student, job);
+
+      if (match.eligible) {
+        await createNotification(studentId, {
+          type: 'job',
+          title: 'New Job Opportunity Matches Your Profile!',
+          message: `${job.title} at ${job.company} - ${match.score}% match. Check it out in the Jobs section!`,
+          relatedId: jobDoc.id
+        });
+        matchCount++;
+      }
+    }
+
+    console.log(`Sent ${matchCount} job notifications to student ${studentId}`);
+  } catch (error) {
+    console.error('Error notifying student of jobs:', error);
+  }
+}
+
 router.get('/jobs', async (req, res) => {
   try {
-    // Get student profile
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const student = studentDoc.data();
 
-    // Get all active jobs
     const snapshot = await db.collection(collections.JOBS)
       .where('status', '==', 'active')
       .get();
@@ -649,72 +722,42 @@ router.get('/jobs', async (req, res) => {
     const jobs = await Promise.all(snapshot.docs.map(async doc => {
       const jobData = doc.data();
       
-      // Get company info
       const companyDoc = await db.collection(collections.USERS)
         .doc(jobData.companyId).get();
       
-      // Calculate qualification match
-      const qualificationMatch = calculateJobMatch(student, jobData);
+      // REQUIREMENT #4: Calculate match and eligibility
+      const match = calculateJobMatchAndEligibility(student, jobData);
       
       return {
         id: doc.id,
         ...jobData,
         company: companyDoc.exists ? companyDoc.data().name : 'Unknown Company',
-        qualificationMatch,
-        qualifiedToApply: qualificationMatch >= 40 // Show jobs with 40%+ match
+        qualificationMatch: match.score,
+        eligible: match.eligible,
+        eligibilityReason: match.reason
       };
     }));
 
-    // Filter to show relevant jobs
-    const relevantJobs = jobs.filter(job => job.qualifiedToApply);
+    // REQUIREMENT #4: Only show jobs student is qualified for
+    const qualifiedJobs = jobs.filter(job => job.eligible);
 
-    res.json(relevantJobs);
+    res.json(qualifiedJobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Helper: Calculate job match score
-function calculateJobMatch(student, job) {
-  let score = 0;
-
-  // Has transcript (50 points)
-  if (student.transcriptId) {
-    score += 50;
-  }
-
-  // Qualifications match (30 points)
-  if (student.qualifications && job.qualifications) {
-    const hasRequiredQual = student.qualifications.some(q => 
-      job.qualifications.toLowerCase().includes(q.toLowerCase())
-    );
-    if (hasRequiredQual) {
-      score += 30;
-    }
-  }
-
-  // Work experience (20 points)
-  if (student.workExperience && student.workExperience.length > 0) {
-    score += 20;
-  }
-
-  return Math.min(score, 100);
-}
-
-// Apply for job
 router.post('/jobs/:jobId/apply', async (req, res) => {
   try {
     const { jobId } = req.params;
     const { coverLetter } = req.body;
 
-    // Validate cover letter
     if (!coverLetter || coverLetter.trim().length < 50) {
       return res.status(400).json({ 
         error: 'Cover letter must be at least 50 characters long' 
       });
     }
 
-    // Check if already applied
     const existingApp = await db.collection(collections.JOB_APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('jobId', '==', jobId)
@@ -726,7 +769,6 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       });
     }
 
-    // Verify student is graduate with transcript
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const studentData = studentDoc.data();
 
@@ -736,7 +778,6 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       });
     }
 
-    // Verify job exists
     const jobDoc = await db.collection(collections.JOBS).doc(jobId).get();
     if (!jobDoc.exists) {
       return res.status(404).json({ error: 'Job not found' });
@@ -747,13 +788,23 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       return res.status(400).json({ error: 'This job is no longer accepting applications' });
     }
 
-    // Create application
+    // REQUIREMENT #4: Verify student is qualified
+    const match = calculateJobMatchAndEligibility(studentData, job);
+    if (!match.eligible) {
+      return res.status(403).json({
+        error: 'You do not meet the minimum qualifications for this job',
+        reason: match.reason,
+        message: 'Please ensure your profile is complete and matches the job requirements.'
+      });
+    }
+
     const applicationData = {
       studentId: req.user.uid,
       jobId,
       coverLetter: coverLetter.trim(),
       status: 'pending',
       appliedAt: new Date().toISOString(),
+      qualificationMatch: match.score,
       studentInfo: {
         name: studentData.name,
         email: studentData.email,
@@ -764,7 +815,6 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
 
     const docRef = await db.collection(collections.JOB_APPLICATIONS).add(applicationData);
     
-    // Create notification
     await createNotification(req.user.uid, {
       type: 'job',
       title: 'Job Application Submitted',
@@ -782,18 +832,16 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
   }
 });
 
-// Get my job applications
 router.get('/job-applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.JOB_APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .get();
     
-    // Sort in JavaScript
     const docs = snapshot.docs.sort((a, b) => {
       const dateA = new Date(a.data().appliedAt);
       const dateB = new Date(b.data().appliedAt);
-      return dateB - dateA; // Descending order
+      return dateB - dateA;
     });
     
     const applications = await Promise.all(docs.map(async doc => {
@@ -830,7 +878,6 @@ router.get('/job-applications', async (req, res) => {
 // NOTIFICATIONS
 // ============================================
 
-// Get notifications
 router.get('/notifications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.NOTIFICATIONS)
@@ -838,7 +885,6 @@ router.get('/notifications', async (req, res) => {
       .limit(50)
       .get();
     
-    // Sort in JavaScript
     const notifications = snapshot.docs
       .map(doc => ({
         id: doc.id,
@@ -847,7 +893,7 @@ router.get('/notifications', async (req, res) => {
       .sort((a, b) => {
         const dateA = new Date(a.createdAt);
         const dateB = new Date(b.createdAt);
-        return dateB - dateA; // Descending order
+        return dateB - dateA;
       });
 
     res.json(notifications);
@@ -857,7 +903,6 @@ router.get('/notifications', async (req, res) => {
   }
 });
 
-// Mark notification as read
 router.put('/notifications/:id/read', async (req, res) => {
   try {
     const { id } = req.params;
@@ -879,7 +924,6 @@ router.put('/notifications/:id/read', async (req, res) => {
   }
 });
 
-// Mark all notifications as read
 router.put('/notifications/read-all', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.NOTIFICATIONS)
