@@ -310,6 +310,8 @@ export const institutionAPI = {
 // STUDENT API - ENHANCED & COMPLETE
 // ============================================
 export const studentAPI = {
+  // ... all your existing methods ...
+
   // Profile Management
   getProfile: async () => {
     const { data } = await api.get('/student/profile');
@@ -337,9 +339,8 @@ export const studentAPI = {
     return data;
   },
 
-  // Course Applications (Max 2 per institution)
+  // Course Applications
   applyForCourse: async (applicationData) => {
-    // applicationData should include: institutionId, courseId, documents
     const { data } = await api.post('/student/applications', applicationData);
     return data;
   },
@@ -350,39 +351,37 @@ export const studentAPI = {
   },
 
   selectInstitution: async (applicationId) => {
-    // Selects institution, rejects other applications, promotes waitlisted students
     const { data } = await api.post(`/student/applications/${applicationId}/select`);
     return data;
   },
 
-  // Transcript Management (For Graduates)
-  uploadTranscript: async (transcriptData) => {
-    // transcriptData: { transcriptUrl, certificates, graduationYear, gpa, extraCurricularActivities }
-    const { data } = await api.post('/student/transcripts', transcriptData);
+  // TRANSCRIPT UPLOAD - WITH FILE UPLOAD (NEW)
+  uploadTranscript: async (formData) => {
+    const { data } = await api.post('/student/transcripts', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
     return data;
   },
 
   getTranscript: async () => {
-    // Returns null if no transcript exists
     const { data } = await api.get('/student/transcripts');
     return data;
   },
 
-  // Job Applications (Requires transcript upload first)
+  // Job Applications
   getJobs: async () => {
-    // Returns jobs filtered by qualification match (40%+ match)
     const { data } = await api.get('/student/jobs');
     return data;
   },
 
   applyForJob: async (jobId, applicationData) => {
-    // applicationData: { coverLetter } - minimum 50 characters required
     const { data } = await api.post(`/student/jobs/${jobId}/apply`, applicationData);
     return data;
   },
 
   getJobApplications: async () => {
-    // Returns all job applications with job details
     const { data } = await api.get('/student/job-applications');
     return data;
   },
@@ -401,7 +400,7 @@ export const studentAPI = {
   markAllNotificationsAsRead: async () => {
     const { data } = await api.put('/student/notifications/read-all');
     return data;
-  },
+  }
 };
 
 // ============================================

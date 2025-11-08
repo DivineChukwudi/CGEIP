@@ -1,4 +1,4 @@
-// client/src/pages/Login.jsx - WITH GOOGLE SIGN-IN
+// client/src/pages/Login.jsx - COMPLETE FIXED VERSION
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -13,10 +13,9 @@ const firebaseConfig = {
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,
   projectId: process.env.REACT_APP_PROJECT_ID,
   storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-  messagingSenderId:  process.env.REACT_APP_MESSAGING_SENDER_ID,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
   appId: process.env.REACT_APP_APP_ID,
 };
-
 
 let firebaseAuth;
 try {
@@ -58,12 +57,28 @@ export default function Login({ setUser }) {
     try {
       const response = await authAPI.login(formData);
       
+      console.log('✓ Login response:', response);
+      console.log('✓ User data:', response.user);
+      console.log('✓ User role:', response.user.role);
+
+      if (!response.user || !response.user.role) {
+        throw new Error('Invalid login response - missing user or role');
+      }
+
+      // Ensure role is included when saving
+      const userToSave = {
+        ...response.user,
+        role: response.user.role // Explicitly ensure role is there
+      };
+
       // Save to localStorage
       localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('user', JSON.stringify(userToSave));
+      
+      console.log('✓ Saved to localStorage:', userToSave);
       
       // Update app state
-      setUser({ ...response.user, token: response.token });
+      setUser({ ...userToSave, token: response.token });
       
       // Show warning if any
       if (response.warning) {
@@ -71,8 +86,11 @@ export default function Login({ setUser }) {
       }
       
       // Navigate to appropriate dashboard
-      navigate(`/${response.user.role}`);
+      console.log(`✓ Navigating to /${userToSave.role}`);
+      navigate(`/${userToSave.role}`);
+
     } catch (err) {
+      console.error('✗ Login error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -98,6 +116,8 @@ export default function Login({ setUser }) {
 
         const data = await response.json();
 
+        console.log('✓ Google response:', data);
+
         if (data.requiresRole) {
           // New user - show role selection modal
           setPendingGoogleToken(idToken);
@@ -110,18 +130,33 @@ export default function Login({ setUser }) {
           throw new Error(data.error || 'Google sign-in failed');
         }
 
+        if (!data.user || !data.user.role) {
+          throw new Error('Invalid response - missing user or role');
+        }
+
+        // Ensure role is included
+        const userToSave = {
+          ...data.user,
+          role: data.user.role
+        };
+
         // Existing user - proceed with login
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setUser({ ...data.user, token: data.token });
-        navigate(`/${data.user.role}`);
+        localStorage.setItem('user', JSON.stringify(userToSave));
+        
+        console.log('✓ Saved to localStorage:', userToSave);
+        
+        setUser({ ...userToSave, token: data.token });
+        
+        console.log(`✓ Navigating to /${userToSave.role}`);
+        navigate(`/${userToSave.role}`);
 
       } catch (apiError) {
         throw apiError;
       }
 
     } catch (error) {
-      console.error('Google sign-in error:', error);
+      console.error('✗ Google sign-in error:', error);
       setError(error.message || 'Google sign-in failed. Please try again.');
       setGoogleLoading(false);
     }
@@ -147,14 +182,33 @@ export default function Login({ setUser }) {
         throw new Error(data.error || 'Google sign-in failed');
       }
 
+      console.log('✓ Google signin response:', data);
+      console.log('✓ User role:', data.user.role);
+
+      if (!data.user || !data.user.role) {
+        throw new Error('Invalid response - missing user or role');
+      }
+
+      // Ensure role is included
+      const userToSave = {
+        ...data.user,
+        role: data.user.role // Explicitly ensure role is there
+      };
+
       // Save and navigate
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser({ ...data.user, token: data.token });
+      localStorage.setItem('user', JSON.stringify(userToSave));
+      
+      console.log('✓ Saved to localStorage:', userToSave);
+      
+      setUser({ ...userToSave, token: data.token });
       setShowRoleModal(false);
-      navigate(`/${data.user.role}`);
+      
+      console.log(`✓ Navigating to /${userToSave.role}`);
+      navigate(`/${userToSave.role}`);
 
     } catch (error) {
+      console.error('✗ Role submit error:', error);
       setError(error.message || 'Failed to complete sign-in');
     } finally {
       setGoogleLoading(false);

@@ -1,4 +1,4 @@
-// client/src/App.jsx - FIXED VERSION
+// client/src/App.jsx - FIXED VERSION WITH DEBUG
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -20,39 +20,63 @@ export default function App() {
       const token = localStorage.getItem("token");
       const userData = localStorage.getItem("user");
       if (!token || !userData) return null;
-      return { ...JSON.parse(userData), token };
+      const parsedUser = JSON.parse(userData);
+      console.log("✓ User loaded from localStorage:", parsedUser);
+      return { ...parsedUser, token };
     } catch (error) {
+      console.error("✗ Error parsing user from localStorage:", error);
       localStorage.clear();
       return null;
     }
   });
 
   const [teamMembers, setTeamMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadTeamMembers();
-  }, []);
+    setLoading(false);
+  }, []); // Proper dependency array
 
   const loadTeamMembers = async () => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/public/team`);
-
       const data = await response.json();
       setTeamMembers(data);
     } catch (error) {
-      console.error('Failed to load team members:', error);
+      console.error("✗ Failed to load team members:", error);
+      setTeamMembers([]);
     }
   };
 
   const logout = () => {
+    console.log("✓ Logging out user");
     localStorage.clear();
     setUser(null);
   };
 
   function ProtectedRoute({ user, allowedRoles, children }) {
-    if (!user) return <Navigate to="/login" replace />;
-    if (!allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
+    if (!user) {
+      console.log("✗ No user - redirecting to login");
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!user.role) {
+      console.error("✗ User has no role - redirecting to login");
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!allowedRoles.includes(user.role)) {
+      console.error(`✗ User role '${user.role}' not allowed. Allowed: ${allowedRoles.join(", ")}`);
+      return <Navigate to="/login" replace />;
+    }
+
+    console.log(`✓ Access granted to ${user.role} dashboard`);
     return children;
+  }
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "50px" }}>Loading...</div>;
   }
 
   return (
@@ -61,10 +85,40 @@ export default function App() {
       
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={!user ? <LandingPage /> : <Navigate to={`/${user.role}`} />} />
-        <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to={`/${user.role}`} />} />
-        <Route path="/register" element={!user ? <Register /> : <Navigate to={`/${user.role}`} />} />
-        <Route path="/verify-email" element={<EmailVerification />} /> {/* ADD THIS */}
+        <Route 
+          path="/" 
+          element={
+            !user ? (
+              <LandingPage />
+            ) : (
+              <Navigate to={`/${user.role}`} replace />
+            )
+          } 
+        />
+
+        <Route 
+          path="/login" 
+          element={
+            !user ? (
+              <Login setUser={setUser} />
+            ) : (
+              <Navigate to={`/${user.role}`} replace />
+            )
+          } 
+        />
+
+        <Route 
+          path="/register" 
+          element={
+            !user ? (
+              <Register />
+            ) : (
+              <Navigate to={`/${user.role}`} replace />
+            )
+          } 
+        />
+
+        <Route path="/verify-email" element={<EmailVerification />} />
         <Route path="/team" element={<MeetTheTeam members={teamMembers} />} />
 
         {/* Protected Routes */}

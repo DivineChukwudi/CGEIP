@@ -1,12 +1,35 @@
-// server/routes/student.js - FIXED VERSION (No orderBy to avoid index errors)
+// server/routes/student.js - FIXED VERSION
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
+const { upload } = require('../utils/fileUpload');
+const { uploadToCloudinary } = require('../utils/cloudinaryUpload');
 
 const router = express.Router();
 
 router.use(verifyToken);
 router.use(checkRole(['student']));
+
+// ============================================
+// HELPER FUNCTION
+// ============================================
+
+async function createNotification(userId, { type, title, message, relatedId }) {
+  try {
+    const notificationData = {
+      userId,
+      type,
+      title,
+      message,
+      relatedId: relatedId || null,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    await db.collection(collections.NOTIFICATIONS).add(notificationData);
+  } catch (error) {
+    console.error('Failed to create notification:', error);
+  }
+}
 
 // ============================================
 // PROFILE MANAGEMENT
@@ -326,7 +349,7 @@ function checkCourseEligibility(student, course) {
   return { eligible: true };
 }
 
-// Get my applications - FIXED: Removed orderBy
+// Get my applications
 router.get('/applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.APPLICATIONS)
@@ -433,12 +456,11 @@ router.post('/applications/:id/select', async (req, res) => {
           })
         );
 
-        // WAITLIST PROMOTION LOGIC - Removed orderBy
+        // WAITLIST PROMOTION LOGIC
         const waitingList = await db.collection(collections.APPLICATIONS)
           .where('institutionId', '==', otherApp.institutionId)
           .where('courseId', '==', otherApp.courseId)
           .where('status', '==', 'waitlisted')
-          .limit(1)
           .get();
 
         if (!waitingList.empty) {
@@ -495,61 +517,95 @@ router.post('/applications/:id/select', async (req, res) => {
 });
 
 // ============================================
-// TRANSCRIPT UPLOAD (For Graduates)
+// TRANSCRIPT UPLOAD WITH FILE UPLOAD (CLOUDINARY)
 // ============================================
 
 // Upload transcript and certificates
-router.post('/transcripts', async (req, res) => {
+router.post('/transcripts', upload.fields([
+  { name: 'transcript', maxCount: 1 },
+  { name: 'certificates', maxCount: 5 }
+]), async (req, res) => {
   try {
-    const { 
-      transcriptUrl, 
-      certificates, 
-      graduationYear, 
-      gpa, 
-      extraCurricularActivities 
-    } = req.body;
+    const { graduationYear, gpa, extraCurricularActivities } = req.body;
 
     // Validate required fields
-    if (!transcriptUrl || !graduationYear) {
-      return res.status(400).json({ 
-        error: 'Transcript URL and graduation year are required' 
+    if (!req.files?.transcript || !graduationYear) {
+      return res.status(400).json({
+        error: 'Transcript file and graduation year are required'
       });
     }
 
+    // Validate graduation year
+    const year = parseInt(graduationYear);
+    if (year < 2000 || year > new Date().getFullYear()) {
+      return res.status(400).json({
+        error: 'Please enter a valid graduation year'
+      });
+    }
+
+    // Upload transcript to Cloudinary
+    console.log('Uploading transcript to Cloudinary...');
+    const transcriptUrl = await uploadToCloudinary(
+      req.files.transcript[0],
+      req.user.uid,
+      'transcripts'
+    );
+    console.log('Transcript URL:', transcriptUrl);
+
+    // Upload certificates if any
+    let certificateUrls = [];
+    if (req.files?.certificates) {
+      console.log(`Uploading ${req.files.certificates.length} certificates...`);
+      certificateUrls = await Promise.all(
+        req.files.certificates.map(file =>
+          uploadToCloudinary(file, req.user.uid, 'certificates')
+        )
+      );
+    }
+
+    // Prepare transcript data
     const transcriptData = {
       studentId: req.user.uid,
       transcriptUrl,
-      certificates: certificates || [],
-      graduationYear: parseInt(graduationYear),
+      certificates: certificateUrls,
+      graduationYear: year,
       gpa: gpa ? parseFloat(gpa) : null,
-      extraCurricularActivities: extraCurricularActivities || [],
+      extraCurricularActivities: extraCurricularActivities
+        ? JSON.parse(extraCurricularActivities)
+        : [],
       uploadedAt: new Date().toISOString(),
       verified: false
     };
 
+    // Save to Firestore
     const docRef = await db.collection(collections.TRANSCRIPTS).add(transcriptData);
-    
-    // Update user profile to mark as graduate
+
+    // Update user profile
     await db.collection(collections.USERS).doc(req.user.uid).update({
       isGraduate: true,
       transcriptId: docRef.id,
+      transcriptVerified: false,
       updatedAt: new Date().toISOString()
     });
 
     // Create notification
     await createNotification(req.user.uid, {
-      type: 'general',
-      title: 'Transcript Uploaded',
-      message: 'Your academic transcript has been uploaded successfully. You can now apply for jobs!'
+      type: 'transcript_uploaded',
+      title: 'Transcript Uploaded Successfully',
+      message: 'Your academic transcript has been received. Admins will verify it shortly, and you\'ll be able to apply for jobs once approved!',
+      actionUrl: '/student/dashboard'
     });
 
-    res.status(201).json({ 
-      id: docRef.id, 
+    res.status(201).json({
+      id: docRef.id,
       ...transcriptData,
-      message: 'Transcript uploaded successfully. You can now apply for jobs!'
+      message: 'Transcript uploaded successfully! You can now apply for jobs once verified by admins.'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Transcript upload error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to upload transcript'
+    });
   }
 });
 
@@ -726,7 +782,7 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
   }
 });
 
-// Get my job applications - FIXED: Removed orderBy
+// Get my job applications
 router.get('/job-applications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.JOB_APPLICATIONS)
@@ -774,7 +830,7 @@ router.get('/job-applications', async (req, res) => {
 // NOTIFICATIONS
 // ============================================
 
-// Get notifications - FIXED: Removed orderBy
+// Get notifications
 router.get('/notifications', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.NOTIFICATIONS)
@@ -849,28 +905,5 @@ router.put('/notifications/read-all', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-// Create notification helper
-async function createNotification(userId, { type, title, message, relatedId }) {
-  try {
-    const notificationData = {
-      userId,
-      type,
-      title,
-      message,
-      relatedId: relatedId || null,
-      read: false,
-      createdAt: new Date().toISOString()
-    };
-
-    await db.collection(collections.NOTIFICATIONS).add(notificationData);
-  } catch (error) {
-    console.error('Failed to create notification:', error);
-  }
-}
 
 module.exports = router;

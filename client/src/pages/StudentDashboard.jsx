@@ -175,28 +175,52 @@ export default function StudentDashboard({ user }) {
   };
 
   const handleUploadTranscript = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const transcriptData = {
-      transcriptUrl: formData.get('transcriptUrl'),
-      certificates: formData.get('certificates').split(',').map(c => c.trim()),
-      graduationYear: formData.get('graduationYear'),
-      gpa: formData.get('gpa'),
-      extraCurricularActivities: formData.get('activities').split(',').map(a => a.trim())
-    };
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData();
 
-    try {
-      await studentAPI.uploadTranscript(transcriptData);
-      setSuccess('Transcript uploaded successfully! You can now apply for jobs.');
-      setModalType('');
-      setShowModal(false);
-      setTimeout(() => setSuccess(''), 3000);
-      loadData();
-    } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(''), 3000);
+  try {
+    setError('');
+
+    // Validate transcript file
+    if (!form.transcript.files[0]) {
+      setError('Please select a transcript file');
+      return;
     }
-  };
+
+    // Add transcript file
+    formData.append('transcript', form.transcript.files[0]);
+
+    // Add certificate files (optional)
+    if (form.certificates.files.length > 0) {
+      for (let i = 0; i < form.certificates.files.length; i++) {
+        formData.append('certificates', form.certificates.files[i]);
+      }
+    }
+
+    // Add other fields
+    formData.append('graduationYear', form.graduationYear.value);
+    if (form.gpa.value) formData.append('gpa', form.gpa.value);
+    if (form.activities.value) {
+      formData.append('extraCurricularActivities',
+        JSON.stringify(form.activities.value.split(',').map(a => a.trim()))
+      );
+    }
+
+    // Upload
+    const result = await studentAPI.uploadTranscript(formData);
+    setSuccess(result.message);
+    setShowModal(false);
+    form.reset();
+
+    // Reload data after 2 seconds
+    setTimeout(() => {
+      loadData();
+    }, 2000);
+  } catch (err) {
+    setError(err.response?.data?.error || err.message);
+  }
+};
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -639,158 +663,171 @@ export default function StudentDashboard({ user }) {
         )}
 
         {/* VIEW COURSES MODAL */}
-        {showModal && modalType === 'view-courses' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Courses at {selectedInstitution?.name}</h2>
-              
-              <div className="modal-filters">
-                <div className="search-bar">
-                  <FaSearch />
-                  <input
-                    type="text"
-                    placeholder="Search courses..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <select 
-                  value={filterLevel} 
-                  onChange={(e) => setFilterLevel(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="all">All Levels</option>
-                  <option value="Certificate">Certificate</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="Degree">Degree</option>
-                  <option value="Masters">Masters</option>
-                  <option value="PhD">PhD</option>
-                </select>
-              </div>
+{showModal && modalType === 'view-courses' && (
+  <div className="modal-overlay" onClick={() => setShowModal(false)}>
+    <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+      <h2>Courses at {selectedInstitution?.name}</h2>
+      
+      <div className="modal-filters">
+        <div className="search-bar">
+          <FaSearch />
+          <input
+            type="text"
+            placeholder="Search courses..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <select 
+          value={filterLevel} 
+          onChange={(e) => setFilterLevel(e.target.value)}
+          className="filter-select"
+        >
+          <option value="all">All Levels</option>
+          <option value="Certificate">Certificate</option>
+          <option value="Diploma">Diploma</option>
+          <option value="Degree">Degree</option>
+          <option value="Masters">Masters</option>
+          <option value="PhD">PhD</option>
+        </select>
+      </div>
 
-              <div className="courses-list">
-                {filteredCourses.map((course) => (
-                  <div key={course.id} className="course-item">
-                    <h3>{course.name}</h3>
-                    <p><strong>Faculty:</strong> {course.faculty?.name}</p>
-                    <p><strong>Duration:</strong> {course.duration}</p>
-                    <p><strong>Level:</strong> {course.level}</p>
-                    <p>{course.description}</p>
-                    <button className="btn-primary" onClick={() => handleApplyCourse(course)}>
-                      Apply for this Course
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button className="btn-secondary" onClick={() => {
-                setShowModal(false);
-                setSearchTerm('');
-                setFilterLevel('all');
-              }}>
-                Close
-              </button>
-            </div>
+      <div className="courses-list">
+        {filteredCourses.map((course) => (
+          <div key={course.id} className="course-item">
+            <h3>{course.name}</h3>
+            <p><strong>Faculty:</strong> {course.faculty?.name}</p>
+            <p><strong>Duration:</strong> {course.duration}</p>
+            <p><strong>Level:</strong> {course.level}</p>
+            <p>{course.description}</p>
+            <button className="btn-primary" onClick={() => handleApplyCourse(course)}>
+              Apply for this Course
+            </button>
           </div>
-        )}
+        ))}
+      </div>
+      <button className="btn-secondary" onClick={() => {
+        setShowModal(false);
+        setSearchTerm('');
+        setFilterLevel('all');
+      }}>
+        Close
+      </button>
+    </div>
+  </div>
+)}
 
-        {/* APPLY FOR JOB MODAL */}
-        {showModal && modalType === 'apply-job' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h2>Apply for {selectedJob?.title}</h2>
-              <div className="job-details">
-                <p><strong>Company:</strong> {selectedJob?.company}</p>
-                <p><strong>Location:</strong> {selectedJob?.location}</p>
-                <p><strong>Salary:</strong> {selectedJob?.salary}</p>
-              </div>
-              <form onSubmit={handleSubmitJobApplication}>
-                <div className="form-group">
-                  <label>Cover Letter *</label>
-                  <textarea
-                    name="coverLetter"
-                    rows="8"
-                    placeholder="Explain why you're a great fit for this position..."
-                    required
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Submit Application
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+{/* APPLY FOR JOB MODAL */}
+{showModal && modalType === 'apply-job' && (
+  <div className="modal-overlay" onClick={() => setShowModal(false)}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <h2>Apply for {selectedJob?.title}</h2>
+      <div className="job-details">
+        <p><strong>Company:</strong> {selectedJob?.company}</p>
+        <p><strong>Location:</strong> {selectedJob?.location}</p>
+        <p><strong>Salary:</strong> {selectedJob?.salary}</p>
+      </div>
+      <form onSubmit={handleSubmitJobApplication}>
+        <div className="form-group">
+          <label>Cover Letter *</label>
+          <textarea
+            name="coverLetter"
+            rows="8"
+            placeholder="Explain why you're a great fit for this position..."
+            required
+          />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary">
+            Submit Application
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
-        {/* UPLOAD TRANSCRIPT MODAL */}
-        {showModal && modalType === 'upload-transcript' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Upload Academic Transcript</h2>
-              <p className="subtitle">Complete your graduation profile to apply for jobs</p>
-              <form onSubmit={handleUploadTranscript}>
-                <div className="form-group">
-                  <label>Transcript URL *</label>
-                  <input 
-                    type="url" 
-                    name="transcriptUrl" 
-                    placeholder="https://example.com/transcript.pdf"
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Additional Certificates (comma-separated URLs)</label>
-                  <input 
-                    type="text" 
-                    name="certificates" 
-                    placeholder="https://cert1.pdf, https://cert2.pdf"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Graduation Year *</label>
-                  <input 
-                    type="number" 
-                    name="graduationYear" 
-                    min="2000" 
-                    max={new Date().getFullYear()}
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>GPA (Optional)</label>
-                  <input 
-                    type="number" 
-                    name="gpa" 
-                    step="0.01" 
-                    min="0" 
-                    max="4"
-                    placeholder="e.g., 3.5"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Extra-Curricular Activities (comma-separated)</label>
-                  <textarea
-                    name="activities"
-                    rows="3"
-                    placeholder="e.g., Student Council President, Debate Team, Volunteer Work"
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Upload Transcript
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+{/* UPLOAD TRANSCRIPT MODAL - ONLY ONE VERSION WITH FILE UPLOAD */}
+{showModal && modalType === 'upload-transcript' && (
+  <div className="modal-overlay" onClick={() => setShowModal(false)}>
+    <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+      <h2>Upload Academic Transcript</h2>
+      <p className="subtitle">Complete your graduation profile to apply for jobs</p>
+      <form onSubmit={handleUploadTranscript}>
+        <div className="form-group">
+          <label>Transcript File (PDF) *</label>
+          <input 
+            type="file" 
+            name="transcript" 
+            accept=".pdf"
+            required
+          />
+          <small>Upload your official academic transcript (PDF only, max 10MB)</small>
+        </div>
+
+        <div className="form-group">
+          <label>Graduation Year *</label>
+          <input 
+            type="number" 
+            name="graduationYear" 
+            min="2000" 
+            max={new Date().getFullYear()}
+            required 
+          />
+        </div>
+
+        <div className="form-group">
+          <label>GPA (Optional)</label>
+          <input 
+            type="number" 
+            name="gpa" 
+            step="0.01" 
+            min="0" 
+            max="4"
+            placeholder="e.g., 3.5"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Additional Certificates (PDF, optional)</label>
+          <input 
+            type="file" 
+            name="certificates" 
+            accept=".pdf"
+            multiple
+          />
+          <small>You can select multiple certificate files (max 5)</small>
+        </div>
+
+        <div className="form-group">
+          <label>Extra-Curricular Activities (comma-separated)</label>
+          <textarea
+            name="activities"
+            rows="3"
+            placeholder="e.g., Student Council President, Debate Team, Volunteer Work"
+          />
+        </div>
+
+        <div className="modal-actions">
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={() => setShowModal(false)}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary">
+            Upload Transcript
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
