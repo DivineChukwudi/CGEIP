@@ -13,8 +13,8 @@ import {
   FaBell,
   FaFile,
   FaSearch,
-  FaFilter,
-  FaDownload,
+  //FaFilter,
+  //FaDownload,
   FaTrophy
 } from 'react-icons/fa';
 import '../styles/global.css';
@@ -30,7 +30,7 @@ export default function StudentDashboard({ user }) {
   const [notifications, setNotifications] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState(null);
+ // const [selectedCourse, setSelectedCourse] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [profile, setProfile] = useState(null);
