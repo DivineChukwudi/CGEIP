@@ -76,7 +76,7 @@ transporter.verify((error, success) => {
     
     const mailOptions = {
       from: {
-        name: 'Limkokwing Career Portal - Test',
+        name: 'Career Guidance and Employment Integration Platform - Test',
         address: process.env.EMAIL_USER
       },
       to: process.env.EMAIL_USER, // Send to yourself
@@ -117,7 +117,7 @@ transporter.verify((error, success) => {
             
             <p style="color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
               <strong>Test Timestamp:</strong> ${new Date().toLocaleString()}<br>
-              <strong>Server:</strong> Limkokwing Career Portal<br>
+              <strong>Server:</strong> Career Guidance and Employment Integration Platform<br>
               <strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}
             </p>
           </div>

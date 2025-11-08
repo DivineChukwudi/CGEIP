@@ -119,7 +119,7 @@ export default function App() {
 
       <footer className="app-footer">
         <div className="footer-copy">
-          &copy; {new Date().getFullYear()} Limkokwing Career Portal. All rights reserved
+          &copy; {new Date().getFullYear()} Career Guidance and Employment Integration Platform. All rights reserved
         </div>
         <div className="footer-links">
           <a href="/team">Meet the Team</a>

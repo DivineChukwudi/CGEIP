@@ -42,7 +42,7 @@ export default function MeetTheTeam() {
       <div className="team-container">
         <header className="team-header">
           <h1>Meet the Team</h1>
-          <p>The talented individuals behind Limkokwing Career Portal</p>
+          <p>The talented individuals behind the Career Guidance and Employment Integration Platform</p>
         </header>
 
         {loading ? (

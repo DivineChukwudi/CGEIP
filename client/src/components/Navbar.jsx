@@ -23,7 +23,7 @@ export default function Navbar({ user, logout }) {
       <div className="navbar-container">
         <div className="navbar-brand">
           <FaGraduationCap className="navbar-icon" />
-          <span>Limkokwing Career Portal</span>
+          <span></span>
         </div>
 
         <div className="navbar-user">

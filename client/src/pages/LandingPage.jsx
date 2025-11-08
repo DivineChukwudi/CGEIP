@@ -127,7 +127,7 @@ export default function LandingPage() {
           <div className="header-content">
             <div className="logo">
               <FaGraduationCap className="logo-icon" />
-              <span>Limkokwing Career Portal</span>
+              <span>Career Guidance and Employment Integration Platform</span>
             </div>
             <div className="header-actions">
               <button className="btn-outline" onClick={() => navigate('/login')}>
