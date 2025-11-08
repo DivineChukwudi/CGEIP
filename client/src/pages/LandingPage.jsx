@@ -1,6 +1,6 @@
 // client/src/pages/LandingPage.jsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight } from 'react-icons/fa';
 import '../styles/LandingPage.css';
 
@@ -189,34 +189,33 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      // Find the footer section and replace with:
-<footer className="landing-footer">
-  <div className="landing-container">
-    <div className="footer-content">
-      <div className="footer-brand">
-        <div className="logo">
-          <FaGraduationCap className="logo-icon" />
-          <span>Limkokwing Career Portal</span>
+      <footer className="landing-footer">
+        <div className="landing-container">
+          <div className="footer-content">
+            <div className="footer-brand">
+              <div className="logo">
+                <FaGraduationCap className="logo-icon" />
+                <span>Limkokwing Career Portal</span>
+              </div>
+              <p>Empowering education and career success in Lesotho</p>
+            </div>
+            <div className="footer-links">
+              <div className="footer-column">
+                <h4>Platform</h4>
+                <Link to="/register" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Register</Link>
+                <Link to="/login" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Login</Link>
+              </div>
+              <div className="footer-column">
+                <h4>Resources</h4>
+                <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>About Us</Link>
+                <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Contact</Link>
+              </div>
+            </div>
+          </div>
+          <div className="footer-bottom">
+          </div>
         </div>
-        <p>Empowering education and career success in Lesotho</p>
-      </div>
-      <div className="footer-links">
-        <div className="footer-column">
-          <h4>Platform</h4>
-          <Link to="/register" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Register</Link>
-          <Link to="/login" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Login</Link>
-        </div>
-        <div className="footer-column">
-          <h4>Resources</h4>
-          <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>About Us</Link>
-          <Link to="/" style={{ display: 'block', color: '#9ca3af', marginBottom: '12px', textDecoration: 'none' }}>Contact</Link>
-        </div>
-      </div>
-    </div>
-    <div className="footer-bottom">
-    </div>
-  </div>
-</footer>
+      </footer>
     </div>
   );
 }
