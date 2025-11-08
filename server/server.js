@@ -222,9 +222,14 @@ app.listen(PORT, () => {
   console.log(` Email configured: ${!!(process.env.EMAIL_USER && process.env.EMAIL_PASS) ? '✅' : '❌'}`);
   console.log(` Firebase configured: ${!!(process.env.FIREBASE_PROJECT_ID) ? '✅' : '❌'}`);
   console.log(` Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-  console.log(`\n Test endpoints:`);
-  console.log(`   • Health: http://localhost:${PORT}/`);
+  console.log(`\n Test endpoints(locally):`);
+  console.log(`   • Health: http://localhost:${PORT}/`); 
   console.log(`   • Status: http://localhost:${PORT}/api/status`);
   console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
+  console.log('\n');
+  console.log(`\n Test endpoints(Production):`);
+  console.log(`   • Health: https://cgeip.onrender.com/`); 
+  console.log(`   • Status: https://cgeip.onrender.com/api/status`);
+  console.log(`   • Email Test: https://cgeip.onrender.com/test-email`);
   console.log('\n');
 });
