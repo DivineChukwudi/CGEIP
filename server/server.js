@@ -42,10 +42,10 @@ app.use(cors({
     } else {
       // For Vercel preview deployments, allow all vercel.app domains
       if (origin && origin.includes('.vercel.app')) {
-        console.log('✅ Allowing Vercel preview deployment:', origin);
+        console.log('Allowing Vercel preview deployment:', origin);
         callback(null, true);
       } else {
-        console.log('❌ Blocked by CORS:', origin);
+        console.log('Blocked by CORS:', origin);
         callback(new Error('Not allowed by CORS'));
       }
     }
