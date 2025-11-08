@@ -1,5 +1,5 @@
 // client/src/pages/LandingPage.jsx - WITH SEARCH FUNCTIONALITY
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight, FaSearch, FaTimes, FaBook } from 'react-icons/fa';
 import '../styles/LandingPage.css';
@@ -399,7 +399,7 @@ export default function LandingPage() {
             <div className="footer-brand">
               <div className="logo">
                 <FaGraduationCap className="logo-icon" />
-                <span>Limkokwing Career Portal</span>
+                <span>Career Guidance and Employment Integration Platform</span>
               </div>
               <p>Empowering education and career success in Lesotho</p>
             </div>
