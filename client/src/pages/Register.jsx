@@ -1,5 +1,5 @@
-// client/src/pages/Register.jsx - WITH GOOGLE SIGN-IN
-import React, { useState } from 'react';
+// client/src/pages/Register.jsx - GOOGLE AUTO-FILL VERSION
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
 import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaUserTag, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle } from 'react-icons/fa';
@@ -27,7 +27,15 @@ try {
 }
 
 export default function Register() {
+  // Cleanup effect to reset scroll and focus on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+  }, []);
   const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,15 +43,13 @@ export default function Register() {
     confirmPassword: '',
     role: 'student'
   });
+  
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [pendingGoogleToken, setPendingGoogleToken] = useState(null);
-  const [selectedRole, setSelectedRole] = useState('student');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -56,6 +62,43 @@ export default function Register() {
 
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const handleGoogleSignUp = async () => {
+    setGoogleLoading(true);
+    setError('');
+
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(firebaseAuth, provider);
+      
+      console.log('✓ Google user signed in:', result.user);
+
+      // Auto-fill the form with Google data
+      setFormData(prevData => ({
+        ...prevData,
+        name: result.user.displayName || '',
+        email: result.user.email || ''
+      }));
+
+      console.log('✓ Form auto-filled with:', {
+        name: result.user.displayName,
+        email: result.user.email
+      });
+
+      setGoogleLoading(false);
+      
+      // Scroll to password field so user can fill it in
+      setTimeout(() => {
+        document.getElementById('password')?.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('password')?.focus();
+      }, 300);
+
+    } catch (error) {
+      console.error('✗ Google sign-up error:', error);
+      setError(error.message || 'Google sign-up failed. Please try again.');
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -117,62 +160,6 @@ export default function Register() {
       setError(errorMessage);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignUp = async () => {
-    setGoogleLoading(true);
-    setError('');
-
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(firebaseAuth, provider);
-      const idToken = await result.user.getIdToken();
-
-      // Always show role selection for new Google users during registration
-      setPendingGoogleToken(idToken);
-      setShowRoleModal(true);
-      setGoogleLoading(false);
-
-    } catch (error) {
-      console.error('Google sign-up error:', error);
-      setError(error.message || 'Google sign-up failed. Please try again.');
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleRoleSubmit = async () => {
-    setGoogleLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/google-signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          idToken: pendingGoogleToken,
-          role: selectedRole 
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Google sign-up failed');
-      }
-
-      setSuccess('Account created successfully! Redirecting...');
-      setShowRoleModal(false);
-
-      // Redirect to login
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
-    } catch (error) {
-      setError(error.message || 'Failed to complete registration');
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -370,87 +357,6 @@ export default function Register() {
           </p>
         </div>
       </div>
-
-      {/* Role Selection Modal for Google Sign-Up */}
-      {showRoleModal && (
-        <div className="modal-overlay" onClick={() => !googleLoading && setShowRoleModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Select Account Type</h2>
-            <p style={{ color: '#666', marginBottom: '20px' }}>
-              Please select what type of account you want to create:
-            </p>
-            
-            <div className="role-selection">
-              <label className="role-option">
-                <input
-                  type="radio"
-                  name="role"
-                  value="student"
-                  checked={selectedRole === 'student'}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  disabled={googleLoading}
-                />
-                <div className="role-details">
-                  <strong>Student</strong>
-                  <span>Apply for courses and find job opportunities</span>
-                </div>
-              </label>
-
-              <label className="role-option">
-                <input
-                  type="radio"
-                  name="role"
-                  value="institution"
-                  checked={selectedRole === 'institution'}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  disabled={googleLoading}
-                />
-                <div className="role-details">
-                  <strong>Institution</strong>
-                  <span>Manage courses and student applications</span>
-                </div>
-              </label>
-
-              <label className="role-option">
-                <input
-                  type="radio"
-                  name="role"
-                  value="company"
-                  checked={selectedRole === 'company'}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  disabled={googleLoading}
-                />
-                <div className="role-details">
-                  <strong>Company</strong>
-                  <span>Post jobs and find qualified candidates</span>
-                </div>
-              </label>
-            </div>
-
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                onClick={() => {
-                  setShowRoleModal(false);
-                  setGoogleLoading(false);
-                }}
-                disabled={googleLoading}
-              >
-                Cancel
-              </button>
-              <button 
-                type="button" 
-                className="btn-primary"
-                onClick={handleRoleSubmit}
-                disabled={googleLoading}
-              >
-                {googleLoading ? <><FaSpinner className="spinner" /> Creating...</> : 'Create Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
