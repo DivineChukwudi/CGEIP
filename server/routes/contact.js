@@ -43,7 +43,7 @@ router.post('/contact', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Contact form error:', error);
+    console.error('Contact form error:', error);
     
     // Send user-friendly error message
     res.status(500).json({ 

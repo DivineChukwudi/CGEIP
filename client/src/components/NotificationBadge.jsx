@@ -51,17 +51,3 @@ export default function NotificationBadge({ count, variant = 'default' }) {
     </span>
   );
 }
-
-// Add to your global.css:
-/*
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
-}
-*/

@@ -12,7 +12,7 @@ console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✅ S
 
 // Validate that all required Cloudinary credentials are present
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-  console.error('\n❌ CRITICAL: Cloudinary credentials are missing!');
+  console.error('\n CRITICAL: Cloudinary credentials are missing!');
   console.error('   Please add the following to your .env file:');
   console.error('   CLOUDINARY_CLOUD_NAME=your_cloud_name');
   console.error('   CLOUDINARY_API_KEY=your_api_key');
@@ -28,14 +28,14 @@ if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !pr
     secure: true
   });
   
-  console.log('✅ Cloudinary configured successfully\n');
+  console.log(' Cloudinary configured successfully\n');
 }
 
 // Test Cloudinary connection
 async function testCloudinaryConnection() {
   try {
     const result = await cloudinary.api.ping();
-    console.log('✅ Cloudinary connection test: SUCCESS');
+    console.log(' Cloudinary connection test: SUCCESS');
     return true;
   } catch (error) {
     console.error('❌ Cloudinary connection test: FAILED');
@@ -52,7 +52,7 @@ async function uploadToCloudinary(file, userId, folder = 'transcripts') {
       throw new Error('Cloudinary is not configured. Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your .env file');
     }
 
-    console.log(`\n📤 Uploading file to Cloudinary...`);
+    console.log(`\nUploading file to Cloudinary...`);
     console.log(`   User ID: ${userId}`);
     console.log(`   Folder: ${folder}`);
     console.log(`   File size: ${(file.buffer.length / 1024 / 1024).toFixed(2)} MB`);
@@ -75,7 +75,7 @@ async function uploadToCloudinary(file, userId, folder = 'transcripts') {
         },
         (error, result) => {
           if (error) {
-            console.error('❌ Cloudinary upload error:', error.message);
+            console.error(' Cloudinary upload error:', error.message);
             console.error('   Error code:', error.http_code);
             
             // Provide specific error messages
@@ -89,7 +89,7 @@ async function uploadToCloudinary(file, userId, folder = 'transcripts') {
               reject(new Error(`Cloudinary upload error: ${error.message}`));
             }
           } else {
-            console.log('✅ File uploaded successfully to Cloudinary');
+            console.log('File uploaded successfully to Cloudinary');
             console.log('   URL:', result.secure_url);
             console.log('   Public ID:', result.public_id);
             console.log('   Format:', result.format);
@@ -102,14 +102,14 @@ async function uploadToCloudinary(file, userId, folder = 'transcripts') {
 
       // Handle stream errors
       stream.on('error', (error) => {
-        console.error('❌ Stream error:', error.message);
+        console.error(' Stream error:', error.message);
         reject(new Error(`Stream error: ${error.message}`));
       });
 
       stream.pipe(uploadStream);
     });
   } catch (error) {
-    console.error('❌ Upload preparation error:', error.message);
+    console.error(' Upload preparation error:', error.message);
     throw new Error('File upload failed: ' + error.message);
   }
 }
@@ -121,19 +121,19 @@ async function deleteFromCloudinary(publicId) {
       throw new Error('Cloudinary is not configured');
     }
 
-    console.log(`🗑️  Deleting file from Cloudinary: ${publicId}`);
+    console.log(` Deleting file from Cloudinary: ${publicId}`);
     
     const result = await cloudinary.uploader.destroy(publicId);
     
     if (result.result === 'ok') {
-      console.log('✅ File deleted successfully from Cloudinary\n');
+      console.log('File deleted successfully from Cloudinary\n');
       return true;
     } else {
-      console.warn('⚠️  File deletion result:', result.result);
+      console.warn(' File deletion result:', result.result);
       return false;
     }
   } catch (error) {
-    console.error('❌ Cloudinary deletion error:', error.message);
+    console.error('Cloudinary deletion error:', error.message);
     throw new Error('File deletion failed: ' + error.message);
   }
 }
@@ -150,7 +150,7 @@ function getCloudinaryUrl(publicId, options = {}) {
       ...options
     });
   } catch (error) {
-    console.error('❌ Error generating Cloudinary URL:', error.message);
+    console.error(' Error generating Cloudinary URL:', error.message);
     throw new Error('URL generation failed: ' + error.message);
   }
 }

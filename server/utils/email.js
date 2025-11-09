@@ -593,7 +593,7 @@ const testEmailConfig = async () => {
     return false;
   }
 
-  console.log('✅ SendGrid is configured\n');
+  console.log('SendGrid is configured\n');
   return true;
 };
 
@@ -601,6 +601,6 @@ module.exports = {
   sendVerificationEmail,
   sendNotificationEmail,
   sendApplicationStatusEmail,
-  sendContactFormEmail, // NEW: Export the contact form function
+  sendContactFormEmail, 
   testEmailConfig
 };
