@@ -1,4 +1,4 @@
-// client/src/pages/AdminDashboard.jsx - CORRECTED VERSION
+// client/src/pages/AdminDashboard.jsx - FIXED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate } from 'react-icons/fa';
@@ -21,7 +21,6 @@ export default function AdminDashboard({ user }) {
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [recentItems, setRecentItems] = useState(new Set());
 
   // Notifications
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
@@ -52,18 +51,6 @@ export default function AdminDashboard({ user }) {
 
     markNotificationsRead();
   }, [activeTab, refreshCounts]);
-
-  // Track recently added/updated items (highlight for 5 seconds)
-  const highlightItem = (id) => {
-    setRecentItems(prev => new Set([...prev, id]));
-    setTimeout(() => {
-      setRecentItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(id);
-        return newSet;
-      });
-    }, 5000);
-  };
 
   const loadData = useCallback(async () => {
     setError('');
@@ -605,10 +592,7 @@ export default function AdminDashboard({ user }) {
                 </thead>
                 <tbody>
                   {companies.map((company) => (
-                    <tr 
-                      key={company.id}
-                      className={recentItems.has(company.id) ? 'highlight-row' : ''}
-                    >
+                    <tr key={company.id}>
                       <td>{company.name}</td>
                       <td>{company.email}</td>
                       <td>
@@ -677,10 +661,7 @@ export default function AdminDashboard({ user }) {
                 </thead>
                 <tbody>
                   {allUsers.map((u) => (
-                    <tr 
-                      key={u.id}
-                      className={recentItems.has(u.id) ? 'highlight-row' : ''}
-                    >
+                    <tr key={u.id}>
                       <td>{u.name}</td>
                       <td>{u.email}</td>
                       <td>

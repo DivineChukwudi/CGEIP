@@ -16,7 +16,6 @@ export function useNotificationCounts(userRole, userId) {
     
     // Student counts
     admittedApplications: 0,
-    totalApplications: 0,
     
     // Company counts
     newApplicants: 0,
