@@ -1,4 +1,4 @@
-// server/routes/auth.js - COMPLETE MERGED VERSION
+// server/routes/auth.js - COMPLETE VERSION WITH EMAIL VERIFICATION
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -7,7 +7,7 @@ const { sendVerificationEmail } = require('../utils/email');
 
 const router = express.Router();
 
-// Register - Production-Ready with Enhanced Logging
+// ==================== REGISTER ====================
 router.post('/register', async (req, res) => {
   let userCreated = false;
   let firebaseUid = null;
@@ -68,15 +68,13 @@ router.post('/register', async (req, res) => {
     // Save to Firestore
     await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
 
-    // Send response IMMEDIATELY - don't wait for email
+    // Send response IMMEDIATELY
     res.status(201).json({ 
       message: 'Registration successful! Please check your email to verify your account.',
       uid: userRecord.uid
     });
 
-    // ============================================
-    // ENHANCED: Better logging for debugging
-    // ============================================
+    // Send verification email ASYNCHRONOUSLY
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}&uid=${userRecord.uid}`;
     
@@ -84,7 +82,6 @@ router.post('/register', async (req, res) => {
     console.log('📧 Sending to:', email);
     console.log('🌍 Frontend URL:', frontendUrl);
     
-    // Send verification email ASYNCHRONOUSLY
     sendVerificationEmail(email, name, verificationLink)
       .then(() => {
         console.log('✅ Verification email sent to:', email);
@@ -95,19 +92,6 @@ router.post('/register', async (req, res) => {
         console.error('   Email:', email);
         console.error('   UID:', userRecord.uid);
         console.error('   Verification Link:', verificationLink);
-        
-        // Log to a monitoring service in production
-        // You could send this to Sentry, LogRocket, etc.
-        
-        // Optionally: Store failed email in database for retry later
-        db.collection('failed_emails').add({
-          email,
-          name,
-          verificationLink,
-          error: emailError.message,
-          timestamp: new Date().toISOString(),
-          retryCount: 0
-        }).catch(err => console.error('Failed to log email error:', err));
       });
 
   } catch (error) {
@@ -145,7 +129,82 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Verify Email
+// ==================== LOGIN WITH STRICT EMAIL VERIFICATION ====================
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Get user from Firestore
+    const usersSnapshot = await db.collection(collections.USERS)
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (usersSnapshot.empty) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const userDoc = usersSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    // ✅ CRITICAL: Block login if email is not verified
+    if (!userData.emailVerified) {
+      console.log(`❌ Login blocked: ${email} - Email not verified`);
+      return res.status(403).json({ 
+        error: 'Please verify your email address before logging in.',
+        emailVerified: false,
+        message: 'Check your inbox for the verification email. If you haven\'t received it, you can request a new one.',
+        email: email,
+        uid: userData.uid
+      });
+    }
+
+    // Check account status
+    if (userData.status === 'suspended') {
+      return res.status(403).json({ 
+        error: 'Your account has been suspended. Please contact support.' 
+      });
+    }
+
+    if (userData.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Your account is pending admin approval.' 
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { uid: userData.uid, email: userData.email, role: userData.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Update last login
+    await db.collection(collections.USERS).doc(userData.uid).update({
+      lastLogin: new Date().toISOString()
+    });
+
+    delete userData.verificationToken;
+
+    console.log(`✅ Login successful: ${email} (${userData.role})`);
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: userData
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== VERIFY EMAIL ====================
 router.get('/verify-email/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -194,6 +253,8 @@ router.get('/verify-email/:token', async (req, res) => {
       verifiedAt: new Date().toISOString()
     });
 
+    console.log(`✅ Email verified: ${userData.email}`);
+
     res.json({ 
       message: 'Email verified successfully! You can now login.',
       success: true 
@@ -204,7 +265,7 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Resend Verification Email - RESTORED
+// ==================== RESEND VERIFICATION EMAIL ====================
 router.post('/resend-verification', async (req, res) => {
   try {
     const { email } = req.body;
@@ -240,13 +301,11 @@ router.post('/resend-verification', async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}&uid=${userData.uid}`;
     
-    // Enhanced logging
     console.log('🔁 Resending verification email');
     console.log('🔗 Verification Link:', verificationLink);
     console.log('📧 Sending to:', email);
     console.log('🌍 Frontend URL:', frontendUrl);
     
-    // Send email and handle errors
     try {
       await sendVerificationEmail(email, userData.name, verificationLink);
       console.log('✅ Verification email resent to:', email);
@@ -267,66 +326,7 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-// Login - Simplified
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    const usersSnapshot = await db.collection(collections.USERS)
-      .where('email', '==', email)
-      .limit(1)
-      .get();
-
-    if (usersSnapshot.empty) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const userDoc = usersSnapshot.docs[0];
-    const userData = userDoc.data();
-
-    if (userData.status === 'suspended') {
-      return res.status(403).json({ 
-        error: 'Your account has been suspended. Please contact support.' 
-      });
-    }
-
-    if (userData.status === 'pending') {
-      return res.status(403).json({ 
-        error: 'Your account is pending admin approval.' 
-      });
-    }
-
-    // Generate JWT
-    const token = jwt.sign(
-      { uid: userData.uid, email: userData.email, role: userData.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const emailWarning = !userData.emailVerified 
-      ? 'Please verify your email address.' 
-      : null;
-
-    delete userData.verificationToken;
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: userData,
-      ...(emailWarning && { warning: emailWarning })
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Google Sign-In - RESTORED
+// ==================== GOOGLE SIGN-IN ====================
 router.post('/google-signin', async (req, res) => {
   try {
     const { idToken, role } = req.body;
@@ -354,7 +354,7 @@ router.post('/google-signin', async (req, res) => {
         email,
         name: name || email.split('@')[0],
         photoURL: picture || '',
-        emailVerified: email_verified || true,
+        emailVerified: email_verified || true, // Google emails are pre-verified
         role,
         status: role === 'company' ? 'pending' : 'active',
         authProvider: 'google',

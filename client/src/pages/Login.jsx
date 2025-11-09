@@ -1,11 +1,24 @@
-// client/src/pages/Login.jsx - COMPLETE FIXED VERSION
+// client/src/pages/Login.jsx - COMPLETE VERSION WITH EMAIL VERIFICATION
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
-import { FaGraduationCap, FaEnvelope, FaLock, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle } from 'react-icons/fa';
+import { 
+  FaGraduationCap, 
+  FaEnvelope, 
+  FaLock, 
+  FaSpinner, 
+  FaEye, 
+  FaEyeSlash, 
+  FaArrowLeft, 
+  FaGoogle, 
+  FaExclamationTriangle 
+} from 'react-icons/fa';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
+import axios from 'axios';
 import '../styles/global.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Initialize Firebase for Google Auth
 const firebaseConfig = {
@@ -28,87 +41,137 @@ try {
 
 export default function Login({ setUser }) {
   const navigate = useNavigate();
+  
+  // Form state
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  
+  // Loading states
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  
+  // UI states
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  
+  // Email verification states
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resendSuccess, setResendSuccess] = useState('');
+  
+  // Google auth states
   const [pendingGoogleToken, setPendingGoogleToken] = useState(null);
   const [selectedRole, setSelectedRole] = useState('student');
 
+  // ==================== HANDLERS ====================
+  
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
+    setShowResendButton(false);
+    setResendSuccess('');
   };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
+  // ✅ Handle resending verification email
+  const handleResendVerification = async () => {
+    setResending(true);
+    setError('');
+    setResendSuccess('');
+    
+    try {
+      await axios.post(`${API_URL}/auth/resend-verification`, {
+        email: unverifiedEmail
+      });
+      
+      setResendSuccess('✅ Verification email sent! Please check your inbox (and spam folder).');
+      setShowResendButton(false);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setResendSuccess('');
+      }, 5000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend email. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  // ==================== EMAIL/PASSWORD LOGIN ====================
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setShowResendButton(false);
+    setResendSuccess('');
 
     try {
       const response = await authAPI.login(formData);
       
       console.log('✓ Login response:', response);
-      console.log('✓ User data:', response.user);
-      console.log('✓ User role:', response.user.role);
 
       if (!response.user || !response.user.role) {
         throw new Error('Invalid login response - missing user or role');
       }
 
-      // Ensure role is included when saving
       const userToSave = {
         ...response.user,
-        role: response.user.role // Explicitly ensure role is there
+        role: response.user.role
       };
 
-      // Save to localStorage
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(userToSave));
       
       console.log('✓ Saved to localStorage:', userToSave);
       
-      // Update app state
       setUser({ ...userToSave, token: response.token });
       
-      // Show warning if any
       if (response.warning) {
         console.log('⚠️', response.warning);
       }
       
-      // Navigate to appropriate dashboard
       console.log(`✓ Navigating to /${userToSave.role}`);
       navigate(`/${userToSave.role}`);
 
     } catch (err) {
       console.error('✗ Login error:', err);
-      setError(err.message || 'Login failed. Please check your credentials.');
+      
+      // ✅ Check if error is due to unverified email
+      if (err.response?.status === 403 && err.response?.data?.emailVerified === false) {
+        setError(err.response.data.error);
+        setShowResendButton(true);
+        setUnverifiedEmail(err.response.data.email);
+      } else {
+        setError(err.response?.data?.error || err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // ==================== GOOGLE SIGN-IN ====================
+  
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     setError('');
+    setShowResendButton(false);
 
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(firebaseAuth, provider);
       const idToken = await result.user.getIdToken();
 
-      // Try to sign in without role first
       try {
-        const response = await fetch('http://localhost:5000/api/auth/google-signin', {
+        const response = await fetch(`${API_URL}/auth/google-signin`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken })
@@ -119,7 +182,6 @@ export default function Login({ setUser }) {
         console.log('✓ Google response:', data);
 
         if (data.requiresRole) {
-          // New user - show role selection modal
           setPendingGoogleToken(idToken);
           setShowRoleModal(true);
           setGoogleLoading(false);
@@ -134,13 +196,11 @@ export default function Login({ setUser }) {
           throw new Error('Invalid response - missing user or role');
         }
 
-        // Ensure role is included
         const userToSave = {
           ...data.user,
           role: data.user.role
         };
 
-        // Existing user - proceed with login
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(userToSave));
         
@@ -167,7 +227,7 @@ export default function Login({ setUser }) {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/google-signin', {
+      const response = await fetch(`${API_URL}/auth/google-signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -183,19 +243,16 @@ export default function Login({ setUser }) {
       }
 
       console.log('✓ Google signin response:', data);
-      console.log('✓ User role:', data.user.role);
 
       if (!data.user || !data.user.role) {
         throw new Error('Invalid response - missing user or role');
       }
 
-      // Ensure role is included
       const userToSave = {
         ...data.user,
-        role: data.user.role // Explicitly ensure role is there
+        role: data.user.role
       };
 
-      // Save and navigate
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(userToSave));
       
@@ -215,6 +272,8 @@ export default function Login({ setUser }) {
     }
   };
 
+  // ==================== RENDER ====================
+
   return (
     <div className="auth-container">
       <Link to="/" className="auth-back-btn">
@@ -228,7 +287,54 @@ export default function Login({ setUser }) {
           <p>Login to your account</p>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {/* Error Message */}
+        {error && (
+          <div className="error-message">
+            <FaExclamationTriangle style={{ marginRight: '8px' }} />
+            {error}
+          </div>
+        )}
+        
+        {/* Success Message for Resent Email */}
+        {resendSuccess && (
+          <div className="success-message">
+            {resendSuccess}
+          </div>
+        )}
+
+        {/* ✅ Resend Verification Button */}
+        {showResendButton && (
+          <div style={{ 
+            background: '#fff3cd', 
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            padding: '15px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: '0 0 15px 0', color: '#856404', fontSize: '14px' }}>
+              📧 <strong>Email not verified yet?</strong><br/>
+              Click below to receive a new verification email
+            </p>
+            <button 
+              type="button"
+              className="btn-secondary"
+              onClick={handleResendVerification}
+              disabled={resending}
+              style={{ width: '100%' }}
+            >
+              {resending ? (
+                <>
+                  <FaSpinner className="spinner" /> Sending...
+                </>
+              ) : (
+                <>
+                  <FaEnvelope /> Resend Verification Email
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Google Sign-In Button */}
         <button 
@@ -252,6 +358,7 @@ export default function Login({ setUser }) {
           <span>or</span>
         </div>
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="email">
@@ -312,7 +419,7 @@ export default function Login({ setUser }) {
         </div>
       </div>
 
-      {/* Role Selection Modal */}
+      {/* Role Selection Modal for Google Sign-In */}
       {showRoleModal && (
         <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
