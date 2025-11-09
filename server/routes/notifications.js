@@ -1,4 +1,4 @@
-// server/routes/notifications.js
+// server/routes/notifications.js - FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const { db, collections } = require('../config/firebase');
@@ -19,7 +19,7 @@ router.get('/counts', verifyToken, async (req, res) => {
       unreadNotifications: 0
     };
 
-    // ADMIN COUNTS
+    // ADMIN COUNTS - FIXED: Only count UNREAD user notifications
     if (role === 'admin') {
       // Count pending companies
       const pendingCompaniesSnapshot = await db.collection(collections.USERS)
@@ -28,19 +28,18 @@ router.get('/counts', verifyToken, async (req, res) => {
         .get();
       counts.pendingCompanies = pendingCompaniesSnapshot.size;
 
-      // Count NEW users registered in last 7 days (not just total)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const newUsersSnapshot = await db.collection(collections.USERS)
-        .where('createdAt', '>=', sevenDaysAgo.toISOString())
+      // FIXED: Count only UNREAD user registration notifications
+      const unreadUserNotifications = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'user_registered')
+        .where('read', '==', false)
         .get();
-      counts.totalUsers = newUsersSnapshot.size; // Actually "new users" not "total users"
+      
+      counts.totalUsers = unreadUserNotifications.size;
     }
 
     // INSTITUTION COUNTS
     if (role === 'institution') {
-      // Get institution ID (assuming uid is the institution ID)
       const institutionId = uid;
 
       // Count pending applications
@@ -227,7 +226,7 @@ router.put('/read-by-category', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Category is required' });
     }
 
-    // Map categories to notification types
+    // FIXED: Map categories properly
     const categoryMap = {
       'companies': ['company_registered', 'company_approved', 'company_suspended'],
       'users': ['user_registered', 'user_deleted'],
