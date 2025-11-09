@@ -1,7 +1,10 @@
-// client/src/pages/CompanyDashboard.jsx
+// client/src/pages/CompanyDashboard.jsx - COMPLETE WITH AUTO-CLEAR NOTIFICATIONS
 import React, { useState, useEffect } from 'react';
 import { companyAPI } from '../utils/api';
-import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle, FaBell } from 'react-icons/fa';
+import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import NotificationBadge from '../components/NotificationBadge';
+import axios from 'axios';
 import '../styles/global.css';
 
 export default function CompanyDashboard({ user }) {
@@ -9,11 +12,61 @@ export default function CompanyDashboard({ user }) {
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [applicants, setApplicants] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // ✅ NOTIFICATION INTEGRATION
+  const { counts, refreshCounts } = useNotificationCounts(user?.role || 'company', user?.uid);
+
+  // ✅ AUTO-CLEAR NOTIFICATIONS WHEN TAB IS OPENED
+  useEffect(() => {
+    const markNotificationsRead = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Map tabs to notification categories
+      const tabCategoryMap = {
+        'jobs': 'jobs',
+        'notifications': 'notifications'
+      };
+
+      const category = tabCategoryMap[activeTab];
+      
+      // Clear notifications when viewing jobs tab (new applicants)
+      if (activeTab === 'jobs' && counts.newApplicants > 0) {
+        try {
+          await axios.put(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
+            { category: 'jobs' },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          refreshCounts();
+        } catch (error) {
+          console.error('Error marking notifications as read:', error);
+        }
+      }
+
+      // Clear all notifications when viewing notifications tab
+      if (activeTab === 'notifications' && counts.unreadNotifications > 0) {
+        try {
+          await axios.put(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-all`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          refreshCounts();
+        } catch (error) {
+          console.error('Error marking all notifications as read:', error);
+        }
+      }
+    };
+
+    markNotificationsRead();
+  }, [activeTab, counts.newApplicants, counts.unreadNotifications, refreshCounts]);
 
   useEffect(() => {
     loadJobs();
@@ -27,6 +80,27 @@ export default function CompanyDashboard({ user }) {
       setError(err.message);
     }
   };
+
+  const loadNotifications = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      setNotifications(response.data);
+    } catch (err) {
+      console.error('Error loading notifications:', err);
+      setNotifications([]);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      loadNotifications();
+    }
+  }, [activeTab]);
 
   const handleAddJob = () => {
     setModalType('add-job');
@@ -91,10 +165,10 @@ export default function CompanyDashboard({ user }) {
   };
 
   const getScoreColor = (score) => {
-    if (score >= 90) return '#10b981'; // Excellent - Green
-    if (score >= 80) return '#3b82f6'; // Very Good - Blue
-    if (score >= 70) return '#f59e0b'; // Good - Orange
-    return '#ef4444'; // Below threshold - Red
+    if (score >= 90) return '#10b981';
+    if (score >= 80) return '#3b82f6';
+    if (score >= 70) return '#f59e0b';
+    return '#ef4444';
   };
 
   const getScoreLabel = (score) => {
@@ -112,6 +186,19 @@ export default function CompanyDashboard({ user }) {
           onClick={() => setActiveTab('jobs')}
         >
           <FaBriefcase /> My Jobs
+          {counts?.newApplicants > 0 && (
+            <NotificationBadge count={counts.newApplicants} variant="success" />
+          )}
+        </button>
+
+        <button
+          className={activeTab === 'notifications' ? 'active' : ''}
+          onClick={() => setActiveTab('notifications')}
+        >
+          <FaBell /> Notifications
+          {counts?.unreadNotifications > 0 && (
+            <NotificationBadge count={counts.unreadNotifications} variant="default" />
+          )}
         </button>
       </div>
 
@@ -130,7 +217,8 @@ export default function CompanyDashboard({ user }) {
           </div>
         )}
 
-        {user.status === 'active' && (
+        {/* ==================== JOBS TAB ==================== */}
+        {activeTab === 'jobs' && user.status === 'active' && (
           <>
             <div className="section-header">
               <h2>Manage Job Postings</h2>
@@ -147,6 +235,7 @@ export default function CompanyDashboard({ user }) {
                     <th>Location</th>
                     <th>Salary</th>
                     <th>Deadline</th>
+                    <th>Qualified Applicants</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -158,6 +247,11 @@ export default function CompanyDashboard({ user }) {
                       <td>{job.location}</td>
                       <td>{job.salary}</td>
                       <td>{new Date(job.deadline).toLocaleDateString()}</td>
+                      <td>
+                        <span className="badge" style={{ background: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '4px' }}>
+                          {job.qualifiedApplicants || 0} qualified
+                        </span>
+                      </td>
                       <td>
                         <span className={`status-badge status-${job.status}`}>
                           {job.status}
@@ -185,6 +279,44 @@ export default function CompanyDashboard({ user }) {
           </>
         )}
 
+        {/* ==================== NOTIFICATIONS TAB ==================== */}
+        {activeTab === 'notifications' && (
+          <>
+            <div className="section-header">
+              <h2>Notifications</h2>
+              <p className="subtitle">Stay updated with job applications and system alerts</p>
+            </div>
+            
+            {notifications.length === 0 ? (
+              <div className="empty-state">
+                <FaBell size={48} />
+                <h3>No Notifications</h3>
+                <p>You'll see notifications here when there are updates</p>
+              </div>
+            ) : (
+              <div className="notifications-list">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className={`notification-item ${notif.read ? 'read' : 'unread'}`}>
+                    <div className="notification-icon">
+                      {notif.type === 'job' && <FaBriefcase />}
+                      {notif.type === 'application' && <FaGraduationCap />}
+                      {notif.type === 'general' && <FaBell />}
+                    </div>
+                    <div className="notification-content">
+                      <h4>{notif.title}</h4>
+                      <p>{notif.message}</p>
+                      <span className="notification-time">
+                        {new Date(notif.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ==================== ADD JOB MODAL ==================== */}
         {showModal && modalType === 'add-job' && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
@@ -278,6 +410,7 @@ export default function CompanyDashboard({ user }) {
           </div>
         )}
 
+        {/* ==================== VIEW APPLICANTS MODAL ==================== */}
         {showModal && modalType === 'view-applicants' && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>

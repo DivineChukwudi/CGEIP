@@ -1,7 +1,10 @@
-// client/src/pages/InstitutionDashboard.jsx - FIXED ESLint Issues
+// client/src/pages/InstitutionDashboard.jsx - COMPLETE WITH AUTO-CLEAR NOTIFICATIONS
 import React, { useState, useEffect, useCallback } from 'react';
 import { institutionAPI } from '../utils/api';
-import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn } from 'react-icons/fa';
+import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell } from 'react-icons/fa';
+import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import NotificationBadge from '../components/NotificationBadge';
+import axios from 'axios';
 import '../styles/global.css';
 
 export default function InstitutionDashboard({ user }) {
@@ -10,12 +13,50 @@ export default function InstitutionDashboard({ user }) {
   const [courses, setCourses] = useState([]);
   const [applications, setApplications] = useState([]);
   const [statistics, setStatistics] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // ✅ NOTIFICATION INTEGRATION
+  const { counts, refreshCounts } = useNotificationCounts(user?.role || 'institution', user?.uid);
+
+  // ✅ AUTO-CLEAR NOTIFICATIONS WHEN TAB IS OPENED
+  useEffect(() => {
+    const markNotificationsRead = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Map tabs to notification categories
+      const tabCategoryMap = {
+        'applications': 'applications',
+        'faculties': 'faculties',
+        'courses': 'courses',
+        'admissions': 'admissions'
+      };
+
+      const category = tabCategoryMap[activeTab];
+      
+      // Only clear if this tab has notifications
+      if (category && counts.pendingApplications > 0) {
+        try {
+          await axios.put(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
+            { category },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          refreshCounts();
+        } catch (error) {
+          console.error('Error marking notifications as read:', error);
+        }
+      }
+    };
+
+    markNotificationsRead();
+  }, [activeTab, counts.pendingApplications, refreshCounts]);
 
   const loadData = useCallback(async () => {
     setError('');
@@ -36,6 +77,9 @@ export default function InstitutionDashboard({ user }) {
       } else if (activeTab === 'applications') {
         const data = await institutionAPI.getApplications();
         setApplications(data);
+      } else if (activeTab === 'notifications') {
+        const data = await institutionAPI.getNotifications?.() || [];
+        setNotifications(data);
       }
     } catch (err) {
       setError(err.message);
@@ -205,29 +249,46 @@ export default function InstitutionDashboard({ user }) {
         >
           <FaChartBar /> Dashboard
         </button>
+        
         <button
           className={activeTab === 'faculties' ? 'active' : ''}
           onClick={() => setActiveTab('faculties')}
         >
           <FaGraduationCap /> Faculties
         </button>
+        
         <button
           className={activeTab === 'courses' ? 'active' : ''}
           onClick={() => setActiveTab('courses')}
         >
           <FaBook /> Courses
         </button>
+        
         <button
           className={activeTab === 'applications' ? 'active' : ''}
           onClick={() => setActiveTab('applications')}
         >
           <FaUsers /> Applications
+          {counts?.pendingApplications > 0 && (
+            <NotificationBadge count={counts.pendingApplications} variant="warning" />
+          )}
         </button>
+        
         <button
           className={activeTab === 'admissions' ? 'active' : ''}
           onClick={() => setActiveTab('admissions')}
         >
           <FaBullhorn /> Publish Admissions
+        </button>
+
+        <button
+          className={activeTab === 'notifications' ? 'active' : ''}
+          onClick={() => setActiveTab('notifications')}
+        >
+          <FaBell /> Notifications
+          {counts?.unreadNotifications > 0 && (
+            <NotificationBadge count={counts.unreadNotifications} variant="default" />
+          )}
         </button>
       </div>
 
@@ -434,6 +495,43 @@ export default function InstitutionDashboard({ user }) {
           </>
         )}
 
+        {/* ==================== NOTIFICATIONS TAB ==================== */}
+        {activeTab === 'notifications' && (
+          <>
+            <div className="section-header">
+              <h2>Notifications</h2>
+              <p className="subtitle">Stay updated with applications and system alerts</p>
+            </div>
+            
+            {notifications.length === 0 ? (
+              <div className="empty-state">
+                <FaBell size={48} />
+                <h3>No Notifications</h3>
+                <p>You'll see notifications here when there are updates</p>
+              </div>
+            ) : (
+              <div className="notifications-list">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className={`notification-item ${notif.read ? 'read' : 'unread'}`}>
+                    <div className="notification-icon">
+                      {notif.type === 'admission' && <FaGraduationCap />}
+                      {notif.type === 'application' && <FaUsers />}
+                      {notif.type === 'general' && <FaBell />}
+                    </div>
+                    <div className="notification-content">
+                      <h4>{notif.title}</h4>
+                      <p>{notif.message}</p>
+                      <span className="notification-time">
+                        {new Date(notif.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {/* ==================== MODALS ==================== */}
         
         {/* Faculty Modal */}
@@ -545,7 +643,7 @@ export default function InstitutionDashboard({ user }) {
                   <textarea
                     value={formData.requirements}
                     onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    placeholder="e.g., LGCSE with 5 credits including Math and English"
+                    placeholder="e.g., LGCSE with 5 credits"
                     rows="2"
                     required
                   />

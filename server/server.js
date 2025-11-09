@@ -38,10 +38,10 @@ try {
     });
     
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin initialized');
+    console.log(' Firebase Admin initialized');
   }
 } catch (error) {
-  console.error('❌ Firebase initialization error:', error.message);
+  console.error(' Firebase initialization error:', error.message);
 }
 
 // ===================================
@@ -63,10 +63,10 @@ app.use(cors({
       callback(null, true);
     } else {
       if (origin && origin.includes('.vercel.app')) {
-        console.log('✅ Allowing Vercel preview deployment:', origin);
+        console.log(' Allowing Vercel preview deployment:', origin);
         callback(null, true);
       } else {
-        console.log('❌ Blocked by CORS:', origin);
+        console.log(' Blocked by CORS:', origin);
         callback(new Error('Not allowed by CORS'));
       }
     }
@@ -142,8 +142,77 @@ app.get('/test-email', async (req, res) => {
     });
   }
 
+
+// Test Cloudinary configuration
+app.get('/test-cloudinary', async (req, res) => {
+  const { testCloudinaryConnection } = require('./utils/cloudinaryUpload');
+  
+  console.log('\n╔═══════════════════════════════════════════╗');
+  console.log('║   CLOUDINARY CONFIGURATION TEST         ║');
+  console.log('╚═══════════════════════════════════════════╝');
+  console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
+  console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
+  console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
+  console.log('');
+  
+  const isConfigured = process.env.CLOUDINARY_CLOUD_NAME && 
+                      process.env.CLOUDINARY_API_KEY && 
+                      process.env.CLOUDINARY_API_SECRET;
+  
+  if (!isConfigured) {
+    return res.json({ 
+      success: false,
+      error: 'Cloudinary not configured',
+      details: {
+        CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
+        CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
+        CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Missing'
+      },
+      instructions: [
+        '1. Go to https://cloudinary.com/users/register/free',
+        '2. Sign up for a FREE account',
+        '3. Go to Dashboard: https://console.cloudinary.com/',
+        '4. Copy your Cloud Name, API Key, and API Secret',
+        '5. Add them to your .env file',
+        '6. Restart your server'
+      ]
+    });
+  }
+
   try {
-    console.log('📧 Attempting to send test email...');
+    const connected = await testCloudinaryConnection();
+    
+    if (connected) {
+      console.log(' Cloudinary test successful!\n');
+      
+      res.json({ 
+        success: true, 
+        message: 'Cloudinary is configured correctly and connected!',
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+        apiKeyPreview: process.env.CLOUDINARY_API_KEY?.substring(0, 5) + '...'
+      });
+    } else {
+      throw new Error('Connection test failed');
+    }
+  } catch (error) {
+    console.error(' Cloudinary test failed:', error.message);
+    
+    res.json({ 
+      success: false,
+      error: error.message,
+      troubleshooting: [
+        'Verify your Cloudinary credentials are correct',
+        'Check if your API key has the correct permissions',
+        'Ensure your account is active',
+        'Visit https://console.cloudinary.com/ to verify'
+      ]
+    });
+  }
+});
+
+
+  try {
+    console.log(' Attempting to send test email...');
     
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=test123&uid=test456`;
@@ -155,7 +224,7 @@ app.get('/test-email', async (req, res) => {
       verificationLink
     );
     
-    console.log('✅ Test email sent successfully!\n');
+    console.log(' Test email sent successfully!\n');
     
     res.json({ 
       success: true, 
@@ -164,7 +233,7 @@ app.get('/test-email', async (req, res) => {
       sentTo: testEmail
     });
   } catch (error) {
-    console.error('❌ Test email failed:', error.message);
+    console.error(' Test email failed:', error.message);
     
     res.json({ 
       success: false,
@@ -230,7 +299,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.stack);
+  console.error(' Error:', err.stack);
   
   if (process.env.NODE_ENV === 'production') {
     res.status(500).json({ error: 'Internal server error' });
@@ -249,16 +318,16 @@ app.listen(PORT, () => {
   console.log('\n╔════════════════════════════════════════════════╗');
   console.log('║    SERVER STARTED SUCCESSFULLY              ║');
   console.log('╚════════════════════════════════════════════════╝');
-  console.log(`📍 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📧 Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
-  console.log(`🔥 Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
-  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log(`\n📍 Test endpoints (locally):`);
+  console.log(` Server running on port ${PORT}`);
+  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(` Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
+  console.log(` Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
+  console.log(` Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`\n Test endpoints (locally):`);
   console.log(`   • Health: http://localhost:${PORT}/`); 
   console.log(`   • Status: http://localhost:${PORT}/api/status`);
   console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
-  console.log(`\n📍 Test endpoints (Production):`);
+  console.log(`\ Test endpoints (Production):`);
   console.log(`   • Health: https://cgeip.onrender.com/`); 
   console.log(`   • Status: https://cgeip.onrender.com/api/status`);
   console.log(`   • Email Test: https://cgeip.onrender.com/test-email`);
