@@ -41,7 +41,6 @@ export default function AdminDashboard({ user }) {
 
   // Notifications - FIXED: Only trigger on tab change to users
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
-  const [lastNotificationCount, setLastNotificationCount] = useState(counts.totalUsers);
 
   // Mark notifications as read ONLY when users tab is clicked
   useEffect(() => {
@@ -56,7 +55,6 @@ export default function AdminDashboard({ user }) {
             { category: 'users' },
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          setLastNotificationCount(counts.totalUsers);
           refreshCounts();
         } catch (error) {
           console.error('Error marking notifications as read:', error);
