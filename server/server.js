@@ -201,6 +201,7 @@ const studentRoutes = require('./routes/student');
 const companyRoutes = require('./routes/company');
 const teamRoutes = require('./routes/team');
 const publicRoutes = require('./routes/public');
+const contactRoutes = require('./routes/contact');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -209,6 +210,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api', teamRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api', contactRoutes);
 
 // ===================================
 // ERROR HANDLERS

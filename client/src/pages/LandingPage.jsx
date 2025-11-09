@@ -1,7 +1,7 @@
-// client/src/pages/LandingPage.jsx - WITH SEARCH FUNCTIONALITY
-import React, { useState} from 'react';
+// client/src/pages/LandingPage.jsx - WITH ABOUT US & CONTACT US SECTIONS
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight, FaSearch, FaTimes, FaBook } from 'react-icons/fa';
+import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight, FaSearch, FaTimes, FaBook, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGlobe, FaEye, FaBullseye, FaHeart, FaHistory, FaPaperPlane } from 'react-icons/fa';
 import '../styles/LandingPage.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -13,6 +13,17 @@ export default function LandingPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+  const [formStatus, setFormStatus] = useState('');
+
+  // Refs for scrolling
+  const aboutRef = useRef(null);
+  const contactRef = useRef(null);
 
   const features = [
     {
@@ -60,7 +71,6 @@ export default function LandingPage() {
 
     setIsSearching(true);
     try {
-      // Fetch all public data
       const [institutionsRes, facultiesRes, coursesRes] = await Promise.all([
         fetch(`${API_URL}/public/institutions`),
         fetch(`${API_URL}/public/faculties`),
@@ -71,7 +81,6 @@ export default function LandingPage() {
       const faculties = await facultiesRes.json();
       const courses = await coursesRes.json();
 
-      // Filter results based on search query
       const query = searchQuery.toLowerCase();
       
       const filteredInstitutions = institutions.filter(inst =>
@@ -119,6 +128,49 @@ export default function LandingPage() {
     navigate('/register');
   };
 
+  const scrollToSection = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Handle contact form
+  const handleContactChange = (e) => {
+    setContactForm({
+      ...contactForm,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setFormStatus('sending');
+
+    try {
+      const response = await fetch(`${API_URL}/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactForm)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setFormStatus('success');
+        setContactForm({ name: '', email: '', subject: '', message: '' });
+        setTimeout(() => setFormStatus(''), 5000);
+      } else {
+        setFormStatus('error');
+        console.error('Contact form error:', data.error);
+        setTimeout(() => setFormStatus(''), 5000);
+      }
+    } catch (error) {
+      console.error('Contact form submission error:', error);
+      setFormStatus('error');
+      setTimeout(() => setFormStatus(''), 5000);
+    }
+  };
+
   return (
     <div className="landing-page">
       {/* Header */}
@@ -127,7 +179,7 @@ export default function LandingPage() {
           <div className="header-content">
             <div className="logo">
               <FaGraduationCap className="logo-icon" />
-              <span>Career Guidance and Employment Integration Platform</span>
+              <span>CGEIP</span>
             </div>
             <div className="header-actions">
               <button className="btn-outline" onClick={() => navigate('/login')}>
@@ -379,6 +431,256 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ABOUT US SECTION */}
+      <section className="about-section" ref={aboutRef}>
+        <div className="landing-container">
+          <div className="section-header-center">
+            <h2>About Us</h2>
+            <p>Empowering Education and Career Development in Lesotho</p>
+          </div>
+
+          <div className="about-content">
+            {/* Our Story */}
+            <div className="about-story">
+              <div className="about-icon-header">
+                <FaHistory className="about-section-icon" />
+                <h3>Our Story</h3>
+              </div>
+              <p>
+                Founded in 2024, the Career Guidance and Employment Integration Platform (CGEIP) 
+                was established to bridge the gap between education and employment in Lesotho. 
+                Recognizing the challenges students face in accessing information about higher 
+                learning institutions and the disconnect between graduates and employers, we created 
+                a comprehensive digital solution.
+              </p>
+              <p>
+                Developed in collaboration with Limkokwing University of Creative Technology Lesotho, 
+                our platform represents a commitment to innovation in education technology and career 
+                development. We serve as a central hub connecting students, educational institutions, 
+                and employers across the Kingdom of Lesotho.
+              </p>
+            </div>
+
+            {/* Vision, Mission, Values Grid */}
+            <div className="about-vmv-grid">
+              <div className="vmv-card">
+                <FaEye className="vmv-icon" />
+                <h3>Our Vision</h3>
+                <p>
+                  To be the leading digital platform in Lesotho that seamlessly connects education 
+                  with employment, ensuring every student has access to quality educational 
+                  opportunities and career pathways.
+                </p>
+              </div>
+
+              <div className="vmv-card">
+                <FaBullseye className="vmv-icon" />
+                <h3>Our Mission</h3>
+                <p>
+                  To empower students through accessible information, streamline institutional 
+                  processes, and facilitate meaningful connections between graduates and employers, 
+                  thereby contributing to Lesotho's socio-economic development.
+                </p>
+              </div>
+
+              <div className="vmv-card">
+                <FaHeart className="vmv-icon" />
+                <h3>Our Values</h3>
+                <ul className="values-list">
+                  <li><FaCheckCircle /> <span>Accessibility - Education for all</span></li>
+                  <li><FaCheckCircle /> <span>Innovation - Technology-driven solutions</span></li>
+                  <li><FaCheckCircle /> <span>Integrity - Transparent processes</span></li>
+                  <li><FaCheckCircle /> <span>Excellence - Quality service delivery</span></li>
+                  <li><FaCheckCircle /> <span>Collaboration - Partnerships for growth</span></li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Motto */}
+            <div className="about-motto">
+              <div className="motto-content">
+                <h3>Our Motto</h3>
+                <p className="motto-text">"Connecting Dreams to Opportunities"</p>
+                <p className="motto-description">
+                  We believe every student's educational dream can become a reality, and every 
+                  graduate can find meaningful employment. Our platform is the bridge that makes 
+                  this possible.
+                </p>
+              </div>
+            </div>
+
+            {/* What We Do */}
+            <div className="about-services">
+              <h3>What We Do</h3>
+              <div className="services-grid">
+                <div className="service-item">
+                  <FaGraduationCap />
+                  <h4>For Students</h4>
+                  <p>Discover institutions, apply for courses, track applications, and access career opportunities</p>
+                </div>
+                <div className="service-item">
+                  <FaBuilding />
+                  <h4>For Institutions</h4>
+                  <p>Manage admissions, publish courses, track applicants, and streamline enrollment processes</p>
+                </div>
+                <div className="service-item">
+                  <FaBriefcase />
+                  <h4>For Employers</h4>
+                  <p>Post job opportunities, access qualified candidates, and build your workforce</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT US SECTION */}
+      <section className="contact-section" ref={contactRef}>
+        <div className="landing-container">
+          <div className="section-header-center">
+            <h2>Contact Us</h2>
+            <p>Get in touch with us - we're here to help</p>
+          </div>
+
+          <div className="contact-content">
+            {/* Contact Information */}
+            <div className="contact-info">
+              <h3>Get In Touch</h3>
+              <p className="contact-intro">
+                Have questions or need assistance? Reach out to us through any of the following channels:
+              </p>
+
+              <div className="contact-details">
+                <div className="contact-item">
+                  <FaMapMarkerAlt className="contact-icon" />
+                  <div>
+                    <h4>Address</h4>
+                    <p>Limkokwing University of Creative Technology</p>
+                    <p>Maseru, Lesotho</p>
+                    <p>P.O. Box 11912</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <FaPhone className="contact-icon" />
+                  <div>
+                    <h4>Phone</h4>
+                    <p>+266 2231 2211</p>
+                    <p>Ext: 117</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <FaEnvelope className="contact-icon" />
+                  <div>
+                    <h4>Email</h4>
+                    <p>limkokwing.ac.ls</p>
+                    <p>info@che.ac.ls</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <FaGlobe className="contact-icon" />
+                  <div>
+                    <h4>Website</h4>
+                    <p><a href="https://www.limkokwing.ac.ls" target="_blank" rel="noopener noreferrer">www.limkokwing.ac.ls</a></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="office-hours">
+                <h4>Office Hours</h4>
+                <p>Monday - Friday: 8:00 AM - 5:00 PM</p>
+                <p>Saturday: 9:00 AM - 1:00 PM</p>
+                <p>Sunday: Closed</p>
+              </div>
+            </div>
+
+            {/* Contact Form */}
+            <div className="contact-form-wrapper">
+              <h3>Send Us a Message</h3>
+              <p>Fill out the form below and we'll get back to you as soon as possible</p>
+
+              {formStatus === 'success' && (
+    <div className="form-success-message">
+      <FaCheckCircle /> Your message has been sent successfully! We'll get back to you soon.
+    </div>
+  )}
+
+  {formStatus === 'error' && (
+    <div className="form-error-message">
+      <FaTimes /> Failed to send message. Please try again or contact us directly via email.
+    </div>
+  )}
+
+  {formStatus === 'sending' && (
+    <div className="form-sending-message">
+      <FaPaperPlane /> Sending your message...
+    </div>
+  )}
+
+  <form onSubmit={handleContactSubmit} className={`contact-form ${formStatus === 'sending' ? 'sending' : ''}`}>
+                <div className="form-group">
+                  <label htmlFor="name">Full Name *</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={contactForm.name}
+                    onChange={handleContactChange}
+                    required
+                    placeholder="Enter your full name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="email">Email Address *</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={contactForm.email}
+                    onChange={handleContactChange}
+                    required
+                    placeholder="your.email@example.com"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="subject">Subject *</label>
+                  <input
+                    type="text"
+                    id="subject"
+                    name="subject"
+                    value={contactForm.subject}
+                    onChange={handleContactChange}
+                    required
+                    placeholder="What is your message about?"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="message">Message *</label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    value={contactForm.message}
+                    onChange={handleContactChange}
+                    required
+                    rows="6"
+                    placeholder="Type your message here..."
+                  ></textarea>
+                </div>
+
+                <button type="submit" className="btn-primary btn-large">
+                  <FaPaperPlane /> Send Message
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="cta-section">
         <div className="landing-container">
@@ -411,11 +713,12 @@ export default function LandingPage() {
               </div>
               <div className="footer-column">
                 <h4>Resources</h4>
-                <Link to="/">About Us</Link>
-                <Link to="/">Contact</Link>
+                <a href="#about" onClick={(e) => { e.preventDefault(); scrollToSection(aboutRef); }}>About Us</a>
+                <a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection(contactRef); }}>Contact</a>
               </div>
             </div>
           </div>
+         
         </div>
       </footer>
 

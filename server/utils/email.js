@@ -1,4 +1,4 @@
-// server/utils/email.js - ENHANCED VERSION WITH BETTER ERROR HANDLING
+// server/utils/email.js - ENHANCED VERSION WITH CONTACT FORM SUPPORT
 const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid with API key
@@ -12,6 +12,13 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Your verified sender email (the one you verified in SendGrid)
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'chukwudidivine20@gmail.com';
+
+// Contact form recipient emails
+const CONTACT_RECIPIENTS = [
+  'chukwudidivine20@gmail.com',
+  'thabangmaepe@gmail.com',
+  'rea89236@gmail.com'
+];
 
 // Send verification email
 const sendVerificationEmail = async (email, name, verificationLink) => {
@@ -300,6 +307,229 @@ const sendNotificationEmail = async (email, subject, message) => {
   }
 };
 
+// NEW: Send contact form email to admin team
+const sendContactFormEmail = async (name, email, subject, message) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('❌ SendGrid API key not configured');
+    throw new Error('Email service not configured');
+  }
+
+  const msg = {
+    to: CONTACT_RECIPIENTS,
+    from: {
+      email: SENDER_EMAIL,
+      name: 'CGEIP Contact Form'
+    },
+    replyTo: email, // Allow direct reply to the person who submitted the form
+    subject: `CGEIP Contact Form: ${subject}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .container {
+            background: white;
+            border-radius: 10px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+          }
+          .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .info-box {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4b5563;
+          }
+          .info-row {
+            display: flex;
+            margin-bottom: 12px;
+            align-items: flex-start;
+          }
+          .info-row:last-child {
+            margin-bottom: 0;
+          }
+          .info-label {
+            font-weight: 600;
+            color: #1f2937;
+            min-width: 100px;
+            font-size: 14px;
+          }
+          .info-value {
+            color: #4b5563;
+            font-size: 14px;
+            flex: 1;
+            word-break: break-word;
+          }
+          .message-box {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+          }
+          .message-box h3 {
+            margin: 0 0 15px 0;
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 600;
+          }
+          .message-content {
+            color: #6b7280;
+            line-height: 1.8;
+            font-size: 15px;
+            white-space: pre-wrap;
+          }
+          .reply-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .reply-button:hover {
+            opacity: 0.9;
+          }
+          .footer {
+            background: #f9fafb;
+            padding: 25px 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+          }
+          .footer p {
+            margin: 5px 0;
+            color: #6b7280;
+            font-size: 13px;
+          }
+          .timestamp {
+            background: #e5e7eb;
+            color: #4b5563;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: inline-block;
+            margin-top: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📧 New Contact Form Submission</h1>
+            <p>Career Guidance and Employment Integration Platform</p>
+            <div class="timestamp">
+              📅 ${new Date().toLocaleString('en-US', { 
+                dateStyle: 'full', 
+                timeStyle: 'short',
+                timeZone: 'Africa/Maseru'
+              })}
+            </div>
+          </div>
+          
+          <div class="content">
+            <div class="info-box">
+              <div class="info-row">
+                <span class="info-label">👤 Name:</span>
+                <span class="info-value">${name}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">📧 Email:</span>
+                <span class="info-value"><a href="mailto:${email}" style="color: #4b5563; text-decoration: none; font-weight: 600;">${email}</a></span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">📋 Subject:</span>
+                <span class="info-value"><strong>${subject}</strong></span>
+              </div>
+            </div>
+
+            <div class="message-box">
+              <h3>💬 Message Content</h3>
+              <div class="message-content">${message}</div>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="mailto:${email}" class="reply-button">
+                ✉️ Reply to ${name.split(' ')[0]}
+              </a>
+            </div>
+
+            <div style="background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 15px; border-radius: 8px; margin-top: 25px; font-size: 14px;">
+              <strong>💡 Quick Tip:</strong> Click "Reply" in your email client to respond directly to ${email}
+            </div>
+          </div>
+
+          <div class="footer">
+            <p><strong>Career Guidance and Employment Integration Platform (CGEIP)</strong></p>
+            <p>Limkokwing University of Creative Technology</p>
+            <p>Maseru, Lesotho | P.O. Box 11912</p>
+            <p style="margin-top: 15px; font-size: 12px;">
+              This email was automatically generated from the CGEIP website contact form.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    console.log(`📧 Sending contact form email from: ${name} (${email})`);
+    console.log(`   Recipients: ${CONTACT_RECIPIENTS.join(', ')}`);
+    console.log(`   Subject: ${subject}`);
+    
+    const response = await sgMail.send(msg);
+    
+    console.log('✅ Contact form email sent successfully');
+    console.log('   Response Status:', response[0].statusCode);
+    console.log('   Message ID:', response[0].headers['x-message-id']);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ SendGrid contact form error:', error.message);
+    
+    if (error.response) {
+      console.error('   Status Code:', error.response.statusCode);
+      console.error('   Response Body:', JSON.stringify(error.response.body, null, 2));
+    }
+    
+    throw error;
+  }
+};
+
 // Send application status update
 const sendApplicationStatusEmail = async (email, name, institutionName, courseName, status) => {
   const statusMessages = {
@@ -350,6 +580,7 @@ const testEmailConfig = async () => {
     console.log('  Preview:', apiKeyPreview);
   }
   console.log('SENDER_EMAIL:', SENDER_EMAIL);
+  console.log('CONTACT_RECIPIENTS:', CONTACT_RECIPIENTS.join(', '));
   console.log('');
   
   if (!apiKeySet) {
@@ -370,5 +601,6 @@ module.exports = {
   sendVerificationEmail,
   sendNotificationEmail,
   sendApplicationStatusEmail,
+  sendContactFormEmail, // NEW: Export the contact form function
   testEmailConfig
 };
