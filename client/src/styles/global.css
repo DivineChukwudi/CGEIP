@@ -2014,3 +2014,251 @@ tr.selected-row {
 .notification-item.job.unread {
   animation: pulse 2s infinite;
 }
+/* Add these styles to client/src/styles/global.css */
+
+/* Notification Dot Styles */
+.notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.dashboard-sidebar button {
+  position: relative;
+}
+
+/* Badge variants */
+.badge {
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  margin-left: 8px;
+}
+
+.badge.success {
+  background: #10b981;
+}
+
+.badge.warning {
+  background: #f59e0b;
+}
+
+.badge.info {
+  background: #3b82f6;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+/* ADD THIS TO client/src/styles/global.css */
+
+/* ============================================
+   NOTIFICATION BADGES
+   ============================================ */
+
+/* Pulse animation for notification badges */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Notification badge positioning in sidebar */
+.dashboard-sidebar button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-sidebar button .badge {
+  position: absolute;
+  right: 1.5rem;
+  background: #ef4444;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Badge variants */
+.notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  margin-left: 8px;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.notification-badge.variant-default {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.notification-badge.variant-warning {
+  background: #f59e0b;
+  color: white;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.notification-badge.variant-success {
+  background: #10b981;
+  color: white;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.notification-badge.variant-info {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Responsive - reduce badge size on mobile */
+@media (max-width: 768px) {
+  .notification-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 5px;
+  }
+  
+  .dashboard-sidebar button .badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+}
+/* Add these styles to your client/src/styles/global.css */
+
+/* Highlight recent items */
+.highlight-row {
+  animation: highlightFade 5s ease-in-out;
+  background-color: #fff3cd !important;
+}
+
+@keyframes highlightFade {
+  0% {
+    background-color: #fff3cd;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* Make recent items stand out more */
+.highlight-row td {
+  font-weight: 500;
+  position: relative;
+}
+
+.highlight-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, #ffc107, #ff9800);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Pulse animation for notification badges */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Enhanced table row hover */
+.table-container table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.table-container table tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: translateX(2px);
+}
+
+/* Smooth transition for status badges */
+.status-badge {
+  transition: all 0.3s ease;
+}
+
+.status-badge:hover {
+  transform: scale(1.05);
+}

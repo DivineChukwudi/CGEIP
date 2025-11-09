@@ -1,7 +1,10 @@
-// client/src/pages/AdminDashboard.jsx - WITH USER DELETE FUNCTIONALITY
+// client/src/pages/AdminDashboard.jsx - CORRECTED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate } from 'react-icons/fa';
+import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import NotificationBadge from '../components/NotificationBadge';
+import axios from 'axios';
 import '../styles/global.css';
 
 export default function AdminDashboard({ user }) {
@@ -18,6 +21,49 @@ export default function AdminDashboard({ user }) {
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [recentItems, setRecentItems] = useState(new Set());
+
+  // Notifications
+  const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
+
+  // Mark notifications as read when tab changes
+  useEffect(() => {
+    const markNotificationsRead = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      let category = null;
+      if (activeTab === 'companies') category = 'companies';
+      else if (activeTab === 'users') category = 'users';
+
+      if (category) {
+        try {
+          await axios.put(
+            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
+            { category },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          refreshCounts(); // Refresh the counts after marking as read
+        } catch (error) {
+          console.error('Error marking notifications as read:', error);
+        }
+      }
+    };
+
+    markNotificationsRead();
+  }, [activeTab, refreshCounts]);
+
+  // Track recently added/updated items (highlight for 5 seconds)
+  const highlightItem = (id) => {
+    setRecentItems(prev => new Set([...prev, id]));
+    setTimeout(() => {
+      setRecentItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }, 5000);
+  };
 
   const loadData = useCallback(async () => {
     setError('');
@@ -317,36 +363,52 @@ export default function AdminDashboard({ user }) {
         >
           <FaChartBar /> Dashboard
         </button>
+        
         <button
           className={activeTab === 'institutions' ? 'active' : ''}
           onClick={() => setActiveTab('institutions')}
         >
           <FaBuilding /> Institutions
         </button>
+        
         <button
           className={activeTab === 'faculties' ? 'active' : ''}
           onClick={() => setActiveTab('faculties')}
         >
           <FaGraduationCap /> Faculties
         </button>
+        
         <button
           className={activeTab === 'courses' ? 'active' : ''}
           onClick={() => setActiveTab('courses')}
         >
           <FaBook /> Courses
         </button>
+        
         <button
           className={activeTab === 'companies' ? 'active' : ''}
           onClick={() => setActiveTab('companies')}
         >
           <FaBriefcase /> Companies
+          {counts?.pendingCompanies > 0 && (
+            <NotificationBadge count={counts.pendingCompanies} variant="warning" />
+          )}
         </button>
+        
         <button
           className={activeTab === 'users' ? 'active' : ''}
           onClick={() => setActiveTab('users')}
         >
           <FaUserGraduate /> All Users
+          {counts?.totalUsers > 0 && (
+            <NotificationBadge 
+              count={counts.totalUsers} 
+              variant="info"
+              title={`${counts.totalUsers} new user${counts.totalUsers > 1 ? 's' : ''} in last 7 days`}
+            />
+          )}
         </button>
+        
         <button
           className={activeTab === 'team' ? 'active' : ''}
           onClick={() => window.location.href = '/admin/team'}
@@ -543,7 +605,10 @@ export default function AdminDashboard({ user }) {
                 </thead>
                 <tbody>
                   {companies.map((company) => (
-                    <tr key={company.id}>
+                    <tr 
+                      key={company.id}
+                      className={recentItems.has(company.id) ? 'highlight-row' : ''}
+                    >
                       <td>{company.name}</td>
                       <td>{company.email}</td>
                       <td>
@@ -612,7 +677,10 @@ export default function AdminDashboard({ user }) {
                 </thead>
                 <tbody>
                   {allUsers.map((u) => (
-                    <tr key={u.id}>
+                    <tr 
+                      key={u.id}
+                      className={recentItems.has(u.id) ? 'highlight-row' : ''}
+                    >
                       <td>{u.name}</td>
                       <td>{u.email}</td>
                       <td>

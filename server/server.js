@@ -202,6 +202,8 @@ const companyRoutes = require('./routes/company');
 const teamRoutes = require('./routes/team');
 const publicRoutes = require('./routes/public');
 const contactRoutes = require('./routes/contact');
+const notificationRoutes = require('./routes/notifications');
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -211,6 +213,8 @@ app.use('/api/company', companyRoutes);
 app.use('/api', teamRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api', contactRoutes);
+app.use('/api/notifications', notificationRoutes);
+
 
 // ===================================
 // ERROR HANDLERS

@@ -495,6 +495,49 @@ export const publicAPI = {
   },
 };
 
+// ============================================
+// NOTIFICATIONS API
+// ============================================
+export const notificationsAPI = {
+  // Get notification counts
+  getCounts: async () => {
+    const { data } = await api.get('/notifications/counts');
+    return data;
+  },
+
+  // Get all notifications
+  getAll: async (limit = 50, offset = 0) => {
+    const { data } = await api.get('/notifications', {
+      params: { limit, offset }
+    });
+    return data;
+  },
+
+  // Mark notification as read
+  markAsRead: async (notificationId) => {
+    const { data } = await api.put(`/notifications/${notificationId}/read`);
+    return data;
+  },
+
+  // Mark all notifications as read
+  markAllAsRead: async () => {
+    const { data } = await api.put('/notifications/read-all');
+    return data;
+  },
+
+  // Mark notifications by category as read
+  markCategoryAsRead: async (category) => {
+    const { data } = await api.put('/notifications/read-by-category', { category });
+    return data;
+  },
+
+  // Delete notification
+  delete: async (notificationId) => {
+    const { data } = await api.delete(`/notifications/${notificationId}`);
+    return data;
+  }
+};
+
 // Default export
 const apiExport = {
   authAPI,
@@ -503,6 +546,7 @@ const apiExport = {
   studentAPI,
   companyAPI,
   publicAPI,
+  notificationsAPI,
 };
 
 export default apiExport;
