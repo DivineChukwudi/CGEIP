@@ -1275,3 +1275,10 @@
     align-items: flex-start;
   }
 }
+.stat-number {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -1px;
+  color: #ffffff !important;
+}
