@@ -1,7 +1,7 @@
-// client/src/pages/AdminDashboard.jsx - FIXED VERSION
+// client/src/pages/AdminDashboard.jsx - FIXED WITH SEARCH & SORT
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
-import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import NotificationBadge from '../components/NotificationBadge';
 import axios from 'axios';
@@ -22,27 +22,42 @@ export default function AdminDashboard({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Notifications
-  const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
+  // ==================== SEARCH & SORT STATE ====================
+  const [searchTerms, setSearchTerms] = useState({
+    institutions: '',
+    faculties: '',
+    courses: '',
+    companies: '',
+    users: ''
+  });
 
-  // Mark notifications as read when tab changes
+  const [sortConfig, setSortConfig] = useState({
+    institutions: { key: 'name', order: 'asc' },
+    faculties: { key: 'name', order: 'asc' },
+    courses: { key: 'name', order: 'asc' },
+    companies: { key: 'name', order: 'asc' },
+    users: { key: 'createdAt', order: 'desc' }
+  });
+
+  // Notifications - FIXED: Only trigger on tab change to users
+  const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
+  const [lastNotificationCount, setLastNotificationCount] = useState(counts.totalUsers);
+
+  // Mark notifications as read ONLY when users tab is clicked
   useEffect(() => {
     const markNotificationsRead = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      let category = null;
-      if (activeTab === 'companies') category = 'companies';
-      else if (activeTab === 'users') category = 'users';
-
-      if (category) {
+      if (activeTab === 'users') {
         try {
           await axios.put(
             `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
-            { category },
+            { category: 'users' },
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          refreshCounts(); // Refresh the counts after marking as read
+          setLastNotificationCount(counts.totalUsers);
+          refreshCounts();
         } catch (error) {
           console.error('Error marking notifications as read:', error);
         }
@@ -50,8 +65,70 @@ export default function AdminDashboard({ user }) {
     };
 
     markNotificationsRead();
-  }, [activeTab, refreshCounts]);
+  }, [activeTab, counts.totalUsers, refreshCounts]);
 
+  // ==================== SEARCH HELPER ====================
+  const searchFilter = (items, searchTerm) => {
+    if (!searchTerm.trim()) return items;
+    
+    const term = searchTerm.toLowerCase();
+    return items.filter(item => {
+      // Search across common fields
+      const searchFields = [
+        item.name,
+        item.email,
+        item.location,
+        item.contact,
+        item.website,
+        item.description,
+        item.title,
+        item.company,
+        item.role
+      ].filter(Boolean);
+
+      return searchFields.some(field => 
+        String(field).toLowerCase().includes(term)
+      );
+    });
+  };
+
+  // ==================== SORT HELPER ====================
+  const sortItems = (items, sortKey) => {
+    const { key, order } = sortConfig[sortKey];
+    
+    const sorted = [...items].sort((a, b) => {
+      let aVal = a[key];
+      let bVal = b[key];
+
+      // Handle nested fields and dates
+      if (key === 'createdAt' || key === 'updatedAt') {
+        aVal = new Date(aVal || 0);
+        bVal = new Date(bVal || 0);
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (aVal < bVal) return order === 'asc' ? -1 : 1;
+      if (aVal > bVal) return order === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  };
+
+  // ==================== TOGGLE SORT ====================
+  const toggleSort = (tabName, sortKey) => {
+    setSortConfig(prev => ({
+      ...prev,
+      [tabName]: {
+        key: sortKey,
+        order: prev[tabName].key === sortKey && prev[tabName].order === 'asc' ? 'desc' : 'asc'
+      }
+    }));
+  };
+
+  // ==================== LOAD DATA ====================
   const loadData = useCallback(async () => {
     setError('');
     try {
@@ -93,10 +170,25 @@ export default function AdminDashboard({ user }) {
     loadData();
   }, [loadData]);
 
+  // ==================== HELPER FUNCTIONS ====================
   const showSuccess = (message) => {
     setSuccess(message);
     setTimeout(() => setSuccess(''), 3000);
   };
+
+  const getInstitutionName = (instId) => {
+    const inst = institutions.find(i => i.id === instId);
+    return inst ? inst.name : 'Unknown';
+  };
+
+  const getFacultyName = (facId) => {
+    const fac = faculties.find(f => f.id === facId);
+    return fac ? fac.name : 'Unknown';
+  };
+
+  const filteredFaculties = formData.institutionId 
+    ? faculties.filter(f => f.institutionId === formData.institutionId)
+    : [];
 
   // ==================== INSTITUTION MANAGEMENT ====================
   const handleAddInstitution = () => {
@@ -284,7 +376,6 @@ export default function AdminDashboard({ user }) {
   // ==================== USER MANAGEMENT ====================
   const handleDeleteUser = async (userId, userName) => {
     try {
-      // First get deletion summary
       const summary = await adminAPI.deleteUser(userId, false);
       
       let confirmMsg = `Delete "${userName}"?\n\nThis will permanently delete:\n- User account\n`;
@@ -314,7 +405,6 @@ export default function AdminDashboard({ user }) {
       confirmMsg += `\nTotal items to delete: ${summary.totalRelatedItems + 1}\n\nThis action CANNOT be undone!`;
       
       if (window.confirm(confirmMsg)) {
-        // Perform actual deletion
         await adminAPI.deleteUser(userId, true);
         showSuccess(`User "${userName}" and all related data deleted successfully!`);
         loadData();
@@ -324,22 +414,60 @@ export default function AdminDashboard({ user }) {
     }
   };
 
-  // Get institution name helper
-  const getInstitutionName = (instId) => {
-    const inst = institutions.find(i => i.id === instId);
-    return inst ? inst.name : 'Unknown';
+  // ==================== RENDER FILTERED & SORTED DATA ====================
+  const getDisplayedItems = (tabName) => {
+    let items = [];
+    let searchKey = tabName;
+
+    if (tabName === 'institutions') {
+      items = institutions;
+    } else if (tabName === 'faculties') {
+      items = faculties;
+    } else if (tabName === 'courses') {
+      items = courses;
+    } else if (tabName === 'companies') {
+      items = companies;
+    } else if (tabName === 'users') {
+      items = allUsers;
+      searchKey = 'users';
+    }
+
+    const searched = searchFilter(items, searchTerms[searchKey]);
+    return sortItems(searched, tabName);
   };
 
-  // Get faculty name helper
-  const getFacultyName = (facId) => {
-    const fac = faculties.find(f => f.id === facId);
-    return fac ? fac.name : 'Unknown';
-  };
+  // ==================== SORT BUTTON COMPONENT ====================
+  const SortButton = ({ tabName, sortKey, label }) => {
+    const config = sortConfig[tabName];
+    const isActive = config.key === sortKey;
+    const isAsc = config.order === 'asc';
 
-  // Filter faculties by selected institution
-  const filteredFaculties = formData.institutionId 
-    ? faculties.filter(f => f.institutionId === formData.institutionId)
-    : [];
+    return (
+      <button
+        onClick={() => toggleSort(tabName, sortKey)}
+        style={{
+          background: isActive ? '#f3f4f6' : 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          color: isActive ? '#1f2937' : '#9ca3af',
+          fontSize: '12px',
+          fontWeight: isActive ? '600' : '400',
+          transition: 'all 0.2s'
+        }}
+        title={`Sort by ${label}`}
+      >
+        {label}
+        {isActive && (
+          isAsc ? <FaArrowUp size={12} /> : <FaArrowDown size={12} />
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="dashboard-container">
@@ -391,7 +519,6 @@ export default function AdminDashboard({ user }) {
             <NotificationBadge 
               count={counts.totalUsers} 
               variant="info"
-              title={`${counts.totalUsers} new user${counts.totalUsers > 1 ? 's' : ''} in last 7 days`}
             />
           )}
         </button>
@@ -452,19 +579,30 @@ export default function AdminDashboard({ user }) {
                 <FaPlus /> Add Institution
               </button>
             </div>
+            
+            <div className="search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search institutions..."
+                value={searchTerms.institutions}
+                onChange={(e) => setSearchTerms({ ...searchTerms, institutions: e.target.value })}
+              />
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Location</th>
+                    <th><SortButton tabName="institutions" sortKey="name" label="Name" /></th>
+                    <th><SortButton tabName="institutions" sortKey="location" label="Location" /></th>
                     <th>Contact</th>
                     <th>Website</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {institutions.map((inst) => (
+                  {getDisplayedItems('institutions').map((inst) => (
                     <tr key={inst.id}>
                       <td>{inst.name}</td>
                       <td>{inst.location}</td>
@@ -495,18 +633,29 @@ export default function AdminDashboard({ user }) {
                 <FaPlus /> Add Faculty
               </button>
             </div>
+            
+            <div className="search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search faculties..."
+                value={searchTerms.faculties}
+                onChange={(e) => setSearchTerms({ ...searchTerms, faculties: e.target.value })}
+              />
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Institution</th>
-                    <th>Faculty Name</th>
+                    <th><SortButton tabName="faculties" sortKey="name" label="Faculty Name" /></th>
                     <th>Description</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {faculties.map((faculty) => (
+                  {getDisplayedItems('faculties').map((faculty) => (
                     <tr key={faculty.id}>
                       <td>{getInstitutionName(faculty.institutionId)}</td>
                       <td>{faculty.name}</td>
@@ -536,27 +685,38 @@ export default function AdminDashboard({ user }) {
                 <FaPlus /> Add Course
               </button>
             </div>
+            
+            <div className="search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search courses..."
+                value={searchTerms.courses}
+                onChange={(e) => setSearchTerms({ ...searchTerms, courses: e.target.value })}
+              />
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Institution</th>
                     <th>Faculty</th>
-                    <th>Course Name</th>
+                    <th><SortButton tabName="courses" sortKey="name" label="Course Name" /></th>
+                    <th><SortButton tabName="courses" sortKey="level" label="Level" /></th>
                     <th>Duration</th>
-                    <th>Level</th>
                     <th>Capacity</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {courses.map((course) => (
+                  {getDisplayedItems('courses').map((course) => (
                     <tr key={course.id}>
                       <td>{getInstitutionName(course.institutionId)}</td>
                       <td>{getFacultyName(course.facultyId)}</td>
                       <td>{course.name}</td>
-                      <td>{course.duration}</td>
                       <td>{course.level}</td>
+                      <td>{course.duration}</td>
                       <td>{course.enrolledCount || 0} / {course.capacity || 50}</td>
                       <td>
                         <button className="btn-icon" onClick={() => handleEditCourse(course)}>
@@ -580,18 +740,29 @@ export default function AdminDashboard({ user }) {
             <div className="section-header">
               <h2>Manage Companies</h2>
             </div>
+            
+            <div className="search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search companies..."
+                value={searchTerms.companies}
+                onChange={(e) => setSearchTerms({ ...searchTerms, companies: e.target.value })}
+              />
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Company Name</th>
+                    <th><SortButton tabName="companies" sortKey="name" label="Company Name" /></th>
                     <th>Email</th>
-                    <th>Status</th>
+                    <th><SortButton tabName="companies" sortKey="status" label="Status" /></th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {companies.map((company) => (
+                  {getDisplayedItems('companies').map((company) => (
                     <tr key={company.id}>
                       <td>{company.name}</td>
                       <td>{company.email}</td>
@@ -646,21 +817,32 @@ export default function AdminDashboard({ user }) {
             <div className="section-header">
               <h2>All Registered Users</h2>
             </div>
+            
+            <div className="search-bar">
+              <FaSearch />
+              <input
+                type="text"
+                placeholder="Search users by name, email, or role..."
+                value={searchTerms.users}
+                onChange={(e) => setSearchTerms({ ...searchTerms, users: e.target.value })}
+              />
+            </div>
+
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
+                    <th><SortButton tabName="users" sortKey="name" label="Name" /></th>
+                    <th><SortButton tabName="users" sortKey="email" label="Email" /></th>
+                    <th><SortButton tabName="users" sortKey="role" label="Role" /></th>
+                    <th><SortButton tabName="users" sortKey="status" label="Status" /></th>
                     <th>Email Verified</th>
-                    <th>Registered</th>
+                    <th><SortButton tabName="users" sortKey="createdAt" label="Registered" /></th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allUsers.map((u) => (
+                  {getDisplayedItems('users').map((u) => (
                     <tr key={u.id}>
                       <td>{u.name}</td>
                       <td>{u.email}</td>
