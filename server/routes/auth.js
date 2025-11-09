@@ -400,4 +400,111 @@ router.post('/google-signin', async (req, res) => {
   }
 });
 
+
+
+// ==================== GOOGLE COMPLETE REGISTRATION (NEW) ====================
+router.post('/google-complete-registration', async (req, res) => {
+  try {
+    const { idToken, role, password, name } = req.body;
+
+    if (!idToken || !role || !password) {
+      return res.status(400).json({ 
+        error: 'Google token, role, and password are required' 
+      });
+    }
+
+    if (!['student', 'institution', 'company'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Verify Google ID token
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { uid, email, picture, email_verified } = decodedToken;
+
+    // Check if user already exists
+    let userDoc = await db.collection(collections.USERS).doc(uid).get();
+
+    if (userDoc.exists) {
+      return res.status(400).json({ 
+        error: 'This Google account is already registered. Please login instead.' 
+      });
+    }
+
+    // Create new user with Google auth + password
+    userData = {
+      uid,
+      email,
+      name: name || decodedToken.name || email.split('@')[0],
+      photoURL: picture || '',
+      emailVerified: email_verified || true, // Google emails are pre-verified
+      role,
+      status: role === 'company' ? 'pending' : 'active',
+      authProvider: 'google',
+      hasPassword: true, // User set a password
+      createdAt: new Date().toISOString()
+    };
+
+    // Store user in Firestore
+    await db.collection(collections.USERS).doc(uid).set(userData);
+    
+    // Also update Firebase Auth with the password
+    try {
+      await auth.updateUser(uid, {
+        password: password,
+        displayName: userData.name
+      });
+      console.log('✅ Password set for Google user:', email);
+    } catch (updateError) {
+      console.warn('⚠️ Could not set password for existing Firebase user:', updateError.message);
+    }
+
+    console.log('✅ Google user registered with password:', email);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { uid: userData.uid, email: userData.email, role: userData.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    delete userData.password;
+
+    res.json({
+      message: 'Account created successfully',
+      token,
+      user: userData,
+      isNewUser: true
+    });
+
+  } catch (error) {
+    console.error('Google complete registration error:', error);
+    res.status(500).json({ error: 'Registration failed: ' + error.message });
+  }
+});
+
+// ==================== CHECK IF USER EXISTS (NEW) ====================
+router.post('/check-user', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check in Firestore
+    const usersSnapshot = await db.collection(collections.USERS)
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    res.json({ 
+      exists: !usersSnapshot.empty,
+      email: email
+    });
+  } catch (error) {
+    console.error('Check user error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

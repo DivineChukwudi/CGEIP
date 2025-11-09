@@ -1,4 +1,4 @@
-// client/src/pages/Register.jsx - FIXED GOOGLE AUTH
+// client/src/pages/Register.jsx - COMPLETE FIXED VERSION WITH GOOGLE FLOW
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -53,9 +53,8 @@ export default function Register() {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('student');
-  const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
+  const [googleUserInfo, setGoogleUserInfo] = useState(null);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -70,7 +69,7 @@ export default function Register() {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  // FIXED: Complete Google Sign-Up with Role Selection
+  // Handle Google Sign-Up - Auto-fill name and email
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
     setError('');
@@ -81,72 +80,46 @@ export default function Register() {
       
       console.log('✓ Google user signed in:', result.user);
 
-      // Store user info and show role modal
-      setPendingGoogleUser(result.user);
-      setShowRoleModal(true);
+      const email = result.user.email;
+      const name = result.user.displayName || email.split('@')[0];
+
+      // Check if user already exists
+      try {
+        const checkResponse = await axios.post(`${API_BASE_URL}/auth/check-user`, {
+          email: email
+        });
+
+        if (checkResponse.data.exists) {
+          setError('This email is already registered. Please login instead.');
+          setGoogleLoading(false);
+          return;
+        }
+      } catch (checkError) {
+        // If check endpoint doesn't exist, proceed
+        console.log('User check endpoint not available, proceeding...');
+      }
+
+      // Store Google user info and auto-fill form
+      setGoogleUserInfo(result.user);
+      setIsGoogleUser(true);
+      setFormData({
+        ...formData,
+        name: name,
+        email: email
+      });
+      
       setGoogleLoading(false);
+      
+      // Show success message
+      setSuccess('✓ Google account connected! Please select your role and create a password to complete registration.');
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(''), 5000);
         
     } catch (error) {
       console.error('✗ Google sign-up error:', error);
       setError(error.message || 'Google sign-up failed. Please try again.');
       setGoogleLoading(false);
-    }
-  };
-
-  // Complete Google registration with selected role
-  const completeGoogleSignUp = async () => {
-    if (!pendingGoogleUser) return;
-
-    setLoading(true);
-    setError('');
-    setShowRoleModal(false);
-
-    try {
-      const idToken = await pendingGoogleUser.getIdToken();
-      
-      console.log('📤 Sending Google sign-in request with role:', selectedRole);
-
-      const response = await axios.post(`${API_BASE_URL}/auth/google-signin`, {
-        idToken,
-        role: selectedRole
-      });
-
-      console.log('✅ Google registration successful:', response.data);
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-      }
-
-      setSuccess('Registration successful! Redirecting...');
-      
-      // Redirect based on role
-      setTimeout(() => {
-        switch (response.data.user.role) {
-          case 'student':
-            navigate('/student');
-            break;
-          case 'institution':
-            navigate('/institution');
-            break;
-          case 'company':
-            if (response.data.user.status === 'pending') {
-              navigate('/company/pending');
-            } else {
-              navigate('/company');
-            }
-            break;
-          default:
-            navigate('/login');
-        }
-      }, 1500);
-
-    } catch (err) {
-      console.error('❌ Google registration error:', err);
-      setError(err.response?.data?.error || 'Google sign-up failed. Please try again.');
-      setPendingGoogleUser(null);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -178,28 +151,68 @@ export default function Register() {
         name: registerData.name,
         email: registerData.email,
         role: registerData.role,
-        hasPassword: !!registerData.password
+        hasPassword: !!registerData.password,
+        isGoogleUser: isGoogleUser
       });
 
-      const response = await authAPI.register(registerData);
-      
-      console.log('✅ Registration response:', response);
+      // If using Google, include the Firebase user info
+      if (isGoogleUser && googleUserInfo) {
+        const idToken = await googleUserInfo.getIdToken();
+        
+        // Complete Google registration with selected role and password
+        const response = await axios.post(`${API_BASE_URL}/auth/google-complete-registration`, {
+          idToken,
+          role: registerData.role,
+          password: registerData.password,
+          name: registerData.name
+        });
 
-      setSuccess(response.message || 'Registration successful! Please check your email to verify your account.');
-      
-      // Clear form
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        role: 'student'
-      });
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+        console.log('✅ Google registration completed:', response.data);
+
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
+
+        setSuccess('Registration successful! Redirecting...');
+        
+        setTimeout(() => {
+          switch (response.data.user.role) {
+            case 'student':
+              navigate('/student');
+              break;
+            case 'institution':
+              navigate('/institution');
+              break;
+            case 'company':
+              navigate('/company');
+              break;
+            default:
+              navigate('/login');
+          }
+        }, 1500);
+      } else {
+        // Normal email/password registration
+        const response = await authAPI.register(registerData);
+        
+        console.log('✅ Registration response:', response);
+
+        setSuccess(response.message || 'Registration successful! Please check your email to verify your account.');
+        
+        // Clear form
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          role: 'student'
+        });
+        
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+      }
     } catch (err) {
       console.error('❌ Registration error:', err);
       console.error('❌ Error response:', err.response?.data);
@@ -254,22 +267,24 @@ export default function Register() {
         {success && (
           <div className="success-message">
             {success}
-            <div style={{ 
-              marginTop: '15px', 
-              padding: '12px', 
-              background: '#fff3cd', 
-              border: '1px solid #ffc107',
-              borderRadius: '6px',
-              fontSize: '13px'
-            }}>
-              <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#856404' }}>
-                📧 Check your email inbox
-              </p>
-              <p style={{ margin: '0', color: '#856404' }}>
-                If you don't see the verification email, <strong>please check your spam/junk folder</strong>. 
-                Mark it as "Not Spam" to ensure you receive future emails.
-              </p>
-            </div>
+            {!isGoogleUser && (
+              <div style={{ 
+                marginTop: '15px', 
+                padding: '12px', 
+                background: '#fff3cd', 
+                border: '1px solid #ffc107',
+                borderRadius: '6px',
+                fontSize: '13px'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#856404' }}>
+                  📧 Check your email inbox
+                </p>
+                <p style={{ margin: '0', color: '#856404' }}>
+                  If you don't see the verification email, <strong>please check your spam/junk folder</strong>. 
+                  Mark it as "Not Spam" to ensure you receive future emails.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -278,11 +293,15 @@ export default function Register() {
           type="button"
           className="btn-google"
           onClick={handleGoogleSignUp}
-          disabled={googleLoading || loading}
+          disabled={googleLoading || loading || isGoogleUser}
         >
           {googleLoading ? (
             <>
-              <FaSpinner className="spinner" /> Signing up...
+              <FaSpinner className="spinner" /> Connecting to Google...
+            </>
+          ) : isGoogleUser ? (
+            <>
+              <FaGoogle /> ✓ Google Account Connected
             </>
           ) : (
             <>
@@ -291,8 +310,26 @@ export default function Register() {
           )}
         </button>
 
+        {isGoogleUser && (
+          <div style={{
+            background: '#d1fae5',
+            border: '1px solid #10b981',
+            color: '#065f46',
+            padding: '12px 16px',
+            borderRadius: '6px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <FaGoogle style={{ color: '#10b981' }} />
+            <span>Google account connected! Name and email have been auto-filled from your Google account.</span>
+          </div>
+        )}
+
         <div className="divider">
-          <span>or</span>
+          <span>{isGoogleUser ? 'Complete your registration' : 'or'}</span>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -308,8 +345,14 @@ export default function Register() {
               onChange={handleChange}
               placeholder="Enter your full name"
               required
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || isGoogleUser}
+              style={isGoogleUser ? { background: '#f0f0f0', cursor: 'not-allowed' } : {}}
             />
+            {isGoogleUser && (
+              <small style={{ color: '#10b981', fontSize: '12px' }}>
+                ✓ Auto-filled from Google account
+              </small>
+            )}
           </div>
 
           <div className="form-group">
@@ -324,8 +367,14 @@ export default function Register() {
               onChange={handleChange}
               placeholder="Enter your email"
               required
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || isGoogleUser}
+              style={isGoogleUser ? { background: '#f0f0f0', cursor: 'not-allowed' } : {}}
             />
+            {isGoogleUser && (
+              <small style={{ color: '#10b981', fontSize: '12px' }}>
+                ✓ Auto-filled from Google account
+              </small>
+            )}
           </div>
 
           <div className="form-group">
@@ -419,52 +468,6 @@ export default function Register() {
           </p>
         </div>
       </div>
-
-      {/* Role Selection Modal for Google Sign-Up */}
-      {showRoleModal && (
-        <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h2>Select Your Account Type</h2>
-            <p style={{ marginBottom: '20px', color: '#666' }}>
-              Please choose how you want to use this platform:
-            </p>
-            
-            <div className="form-group">
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="role-select"
-                style={{ width: '100%', padding: '12px', fontSize: '16px' }}
-              >
-                <option value="student">Student - Apply to institutions and jobs</option>
-                <option value="institution">Institution - Manage courses and admissions</option>
-                <option value="company">Company - Post jobs and hire students</option>
-              </select>
-            </div>
-
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                onClick={() => {
-                  setShowRoleModal(false);
-                  setPendingGoogleUser(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                type="button" 
-                className="btn-primary" 
-                onClick={completeGoogleSignUp}
-                disabled={loading}
-              >
-                {loading ? <><FaSpinner className="spinner" /> Creating Account...</> : 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

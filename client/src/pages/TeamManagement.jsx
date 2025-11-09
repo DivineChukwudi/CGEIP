@@ -1,7 +1,7 @@
-// client/src/pages/TeamManagement.jsx
+// client/src/pages/TeamManagement.jsx - FIXED
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaLinkedin, FaGithub, FaEnvelope, FaUser } from 'react-icons/fa';
-import '../styles/TeamManagement.css'; // Move styles to separate CSS file
+import '../styles/TeamManagement.css';
 
 export default function TeamManagement({ user, onUpdate }) {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -11,7 +11,7 @@ export default function TeamManagement({ user, onUpdate }) {
     name: '',
     role: '',
     bio: '',
-    photo: '', // Changed from imageUrl to match Firebase
+    photo: '',
     linkedin: '',
     github: '',
     email: '',
@@ -22,9 +22,8 @@ export default function TeamManagement({ user, onUpdate }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  loadTeamMembers();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    loadTeamMembers();
+  }, []); // Fixed: Removed the eslint-disable comment
 
   const loadTeamMembers = async () => {
     try {
