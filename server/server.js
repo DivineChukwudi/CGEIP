@@ -1,4 +1,4 @@
-// server/server.js - COMPLETE FIXED VERSION WITH SENDGRID
+// server/server.js - FIREBASE HOSTING VERSION
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -38,42 +38,58 @@ try {
     });
     
     firebaseInitialized = true;
-    console.log(' Firebase Admin initialized');
+    console.log('✅ Firebase Admin initialized');
   }
 } catch (error) {
-  console.error(' Firebase initialization error:', error.message);
+  console.error('❌ Firebase initialization error:', error.message);
 }
 
 // ===================================
-// CORS CONFIGURATION
+// CORS CONFIGURATION - FIXED
 // ===================================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:5000',
   'https://cgeip.vercel.app',
   'https://cgeip-v7309mq74-divinechukwudi-3003s-projects.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+console.log('📋 Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      if (origin && origin.includes('.vercel.app')) {
-        console.log(' Allowing Vercel preview deployment:', origin);
-        callback(null, true);
-      } else {
-        console.log(' Blocked by CORS:', origin);
-        callback(new Error('Not allowed by CORS'));
-      }
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
     }
+    
+    console.log('🔍 Checking CORS for origin:', origin);
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ Origin allowed from list:', origin);
+      return callback(null, true);
+    }
+    
+    // Allow all Vercel preview deployments
+    if (origin && origin.includes('.vercel.app')) {
+      console.log('✅ Allowing Vercel deployment:', origin);
+      return callback(null, true);
+    }
+    
+    // If we get here, block it
+    console.log('❌ CORS blocked origin:', origin);
+    console.log('   Allowed origins:', allowedOrigins);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400 // 24 hours
 }));
 
 // ===================================
@@ -142,6 +158,43 @@ app.get('/test-email', async (req, res) => {
     });
   }
 
+  try {
+    console.log('📧 Attempting to send test email...');
+    
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const verificationLink = `${frontendUrl}/verify-email?token=test123&uid=test456`;
+    const testEmail = process.env.SENDER_EMAIL || 'test@example.com';
+    
+    await sendVerificationEmail(
+      testEmail,
+      'Test User',
+      verificationLink
+    );
+    
+    console.log('✅ Test email sent successfully!\n');
+    
+    res.json({ 
+      success: true, 
+      message: 'Test email sent successfully! Check your inbox: ' + testEmail,
+      verificationLink: verificationLink,
+      sentTo: testEmail
+    });
+  } catch (error) {
+    console.error('❌ Test email failed:', error.message);
+    
+    res.json({ 
+      success: false,
+      error: error.message,
+      details: error.response?.body || 'No additional details',
+      troubleshooting: [
+        'Verify your SendGrid API key is valid',
+        'Check if sender email is verified in SendGrid',
+        'Ensure API key has "Mail Send" permission',
+        'Visit https://app.sendgrid.com/settings/api_keys'
+      ]
+    });
+  }
+});
 
 // Test Cloudinary configuration
 app.get('/test-cloudinary', async (req, res) => {
@@ -183,7 +236,7 @@ app.get('/test-cloudinary', async (req, res) => {
     const connected = await testCloudinaryConnection();
     
     if (connected) {
-      console.log(' Cloudinary test successful!\n');
+      console.log('✅ Cloudinary test successful!\n');
       
       res.json({ 
         success: true, 
@@ -195,7 +248,7 @@ app.get('/test-cloudinary', async (req, res) => {
       throw new Error('Connection test failed');
     }
   } catch (error) {
-    console.error(' Cloudinary test failed:', error.message);
+    console.error('❌ Cloudinary test failed:', error.message);
     
     res.json({ 
       success: false,
@@ -205,45 +258,6 @@ app.get('/test-cloudinary', async (req, res) => {
         'Check if your API key has the correct permissions',
         'Ensure your account is active',
         'Visit https://console.cloudinary.com/ to verify'
-      ]
-    });
-  }
-});
-
-
-  try {
-    console.log(' Attempting to send test email...');
-    
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const verificationLink = `${frontendUrl}/verify-email?token=test123&uid=test456`;
-    const testEmail = process.env.SENDER_EMAIL || 'test@example.com';
-    
-    await sendVerificationEmail(
-      testEmail,
-      'Test User',
-      verificationLink
-    );
-    
-    console.log(' Test email sent successfully!\n');
-    
-    res.json({ 
-      success: true, 
-      message: 'Test email sent successfully! Check your inbox: ' + testEmail,
-      verificationLink: verificationLink,
-      sentTo: testEmail
-    });
-  } catch (error) {
-    console.error(' Test email failed:', error.message);
-    
-    res.json({ 
-      success: false,
-      error: error.message,
-      details: error.response?.body || 'No additional details',
-      troubleshooting: [
-        'Verify your SendGrid API key is valid',
-        'Check if sender email is verified in SendGrid',
-        'Ensure API key has "Mail Send" permission',
-        'Visit https://app.sendgrid.com/settings/api_keys'
       ]
     });
   }
@@ -273,7 +287,6 @@ const publicRoutes = require('./routes/public');
 const contactRoutes = require('./routes/contact');
 const notificationRoutes = require('./routes/notifications');
 
-
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/institution', institutionRoutes);
@@ -283,7 +296,6 @@ app.use('/api', teamRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api', contactRoutes);
 app.use('/api/notifications', notificationRoutes);
-
 
 // ===================================
 // ERROR HANDLERS
@@ -299,7 +311,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(' Error:', err.stack);
+  console.error('❌ Error:', err.stack);
   
   if (process.env.NODE_ENV === 'production') {
     res.status(500).json({ error: 'Internal server error' });
@@ -312,26 +324,26 @@ app.use((err, req, res, next) => {
 });
 
 // ===================================
-// START SERVER
+// EXPORT FOR FIREBASE HOSTING
 // ===================================
-app.listen(PORT, () => {
-  console.log('\n╔════════════════════════════════════════════════╗');
-  console.log('║    SERVER STARTED SUCCESSFULLY              ║');
-  console.log('╚════════════════════════════════════════════════╝');
-  console.log(` Server running on port ${PORT}`);
-  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(` Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
-  console.log(` Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
-  console.log(` Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log(`\n Test endpoints (locally):`);
-  console.log(`   • Health: http://localhost:${PORT}/`); 
-  console.log(`   • Status: http://localhost:${PORT}/api/status`);
-  console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
-  console.log(`\ Test endpoints (Production):`);
-  console.log(`   • Health: https://cgeip.onrender.com/`); 
-  console.log(`   • Status: https://cgeip.onrender.com/api/status`);
-  console.log(`   • Email Test: https://cgeip.onrender.com/test-email`);
-  console.log('');
-});
+// For local development, start the server
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('\n╔════════════════════════════════════════════════╗');
+    console.log('║    SERVER STARTED (LOCAL DEVELOPMENT)       ║');
+    console.log('╚════════════════════════════════════════════════╝');
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📧 Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
+    console.log(`🔥 Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
+    console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
+    console.log(`\n📍 Test endpoints:`);
+    console.log(`   • Health: http://localhost:${PORT}/`); 
+    console.log(`   • Status: http://localhost:${PORT}/api/status`);
+    console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
+    console.log('');
+  });
+}
 
+// Export the Express app for Firebase Functions
 module.exports = app;
