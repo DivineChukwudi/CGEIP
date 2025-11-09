@@ -1,52 +1,72 @@
-// server/server.js
+// server/server.js - COMPLETE FIXED VERSION WITH SENDGRID
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-
-// Import routes
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const institutionRoutes = require('./routes/institution');
-const studentRoutes = require('./routes/student');
-const companyRoutes = require('./routes/company');
-const teamRoutes = require('./routes/team');
-const publicRoutes = require('./routes/public');
+const admin = require('firebase-admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ===================================
-// UPDATED CORS CONFIGURATION
+// LOG ENVIRONMENT ON STARTUP
 // ===================================
-// server/server.js - UPDATED CORS SECTION
+console.log('\n╔═══════════════════════════════════════════╗');
+console.log('║   ENVIRONMENT VARIABLES CHECK           ║');
+console.log('╚═══════════════════════════════════════════╝');
+console.log('PORT:', PORT);
+console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? `✅ Set (${process.env.SENDGRID_API_KEY.length} chars, starts: ${process.env.SENDGRID_API_KEY.substring(0, 10)}...)` : '❌ Missing');
+console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL || '❌ Not set');
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000 (default)');
+console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ Set' : '❌ Missing');
+console.log('');
 
 // ===================================
-// FIXED CORS CONFIGURATION
+// INITIALIZE FIREBASE
+// ===================================
+let firebaseInitialized = false;
+try {
+  if (!admin.apps.length) {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      }),
+    });
+    
+    firebaseInitialized = true;
+    console.log('✅ Firebase Admin initialized');
+  }
+} catch (error) {
+  console.error('❌ Firebase initialization error:', error.message);
+}
+
+// ===================================
+// CORS CONFIGURATION
 // ===================================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'https://cgeip.vercel.app',
-  'https://cgeip-v7309mq74-divinechukwudi-3003s-projects.vercel.app', // Add this
+  'https://cgeip-v7309mq74-divinechukwudi-3003s-projects.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if origin matches any allowed origin
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // For Vercel preview deployments, allow all vercel.app domains
       if (origin && origin.includes('.vercel.app')) {
-        console.log('Allowing Vercel preview deployment:', origin);
+        console.log('✅ Allowing Vercel preview deployment:', origin);
         callback(null, true);
       } else {
-        console.log('Blocked by CORS:', origin);
+        console.log('❌ Blocked by CORS:', origin);
         callback(new Error('Not allowed by CORS'));
       }
     }
@@ -56,11 +76,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Middleware
+// ===================================
+// MIDDLEWARE
+// ===================================
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Log all requests in development
+// Log requests in development
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path}`);
@@ -68,16 +90,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/institution', institutionRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/company', companyRoutes);
-app.use('/api', teamRoutes);
-app.use('/api/public', publicRoutes);
-
-// Health check
+// ===================================
+// HEALTH & TEST ROUTES
+// ===================================
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Career Guidance Platform API is running!',
@@ -86,84 +101,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Test email configuration endpoint
-app.get('/test-email', async (req, res) => {
-  const { testEmailConfig, sendVerificationEmail } = require('./utils/email');
-  
-  console.log('\n=== EMAIL CONFIGURATION TEST ===');
-  console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
-  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✓ Set (length: ' + process.env.EMAIL_PASS?.length + ')' : '✗ Missing');
-  console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000 (default)');
-  
-  const isConfigured = await testEmailConfig();
-  
-  if (!isConfigured) {
-    return res.json({ 
-      success: false,
-      error: 'Email service not configured properly',
-      details: {
-        EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
-        EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing',
-        note: 'Check your .env file'
-      }
-    });
-  }
-
-  try {
-    console.log('\n Attempting to send test email...');
-    
-    // Use FRONTEND_URL for the verification link
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const verificationLink = `${frontendUrl}/verify-email?token=test123&uid=test456`;
-    
-    await sendVerificationEmail(
-      process.env.EMAIL_USER,
-      'Test User',
-      verificationLink
-    );
-    
-    console.log(' Test email sent successfully!\n');
-    
-    res.json({ 
-      success: true, 
-      message: 'Test email sent successfully! Check your inbox: ' + process.env.EMAIL_USER,
-      verificationLink: verificationLink,
-      note: 'Check backend console for detailed logs'
-    });
-  } catch (error) {
-    console.error(' Test email failed:', error.message);
-    console.error('Stack:', error.stack);
-    
-    res.json({ 
-      success: false,
-      error: error.message,
-      details: {
-        name: error.name,
-        code: error.code,
-        command: error.command,
-        response: error.response
-      },
-      troubleshooting: [
-        'Make sure 2FA is enabled on your Google account',
-        'Verify you are using an App Password (not regular password)',
-        'Check if your network allows SMTP connections (port 587/465)',
-        'Verify EMAIL_USER and EMAIL_PASS in environment variables'
-      ]
-    });
-  }
-});
-
-// Add this route in server.js
-app.get('/api/test-email-config', async (req, res) => {
-  res.json({
-    EMAIL_USER: process.env.EMAIL_USER ? 'Set ' : 'Missing ',
-    EMAIL_PASS: process.env.EMAIL_PASS ? 'Set  (length: ' + process.env.EMAIL_PASS.length + ')' : 'Missing ',
-    FRONTEND_URL: process.env.FRONTEND_URL || 'Using default',
-    NODE_ENV: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Quick status check
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'running',
@@ -171,14 +108,111 @@ app.get('/api/status', (req, res) => {
     environment: {
       nodeEnv: process.env.NODE_ENV || 'development',
       nodeVersion: process.version,
-      emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-      firebaseConfigured: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY),
+      sendgridConfigured: !!process.env.SENDGRID_API_KEY,
+      firebaseConfigured: firebaseInitialized,
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
     },
     allowedOrigins: allowedOrigins
   });
 });
 
+// Test SendGrid email configuration
+app.get('/test-email', async (req, res) => {
+  const { testEmailConfig, sendVerificationEmail } = require('./utils/email');
+  
+  console.log('\n╔═══════════════════════════════════════════╗');
+  console.log('║   SENDGRID EMAIL TEST                   ║');
+  console.log('╚═══════════════════════════════════════════╝');
+  console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? `✅ Set (${process.env.SENDGRID_API_KEY.length} chars)` : '❌ Missing');
+  console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL || '❌ Missing');
+  console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
+  console.log('');
+  
+  const isConfigured = await testEmailConfig();
+  
+  if (!isConfigured) {
+    return res.json({ 
+      success: false,
+      error: 'SendGrid not configured properly',
+      details: {
+        SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'Set' : 'Missing',
+        SENDER_EMAIL: process.env.SENDER_EMAIL ? 'Set' : 'Missing',
+        note: 'Check your .env file'
+      }
+    });
+  }
+
+  try {
+    console.log('📧 Attempting to send test email...');
+    
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const verificationLink = `${frontendUrl}/verify-email?token=test123&uid=test456`;
+    const testEmail = process.env.SENDER_EMAIL || 'test@example.com';
+    
+    await sendVerificationEmail(
+      testEmail,
+      'Test User',
+      verificationLink
+    );
+    
+    console.log('✅ Test email sent successfully!\n');
+    
+    res.json({ 
+      success: true, 
+      message: 'Test email sent successfully! Check your inbox: ' + testEmail,
+      verificationLink: verificationLink,
+      sentTo: testEmail
+    });
+  } catch (error) {
+    console.error('❌ Test email failed:', error.message);
+    
+    res.json({ 
+      success: false,
+      error: error.message,
+      details: error.response?.body || 'No additional details',
+      troubleshooting: [
+        'Verify your SendGrid API key is valid',
+        'Check if sender email is verified in SendGrid',
+        'Ensure API key has "Mail Send" permission',
+        'Visit https://app.sendgrid.com/settings/api_keys'
+      ]
+    });
+  }
+});
+
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    FRONTEND_URL: process.env.FRONTEND_URL || 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV || 'NOT SET',
+    hasSendGridKey: !!process.env.SENDGRID_API_KEY,
+    sendGridKeyLength: process.env.SENDGRID_API_KEY?.length || 0,
+    sendGridKeyPreview: process.env.SENDGRID_API_KEY?.substring(0, 15) + '...' || 'N/A',
+    senderEmail: process.env.SENDER_EMAIL || 'NOT SET'
+  });
+});
+
+// ===================================
+// IMPORT & MOUNT ROUTES
+// ===================================
+const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const institutionRoutes = require('./routes/institution');
+const studentRoutes = require('./routes/student');
+const companyRoutes = require('./routes/company');
+const teamRoutes = require('./routes/team');
+const publicRoutes = require('./routes/public');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/institution', institutionRoutes);
+app.use('/api/student', studentRoutes);
+app.use('/api/company', companyRoutes);
+app.use('/api', teamRoutes);
+app.use('/api/public', publicRoutes);
+
+// ===================================
+// ERROR HANDLERS
+// ===================================
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ 
@@ -190,9 +224,8 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(' Error:', err.stack);
+  console.error('❌ Error:', err.stack);
   
-  // Don't leak error details in production
   if (process.env.NODE_ENV === 'production') {
     res.status(500).json({ error: 'Internal server error' });
   } else {
@@ -203,33 +236,27 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Debug environment variables
-app.get('/api/debug-env', (req, res) => {
-  res.json({
-    FRONTEND_URL: process.env.FRONTEND_URL || 'NOT SET',
-    NODE_ENV: process.env.NODE_ENV || 'NOT SET',
-    hasEmailUser: !!process.env.EMAIL_USER,
-    hasEmailPass: !!process.env.EMAIL_PASS
-  });
-});
-
+// ===================================
+// START SERVER
+// ===================================
 app.listen(PORT, () => {
   console.log('\n╔════════════════════════════════════════════════╗');
   console.log('║    SERVER STARTED SUCCESSFULLY              ║');
   console.log('╚════════════════════════════════════════════════╝');
-  console.log(`\n Server running on port ${PORT}`);
-  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(` Email configured: ${!!(process.env.EMAIL_USER && process.env.EMAIL_PASS) ? '✅' : '❌'}`);
-  console.log(` Firebase configured: ${!!(process.env.FIREBASE_PROJECT_ID) ? '✅' : '❌'}`);
-  console.log(` Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-  console.log(`\n Test endpoints(locally):`);
+  console.log(`📍 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📧 Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
+  console.log(`🔥 Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
+  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`\n📍 Test endpoints (locally):`);
   console.log(`   • Health: http://localhost:${PORT}/`); 
   console.log(`   • Status: http://localhost:${PORT}/api/status`);
   console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
-  console.log('\n');
-  console.log(`\n Test endpoints(Production):`);
+  console.log(`\n📍 Test endpoints (Production):`);
   console.log(`   • Health: https://cgeip.onrender.com/`); 
   console.log(`   • Status: https://cgeip.onrender.com/api/status`);
   console.log(`   • Email Test: https://cgeip.onrender.com/test-email`);
-  console.log('\n');
+  console.log('');
 });
+
+module.exports = app;

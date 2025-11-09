@@ -1,4 +1,4 @@
-// client/src/pages/AdminDashboard.jsx - FIXED ALL ESLINT ISSUES
+// client/src/pages/AdminDashboard.jsx - WITH USER DELETE FUNCTIONALITY
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate } from 'react-icons/fa';
@@ -245,6 +245,49 @@ export default function AdminDashboard({ user }) {
       } catch (err) {
         setError(err.message);
       }
+    }
+  };
+
+  // ==================== USER MANAGEMENT ====================
+  const handleDeleteUser = async (userId, userName) => {
+    try {
+      // First get deletion summary
+      const summary = await adminAPI.deleteUser(userId, false);
+      
+      let confirmMsg = `Delete "${userName}"?\n\nThis will permanently delete:\n- User account\n`;
+      
+      if (summary.relatedData.applications > 0) {
+        confirmMsg += `- ${summary.relatedData.applications} course applications\n`;
+      }
+      if (summary.relatedData.jobApplications > 0) {
+        confirmMsg += `- ${summary.relatedData.jobApplications} job applications\n`;
+      }
+      if (summary.relatedData.jobs > 0) {
+        confirmMsg += `- ${summary.relatedData.jobs} job postings\n`;
+      }
+      if (summary.relatedData.faculties > 0) {
+        confirmMsg += `- ${summary.relatedData.faculties} faculties\n`;
+      }
+      if (summary.relatedData.courses > 0) {
+        confirmMsg += `- ${summary.relatedData.courses} courses\n`;
+      }
+      if (summary.relatedData.notifications > 0) {
+        confirmMsg += `- ${summary.relatedData.notifications} notifications\n`;
+      }
+      if (summary.relatedData.transcripts > 0) {
+        confirmMsg += `- ${summary.relatedData.transcripts} transcripts\n`;
+      }
+      
+      confirmMsg += `\nTotal items to delete: ${summary.totalRelatedItems + 1}\n\nThis action CANNOT be undone!`;
+      
+      if (window.confirm(confirmMsg)) {
+        // Perform actual deletion
+        await adminAPI.deleteUser(userId, true);
+        showSuccess(`User "${userName}" and all related data deleted successfully!`);
+        loadData();
+      }
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -564,6 +607,7 @@ export default function AdminDashboard({ user }) {
                     <th>Status</th>
                     <th>Email Verified</th>
                     <th>Registered</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -583,6 +627,17 @@ export default function AdminDashboard({ user }) {
                       </td>
                       <td>{u.emailVerified ? '✓ Yes' : '✗ No'}</td>
                       <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                      <td>
+                        {u.id !== user.uid && (
+                          <button
+                            className="btn-icon danger"
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            title="Delete user and all related data"
+                          >
+                            <FaTrash />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

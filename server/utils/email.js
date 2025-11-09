@@ -1,12 +1,13 @@
-// server/utils/email.js - SENDGRID VERSION
+// server/utils/email.js - ENHANCED VERSION WITH BETTER ERROR HANDLING
 const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid with API key
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log(' SendGrid initialized successfully');
+  console.log('✅ SendGrid initialized successfully');
+  console.log('   API Key (first 10 chars):', process.env.SENDGRID_API_KEY.substring(0, 10) + '...');
 } else {
-  console.warn('  SENDGRID_API_KEY not found in environment variables');
+  console.warn('⚠️  SENDGRID_API_KEY not found in environment variables');
 }
 
 // Your verified sender email (the one you verified in SendGrid)
@@ -15,7 +16,7 @@ const SENDER_EMAIL = process.env.SENDER_EMAIL || 'chukwudidivine20@gmail.com';
 // Send verification email
 const sendVerificationEmail = async (email, name, verificationLink) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.error(' SendGrid API key not configured');
+    console.error('❌ SendGrid API key not configured');
     throw new Error('Email service not configured');
   }
 
@@ -173,16 +174,36 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
   };
 
   try {
-    console.log(` Sending verification email to: ${email}`);
-    await sgMail.send(msg);
-    console.log(' Verification email sent successfully to:', email);
+    console.log(`📧 Sending verification email to: ${email}`);
+    console.log(`   From: ${SENDER_EMAIL}`);
+    
+    const response = await sgMail.send(msg);
+    
+    console.log('✅ Verification email sent successfully');
+    console.log('   Response Status:', response[0].statusCode);
+    console.log('   Message ID:', response[0].headers['x-message-id']);
+    
     return { success: true };
   } catch (error) {
-    console.error(' SendGrid error:', error.message);
+    console.error('❌ SendGrid error:', error.message);
     
+    // Enhanced error logging
     if (error.response) {
-      console.error('   Status:', error.response.statusCode);
-      console.error('   Body:', error.response.body);
+      console.error('   Status Code:', error.response.statusCode);
+      console.error('   Response Body:', JSON.stringify(error.response.body, null, 2));
+      
+      // Specific error messages
+      if (error.response.statusCode === 401) {
+        console.error('   💡 FIX: Your SendGrid API key is invalid or expired');
+        console.error('      1. Go to https://app.sendgrid.com/settings/api_keys');
+        console.error('      2. Create a new API key with "Mail Send" permission');
+        console.error('      3. Update your .env file with the new key');
+        console.error('      4. Restart your server');
+      } else if (error.response.statusCode === 403) {
+        console.error('   💡 FIX: Your sender email is not verified');
+        console.error('      1. Go to https://app.sendgrid.com/settings/sender_auth');
+        console.error('      2. Verify your sender email:', SENDER_EMAIL);
+      }
     }
     
     throw error;
@@ -192,7 +213,7 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
 // Send notification email
 const sendNotificationEmail = async (email, subject, message) => {
   if (!process.env.SENDGRID_API_KEY) {
-    console.error(' SendGrid API key not configured');
+    console.error('❌ SendGrid API key not configured');
     throw new Error('Email service not configured');
   }
 
@@ -266,14 +287,14 @@ const sendNotificationEmail = async (email, subject, message) => {
   };
 
   try {
-    console.log(`Sending notification to: ${email}`);
-    await sgMail.send(msg);
-    console.log('Notification sent successfully');
+    console.log(`📧 Sending notification to: ${email}`);
+    const response = await sgMail.send(msg);
+    console.log('✅ Notification sent successfully');
     return { success: true };
   } catch (error) {
-    console.error(' SendGrid notification error:', error.message);
+    console.error('❌ SendGrid notification error:', error.message);
     if (error.response) {
-      console.error('   Body:', error.response.body);
+      console.error('   Body:', JSON.stringify(error.response.body, null, 2));
     }
     throw error;
   }
@@ -315,16 +336,33 @@ const sendApplicationStatusEmail = async (email, name, institutionName, courseNa
 
 // Test email configuration
 const testEmailConfig = async () => {
-  console.log('\n=== SENDGRID CONFIGURATION TEST ===');
-  console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? '✓ Set (length: ' + process.env.SENDGRID_API_KEY?.length + ')' : '✗ Missing');
-  console.log('SENDER_EMAIL:', SENDER_EMAIL);
+  console.log('\n╔═══════════════════════════════════════════╗');
+  console.log('║   SENDGRID CONFIGURATION TEST           ║');
+  console.log('╚═══════════════════════════════════════════╝');
   
-  if (!process.env.SENDGRID_API_KEY) {
-    console.log('SendGrid API key not configured\n');
+  const apiKeySet = !!process.env.SENDGRID_API_KEY;
+  const apiKeyLength = process.env.SENDGRID_API_KEY?.length || 0;
+  const apiKeyPreview = process.env.SENDGRID_API_KEY?.substring(0, 15) + '...' || 'N/A';
+  
+  console.log('SENDGRID_API_KEY:', apiKeySet ? '✅ Set' : '❌ Missing');
+  if (apiKeySet) {
+    console.log('  Length:', apiKeyLength, 'characters');
+    console.log('  Preview:', apiKeyPreview);
+  }
+  console.log('SENDER_EMAIL:', SENDER_EMAIL);
+  console.log('');
+  
+  if (!apiKeySet) {
+    console.log('❌ SendGrid API key not configured');
+    console.log('   Follow these steps:');
+    console.log('   1. Go to https://app.sendgrid.com/settings/api_keys');
+    console.log('   2. Create a new API key');
+    console.log('   3. Add it to your .env file as SENDGRID_API_KEY=your_key');
+    console.log('   4. Restart your server\n');
     return false;
   }
 
-  console.log('SendGrid is configured\n');
+  console.log('✅ SendGrid is configured\n');
   return true;
 };
 

@@ -1,4 +1,4 @@
-// client/src/utils/api.js - MERGED & COMPLETE VERSION
+// client/src/utils/api.js - MERGED & COMPLETE VERSION WITH DELETE USER
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -173,8 +173,10 @@ export const adminAPI = {
     return data;
   },
 
-  deleteUser: async (userId) => {
-    const { data } = await api.delete(`/admin/users/${userId}`);
+  // Delete user with force parameter for confirmation
+  deleteUser: async (userId, force = false) => {
+    const url = force ? `/admin/users/${userId}?force=true` : `/admin/users/${userId}`;
+    const { data } = await api.delete(url);
     return data;
   },
 
@@ -310,8 +312,6 @@ export const institutionAPI = {
 // STUDENT API - ENHANCED & COMPLETE
 // ============================================
 export const studentAPI = {
-  // ... all your existing methods ...
-
   // Profile Management
   getProfile: async () => {
     const { data } = await api.get('/student/profile');
@@ -355,7 +355,7 @@ export const studentAPI = {
     return data;
   },
 
-  // TRANSCRIPT UPLOAD - WITH FILE UPLOAD (NEW)
+  // TRANSCRIPT UPLOAD - WITH FILE UPLOAD
   uploadTranscript: async (formData) => {
     const { data } = await api.post('/student/transcripts', formData, {
       headers: {

@@ -1,4 +1,4 @@
-// server/routes/admin.js - ENHANCED WITH COMPREHENSIVE USER DELETION
+// server/routes/admin.js - FIXED ROUTE ORDER FOR USER DELETE
 const express = require('express');
 const { db, auth, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -10,7 +10,6 @@ router.use(verifyToken);
 router.use(checkRole(['admin']));
 
 // ==================== INSTITUTIONS ====================
-// Get all institutions
 router.get('/institutions', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.INSTITUTIONS).get();
@@ -21,11 +20,9 @@ router.get('/institutions', async (req, res) => {
   }
 });
 
-// Add institution
 router.post('/institutions', async (req, res) => {
   try {
     const { name, description, location, contact, website } = req.body;
-
     const institutionData = {
       name,
       description,
@@ -35,7 +32,6 @@ router.post('/institutions', async (req, res) => {
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
-
     const docRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
     res.status(201).json({ id: docRef.id, ...institutionData });
   } catch (error) {
@@ -43,12 +39,10 @@ router.post('/institutions', async (req, res) => {
   }
 });
 
-// Update institution
 router.put('/institutions/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = { ...req.body, updatedAt: new Date().toISOString() };
-
     await db.collection(collections.INSTITUTIONS).doc(id).update(updateData);
     res.json({ message: 'Institution updated successfully' });
   } catch (error) {
@@ -56,38 +50,29 @@ router.put('/institutions/:id', async (req, res) => {
   }
 });
 
-// Delete institution
 router.delete('/institutions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete related faculties and courses
     const facultiesSnapshot = await db.collection(collections.FACULTIES)
       .where('institutionId', '==', id).get();
-    
     const deletePromises = [];
     facultiesSnapshot.forEach(doc => {
       deletePromises.push(doc.ref.delete());
     });
-
     const coursesSnapshot = await db.collection(collections.COURSES)
       .where('institutionId', '==', id).get();
-    
     coursesSnapshot.forEach(doc => {
       deletePromises.push(doc.ref.delete());
     });
-
     await Promise.all(deletePromises);
     await db.collection(collections.INSTITUTIONS).doc(id).delete();
-
     res.json({ message: 'Institution and related data deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==================== FACULTIES (ADMIN CAN MANAGE ALL) ====================
-// Get all faculties
+// ==================== FACULTIES ====================
 router.get('/faculties', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.FACULTIES).get();
@@ -98,21 +83,16 @@ router.get('/faculties', async (req, res) => {
   }
 });
 
-// Add faculty (to any institution)
 router.post('/faculties', async (req, res) => {
   try {
     const { institutionId, name, description } = req.body;
-
     if (!institutionId || !name) {
       return res.status(400).json({ error: 'Institution ID and name are required' });
     }
-
-    // Verify institution exists
     const instDoc = await db.collection(collections.INSTITUTIONS).doc(institutionId).get();
     if (!instDoc.exists) {
       return res.status(404).json({ error: 'Institution not found' });
     }
-
     const facultyData = {
       institutionId,
       name,
@@ -120,7 +100,6 @@ router.post('/faculties', async (req, res) => {
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
-
     const docRef = await db.collection(collections.FACULTIES).add(facultyData);
     res.status(201).json({ id: docRef.id, ...facultyData });
   } catch (error) {
@@ -128,18 +107,15 @@ router.post('/faculties', async (req, res) => {
   }
 });
 
-// Update faculty
 router.put('/faculties/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description } = req.body;
-
     const updateData = {
       ...(name && { name }),
       ...(description !== undefined && { description }),
       updatedAt: new Date().toISOString()
     };
-
     await db.collection(collections.FACULTIES).doc(id).update(updateData);
     res.json({ message: 'Faculty updated successfully' });
   } catch (error) {
@@ -147,18 +123,13 @@ router.put('/faculties/:id', async (req, res) => {
   }
 });
 
-// Delete faculty
 router.delete('/faculties/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete related courses
     const coursesSnapshot = await db.collection(collections.COURSES)
       .where('facultyId', '==', id).get();
-    
     const deletePromises = coursesSnapshot.docs.map(doc => doc.ref.delete());
     await Promise.all(deletePromises);
-    
     await db.collection(collections.FACULTIES).doc(id).delete();
     res.json({ message: 'Faculty and related courses deleted successfully' });
   } catch (error) {
@@ -166,8 +137,7 @@ router.delete('/faculties/:id', async (req, res) => {
   }
 });
 
-// ==================== COURSES (ADMIN CAN MANAGE ALL) ====================
-// Get all courses
+// ==================== COURSES ====================
 router.get('/courses', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.COURSES).get();
@@ -178,25 +148,12 @@ router.get('/courses', async (req, res) => {
   }
 });
 
-// Add course (to any institution)
 router.post('/courses', async (req, res) => {
   try {
-    const { 
-      institutionId, 
-      facultyId, 
-      name, 
-      description, 
-      duration, 
-      level, 
-      requirements,
-      capacity 
-    } = req.body;
-
+    const { institutionId, facultyId, name, description, duration, level, requirements, capacity } = req.body;
     if (!institutionId || !facultyId || !name) {
       return res.status(400).json({ error: 'Institution ID, Faculty ID, and name are required' });
     }
-
-    // Verify faculty exists and belongs to institution
     const facDoc = await db.collection(collections.FACULTIES).doc(facultyId).get();
     if (!facDoc.exists) {
       return res.status(404).json({ error: 'Faculty not found' });
@@ -204,7 +161,6 @@ router.post('/courses', async (req, res) => {
     if (facDoc.data().institutionId !== institutionId) {
       return res.status(400).json({ error: 'Faculty does not belong to selected institution' });
     }
-
     const courseData = {
       institutionId,
       facultyId,
@@ -218,7 +174,6 @@ router.post('/courses', async (req, res) => {
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
-
     const docRef = await db.collection(collections.COURSES).add(courseData);
     res.status(201).json({ id: docRef.id, ...courseData });
   } catch (error) {
@@ -226,12 +181,10 @@ router.post('/courses', async (req, res) => {
   }
 });
 
-// Update course
 router.put('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, duration, level, requirements, capacity } = req.body;
-
     const updateData = {
       ...(name && { name }),
       ...(description !== undefined && { description }),
@@ -241,7 +194,6 @@ router.put('/courses/:id', async (req, res) => {
       ...(capacity !== undefined && { capacity }),
       updatedAt: new Date().toISOString()
     };
-
     await db.collection(collections.COURSES).doc(id).update(updateData);
     res.json({ message: 'Course updated successfully' });
   } catch (error) {
@@ -249,18 +201,13 @@ router.put('/courses/:id', async (req, res) => {
   }
 });
 
-// Delete course
 router.delete('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete related applications
     const appsSnapshot = await db.collection(collections.APPLICATIONS)
       .where('courseId', '==', id).get();
-    
     const deletePromises = appsSnapshot.docs.map(doc => doc.ref.delete());
     await Promise.all(deletePromises);
-    
     await db.collection(collections.COURSES).doc(id).delete();
     res.json({ message: 'Course and related applications deleted successfully' });
   } catch (error) {
@@ -269,7 +216,6 @@ router.delete('/courses/:id', async (req, res) => {
 });
 
 // ==================== COMPANIES ====================
-// Get all companies
 router.get('/companies', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.USERS)
@@ -281,40 +227,31 @@ router.get('/companies', async (req, res) => {
   }
 });
 
-// Approve/Suspend/Activate company
 router.put('/companies/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'active', 'suspended', 'pending'
-
+    const { status } = req.body;
     if (!['active', 'suspended', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
-
     await db.collection(collections.USERS).doc(id).update({ 
       status,
       statusUpdatedAt: new Date().toISOString(),
       statusUpdatedBy: req.user.uid
     });
-    
     res.json({ message: `Company ${status} successfully` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete company
 router.delete('/companies/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Delete company's jobs
     const jobsSnapshot = await db.collection(collections.JOBS)
       .where('companyId', '==', id).get();
-    
     const deletePromises = jobsSnapshot.docs.map(doc => doc.ref.delete());
     await Promise.all(deletePromises);
-    
     await db.collection(collections.USERS).doc(id).delete();
     res.json({ message: 'Company deleted successfully' });
   } catch (error) {
@@ -322,9 +259,71 @@ router.delete('/companies/:id', async (req, res) => {
   }
 });
 
-// ==================== USER MANAGEMENT - ENHANCED ====================
+// ==================== REPORTS ====================
+router.get('/reports', async (req, res) => {
+  try {
+    const stats = {
+      totalInstitutions: 0,
+      totalStudents: 0,
+      totalCompanies: 0,
+      totalApplications: 0,
+      totalJobs: 0,
+      totalJobApplications: 0,
+      totalFaculties: 0,
+      totalCourses: 0
+    };
+    const [institutions, students, companies, applications, jobs, jobApps, faculties, courses] = await Promise.all([
+      db.collection(collections.INSTITUTIONS).get(),
+      db.collection(collections.USERS).where('role', '==', 'student').get(),
+      db.collection(collections.USERS).where('role', '==', 'company').get(),
+      db.collection(collections.APPLICATIONS).get(),
+      db.collection(collections.JOBS).get(),
+      db.collection(collections.JOB_APPLICATIONS).get(),
+      db.collection(collections.FACULTIES).get(),
+      db.collection(collections.COURSES).get()
+    ]);
+    stats.totalInstitutions = institutions.size;
+    stats.totalStudents = students.size;
+    stats.totalCompanies = companies.size;
+    stats.totalApplications = applications.size;
+    stats.totalJobs = jobs.size;
+    stats.totalJobApplications = jobApps.size;
+    stats.totalFaculties = faculties.size;
+    stats.totalCourses = courses.size;
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-// Get all users
+// ==================== ADMISSIONS ====================
+router.post('/admissions/publish', async (req, res) => {
+  try {
+    const { title, message, deadline, targetInstitutions } = req.body;
+    const admissionData = {
+      title,
+      message,
+      deadline,
+      targetInstitutions: targetInstitutions || [],
+      publishedBy: req.user.uid,
+      publishedAt: new Date().toISOString(),
+      type: 'admission_announcement'
+    };
+    const docRef = await db.collection(collections.NOTIFICATIONS).add(admissionData);
+    res.status(201).json({ 
+      id: docRef.id, 
+      ...admissionData,
+      message: 'Admission announcement published successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== USER MANAGEMENT ====================
+// IMPORTANT: Define collection routes BEFORE specific ID routes
+
+// Get all users - This must come FIRST
 router.get('/users', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.USERS).get();
@@ -340,30 +339,45 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Get single user details
+// Update user status - Must come BEFORE /users/:id DELETE
+router.put('/users/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['active', 'suspended', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    if (id === req.user.uid) {
+      return res.status(400).json({ error: 'You cannot change your own status' });
+    }
+    await db.collection(collections.USERS).doc(id).update({
+      status,
+      statusUpdatedAt: new Date().toISOString(),
+      statusUpdatedBy: req.user.uid
+    });
+    res.json({ message: `User status updated to ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single user details - Must come BEFORE DELETE
 router.get('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
     const userDoc = await db.collection(collections.USERS).doc(id).get();
-    
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'User not found' });
     }
-
     const userData = userDoc.data();
     delete userData.password;
     delete userData.verificationToken;
-
-    // Get additional user statistics
     let userStats = {};
-
     if (userData.role === 'student') {
       const [appsSnapshot, jobAppsSnapshot] = await Promise.all([
         db.collection(collections.APPLICATIONS).where('studentId', '==', id).get(),
         db.collection(collections.JOB_APPLICATIONS).where('studentId', '==', id).get()
       ]);
-
       userStats = {
         totalApplications: appsSnapshot.size,
         admittedCount: appsSnapshot.docs.filter(doc => doc.data().status === 'admitted').length,
@@ -374,12 +388,10 @@ router.get('/users/:id', async (req, res) => {
         db.collection(collections.JOBS).where('companyId', '==', id).get(),
         db.collection(collections.JOB_APPLICATIONS).get()
       ]);
-
       const jobIds = jobsSnapshot.docs.map(doc => doc.id);
       const companyApplications = appsSnapshot.docs.filter(doc => 
         jobIds.includes(doc.data().jobId)
       );
-
       userStats = {
         totalJobs: jobsSnapshot.size,
         totalApplicationsReceived: companyApplications.length
@@ -390,14 +402,12 @@ router.get('/users/:id', async (req, res) => {
         db.collection(collections.COURSES).where('institutionId', '==', id).get(),
         db.collection(collections.APPLICATIONS).where('institutionId', '==', id).get()
       ]);
-
       userStats = {
         totalFaculties: facultiesSnapshot.size,
         totalCourses: coursesSnapshot.size,
         totalApplicationsReceived: appsSnapshot.size
       };
     }
-
     res.json({
       id,
       ...userData,
@@ -409,51 +419,19 @@ router.get('/users/:id', async (req, res) => {
   }
 });
 
-// Update user status
-router.put('/users/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!['active', 'suspended', 'pending'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-
-    // Prevent admin from suspending themselves
-    if (id === req.user.uid) {
-      return res.status(400).json({ error: 'You cannot change your own status' });
-    }
-
-    await db.collection(collections.USERS).doc(id).update({
-      status,
-      statusUpdatedAt: new Date().toISOString(),
-      statusUpdatedBy: req.user.uid
-    });
-
-    res.json({ message: `User status updated to ${status}` });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==================== DELETE USER - COMPREHENSIVE ====================
+// DELETE USER - This must be LAST among user routes
 router.delete('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { force } = req.query; // ?force=true to skip confirmation
+    const { force } = req.query;
 
-    console.log(`Admin ${req.user.uid} attempting to delete user ${id}`);
+    console.log(`[DELETE USER] Admin ${req.user.uid} attempting to delete user ${id}, force=${force}`);
 
-    // Prevent admin from deleting themselves
     if (id === req.user.uid) {
-      return res.status(400).json({ 
-        error: 'You cannot delete your own account' 
-      });
+      return res.status(400).json({ error: 'You cannot delete your own account' });
     }
 
-    // Check if user exists
     const userDoc = await db.collection(collections.USERS).doc(id).get();
-    
     if (!userDoc.exists) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -461,9 +439,6 @@ router.delete('/users/:id', async (req, res) => {
     const userData = userDoc.data();
     const userRole = userData.role;
 
-    console.log(`User role: ${userRole}`);
-
-    // Count related data
     let relatedData = {
       applications: 0,
       jobApplications: 0,
@@ -474,7 +449,6 @@ router.delete('/users/:id', async (req, res) => {
       transcripts: 0
     };
 
-    // Get all related data counts based on role
     if (userRole === 'student') {
       const [apps, jobApps, notifs, transcripts] = await Promise.all([
         db.collection(collections.APPLICATIONS).where('studentId', '==', id).get(),
@@ -482,25 +456,19 @@ router.delete('/users/:id', async (req, res) => {
         db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get(),
         db.collection(collections.TRANSCRIPTS).where('studentId', '==', id).get()
       ]);
-
       relatedData.applications = apps.size;
       relatedData.jobApplications = jobApps.size;
       relatedData.notifications = notifs.size;
       relatedData.transcripts = transcripts.size;
-
     } else if (userRole === 'company') {
       const [jobs, notifs] = await Promise.all([
         db.collection(collections.JOBS).where('companyId', '==', id).get(),
         db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get()
       ]);
-
       relatedData.jobs = jobs.size;
       relatedData.notifications = notifs.size;
-
-      // Count job applications for company's jobs
       const jobIds = jobs.docs.map(doc => doc.id);
       if (jobIds.length > 0) {
-        // Process in batches of 10 (Firestore 'in' limit)
         let totalJobApps = 0;
         for (let i = 0; i < jobIds.length; i += 10) {
           const batch = jobIds.slice(i, i + 10);
@@ -510,7 +478,6 @@ router.delete('/users/:id', async (req, res) => {
         }
         relatedData.jobApplications = totalJobApps;
       }
-
     } else if (userRole === 'institution') {
       const [faculties, courses, apps, notifs] = await Promise.all([
         db.collection(collections.FACULTIES).where('institutionId', '==', id).get(),
@@ -518,7 +485,6 @@ router.delete('/users/:id', async (req, res) => {
         db.collection(collections.APPLICATIONS).where('institutionId', '==', id).get(),
         db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get()
       ]);
-
       relatedData.faculties = faculties.size;
       relatedData.courses = courses.size;
       relatedData.applications = apps.size;
@@ -527,10 +493,6 @@ router.delete('/users/:id', async (req, res) => {
 
     const totalRelatedItems = Object.values(relatedData).reduce((a, b) => a + b, 0);
 
-    console.log(`Related data count:`, relatedData);
-    console.log(`Total items to delete: ${totalRelatedItems + 1}`);
-
-    // Return summary if not forced
     if (!force || force !== 'true') {
       return res.json({
         user: {
@@ -546,102 +508,56 @@ router.delete('/users/:id', async (req, res) => {
       });
     }
 
-    // ==================== PERFORM DELETION ====================
-    console.log(`Starting deletion process...`);
-
+    console.log(`[DELETE USER] Starting deletion process...`);
     const deletePromises = [];
 
-    // Delete based on role
     if (userRole === 'student') {
-      // Delete applications
-      const appsSnapshot = await db.collection(collections.APPLICATIONS)
-        .where('studentId', '==', id).get();
+      const appsSnapshot = await db.collection(collections.APPLICATIONS).where('studentId', '==', id).get();
       appsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete job applications
-      const jobAppsSnapshot = await db.collection(collections.JOB_APPLICATIONS)
-        .where('studentId', '==', id).get();
+      const jobAppsSnapshot = await db.collection(collections.JOB_APPLICATIONS).where('studentId', '==', id).get();
       jobAppsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete transcripts
-      const transcriptsSnapshot = await db.collection(collections.TRANSCRIPTS)
-        .where('studentId', '==', id).get();
+      const transcriptsSnapshot = await db.collection(collections.TRANSCRIPTS).where('studentId', '==', id).get();
       transcriptsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete notifications
-      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
-        .where('userId', '==', id).get();
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get();
       notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
     } else if (userRole === 'company') {
-      // Get all jobs
-      const jobsSnapshot = await db.collection(collections.JOBS)
-        .where('companyId', '==', id).get();
-      
+      const jobsSnapshot = await db.collection(collections.JOBS).where('companyId', '==', id).get();
       const jobIds = jobsSnapshot.docs.map(doc => doc.id);
-
-      // Delete job applications in batches
       if (jobIds.length > 0) {
         for (let i = 0; i < jobIds.length; i += 10) {
           const batch = jobIds.slice(i, i + 10);
-          const jobAppsSnap = await db.collection(collections.JOB_APPLICATIONS)
-            .where('jobId', 'in', batch).get();
+          const jobAppsSnap = await db.collection(collections.JOB_APPLICATIONS).where('jobId', 'in', batch).get();
           jobAppsSnap.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
         }
       }
-
-      // Delete jobs
       jobsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete notifications
-      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
-        .where('userId', '==', id).get();
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get();
       notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
     } else if (userRole === 'institution') {
-      // Delete courses
-      const coursesSnapshot = await db.collection(collections.COURSES)
-        .where('institutionId', '==', id).get();
+      const coursesSnapshot = await db.collection(collections.COURSES).where('institutionId', '==', id).get();
       coursesSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete faculties
-      const facultiesSnapshot = await db.collection(collections.FACULTIES)
-        .where('institutionId', '==', id).get();
+      const facultiesSnapshot = await db.collection(collections.FACULTIES).where('institutionId', '==', id).get();
       facultiesSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete applications
-      const appsSnapshot = await db.collection(collections.APPLICATIONS)
-        .where('institutionId', '==', id).get();
+      const appsSnapshot = await db.collection(collections.APPLICATIONS).where('institutionId', '==', id).get();
       appsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete notifications
-      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS)
-        .where('userId', '==', id).get();
+      const notifsSnapshot = await db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get();
       notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
-
-      // Delete institution record if it exists
-      const instSnapshot = await db.collection(collections.INSTITUTIONS)
-        .where('email', '==', userData.email).get();
+      const instSnapshot = await db.collection(collections.INSTITUTIONS).where('email', '==', userData.email).get();
       instSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
     }
 
-    // Execute all deletions
-    console.log(`Deleting ${deletePromises.length} related items...`);
+    console.log(`[DELETE USER] Deleting ${deletePromises.length} related items...`);
     await Promise.all(deletePromises);
 
-    // Delete from Firebase Auth
     try {
       await auth.deleteUser(id);
-      console.log(`Deleted from Firebase Auth`);
+      console.log(`[DELETE USER] Deleted from Firebase Auth`);
     } catch (authError) {
-      console.warn(`Could not delete from Firebase Auth:`, authError.message);
+      console.warn(`[DELETE USER] Could not delete from Firebase Auth:`, authError.message);
     }
 
-    // Finally, delete user document
     await db.collection(collections.USERS).doc(id).delete();
-    console.log(`User document deleted`);
-
-    console.log(`Deletion complete!`);
+    console.log(`[DELETE USER] User document deleted - Complete!`);
 
     res.json({ 
       message: 'User and all related data deleted successfully',
@@ -659,89 +575,11 @@ router.delete('/users/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error('[DELETE USER] Error:', error);
     res.status(500).json({ 
       error: error.message,
       details: 'Failed to delete user. Check server logs for details.'
     });
-  }
-});
-
-// ==================== REPORTS ====================
-// Get system reports
-router.get('/reports', async (req, res) => {
-  try {
-    const stats = {
-      totalInstitutions: 0,
-      totalStudents: 0,
-      totalCompanies: 0,
-      totalApplications: 0,
-      totalJobs: 0,
-      totalJobApplications: 0,
-      totalFaculties: 0,
-      totalCourses: 0
-    };
-
-    const [
-      institutions, 
-      students, 
-      companies, 
-      applications, 
-      jobs, 
-      jobApps,
-      faculties,
-      courses
-    ] = await Promise.all([
-      db.collection(collections.INSTITUTIONS).get(),
-      db.collection(collections.USERS).where('role', '==', 'student').get(),
-      db.collection(collections.USERS).where('role', '==', 'company').get(),
-      db.collection(collections.APPLICATIONS).get(),
-      db.collection(collections.JOBS).get(),
-      db.collection(collections.JOB_APPLICATIONS).get(),
-      db.collection(collections.FACULTIES).get(),
-      db.collection(collections.COURSES).get()
-    ]);
-
-    stats.totalInstitutions = institutions.size;
-    stats.totalStudents = students.size;
-    stats.totalCompanies = companies.size;
-    stats.totalApplications = applications.size;
-    stats.totalJobs = jobs.size;
-    stats.totalJobApplications = jobApps.size;
-    stats.totalFaculties = faculties.size;
-    stats.totalCourses = courses.size;
-
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==================== ADMISSIONS ====================
-// Publish admissions (global announcement)
-router.post('/admissions/publish', async (req, res) => {
-  try {
-    const { title, message, deadline, targetInstitutions } = req.body;
-
-    const admissionData = {
-      title,
-      message,
-      deadline,
-      targetInstitutions: targetInstitutions || [], // Empty = all institutions
-      publishedBy: req.user.uid,
-      publishedAt: new Date().toISOString(),
-      type: 'admission_announcement'
-    };
-
-    const docRef = await db.collection(collections.NOTIFICATIONS).add(admissionData);
-    
-    res.status(201).json({ 
-      id: docRef.id, 
-      ...admissionData,
-      message: 'Admission announcement published successfully'
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
