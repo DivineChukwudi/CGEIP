@@ -574,7 +574,7 @@ router.post('/transcripts', upload.fields([
   { name: 'certificates', maxCount: 5 }
 ]), async (req, res) => {
   try {
-    const { graduationYear, gpa, extraCurricularActivities } = req.body;
+    const { graduationYear, gpa, extraCurricularActivities, subjects, overallPercentage } = req.body;
 
     if (!req.files?.transcript || !graduationYear) {
       return res.status(400).json({
@@ -605,6 +605,16 @@ router.post('/transcripts', upload.fields([
       );
     }
 
+    // Parse subjects data
+    let parsedSubjects = [];
+    if (subjects) {
+      try {
+        parsedSubjects = JSON.parse(subjects);
+      } catch (e) {
+        console.error('Failed to parse subjects:', e);
+      }
+    }
+
     const transcriptData = {
       studentId: req.user.uid,
       transcriptUrl,
@@ -614,6 +624,9 @@ router.post('/transcripts', upload.fields([
       extraCurricularActivities: extraCurricularActivities
         ? JSON.parse(extraCurricularActivities)
         : [],
+      // NEW: Store extracted subjects and grades
+      subjects: parsedSubjects,
+      overallPercentage: overallPercentage ? parseInt(overallPercentage) : null,
       uploadedAt: new Date().toISOString(),
       verified: false
     };
@@ -624,13 +637,15 @@ router.post('/transcripts', upload.fields([
       isGraduate: true,
       transcriptId: docRef.id,
       transcriptVerified: false,
+      // Store overall percentage in user profile for quick access
+      overallPercentage: transcriptData.overallPercentage,
       updatedAt: new Date().toISOString()
     });
 
     await createNotification(req.user.uid, {
       type: 'general',
       title: 'Transcript Uploaded Successfully',
-      message: 'Your academic transcript has been received. Admins will verify it shortly, and you\'ll be able to apply for jobs once approved!'
+      message: `Your academic transcript with ${parsedSubjects.length} subjects has been received. Admins will verify it shortly!`
     });
 
     // REQUIREMENT #4: Check for matching jobs and send notifications
@@ -646,26 +661,6 @@ router.post('/transcripts', upload.fields([
     res.status(500).json({
       error: error.message || 'Failed to upload transcript'
     });
-  }
-});
-
-router.get('/transcripts', async (req, res) => {
-  try {
-    const snapshot = await db.collection(collections.TRANSCRIPTS)
-      .where('studentId', '==', req.user.uid)
-      .get();
-    
-    if (snapshot.empty) {
-      return res.json(null);
-    }
-
-    const transcriptDoc = snapshot.docs[0];
-    res.json({
-      id: transcriptDoc.id,
-      ...transcriptDoc.data()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 

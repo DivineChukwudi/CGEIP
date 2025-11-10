@@ -1,5 +1,6 @@
-// client/src/pages/StudentDashboard.jsx - ENHANCED VERSION
+// client/src/pages/StudentDashboard.jsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
+import TranscriptUploadModal from '../components/TranscriptUploadModal';
 import { studentAPI } from '../utils/api';
 import { 
   FaGraduationCap, 
@@ -13,8 +14,6 @@ import {
   FaBell,
   FaFile,
   FaSearch,
-  //FaFilter,
-  //FaDownload,
   FaTrophy
 } from 'react-icons/fa';
 import '../styles/global.css';
@@ -30,7 +29,6 @@ export default function StudentDashboard({ user }) {
   const [notifications, setNotifications] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
- // const [selectedCourse, setSelectedCourse] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [profile, setProfile] = useState(null);
@@ -174,53 +172,22 @@ export default function StudentDashboard({ user }) {
     }
   };
 
-  const handleUploadTranscript = async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const formData = new FormData();
+  // FIXED: Moved transcript upload handler outside of JSX
+  const handleTranscriptUpload = async (formData) => {
+    try {
+      setError('');
+      const result = await studentAPI.uploadTranscript(formData);
+      setSuccess(result.message);
+      setShowModal(false);
 
-  try {
-    setError('');
-
-    // Validate transcript file
-    if (!form.transcript.files[0]) {
-      setError('Please select a transcript file');
-      return;
+      // Reload data after 2 seconds
+      setTimeout(() => {
+        loadData();
+      }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
     }
-
-    // Add transcript file
-    formData.append('transcript', form.transcript.files[0]);
-
-    // Add certificate files (optional)
-    if (form.certificates.files.length > 0) {
-      for (let i = 0; i < form.certificates.files.length; i++) {
-        formData.append('certificates', form.certificates.files[i]);
-      }
-    }
-
-    // Add other fields
-    formData.append('graduationYear', form.graduationYear.value);
-    if (form.gpa.value) formData.append('gpa', form.gpa.value);
-    if (form.activities.value) {
-      formData.append('extraCurricularActivities',
-        JSON.stringify(form.activities.value.split(',').map(a => a.trim()))
-      );
-    }
-
-    // Upload
-    const result = await studentAPI.uploadTranscript(formData);
-    setSuccess(result.message);
-    setShowModal(false);
-    form.reset();
-
-    // Reload data after 2 seconds
-    setTimeout(() => {
-      loadData();
-    }, 2000);
-  } catch (err) {
-    setError(err.response?.data?.error || err.message);
-  }
-};
+  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -662,196 +629,127 @@ export default function StudentDashboard({ user }) {
           </>
         )}
 
+        {/* MODALS */}
+        
         {/* VIEW COURSES MODAL */}
-{showModal && modalType === 'view-courses' && (
-  <div className="modal-overlay" onClick={() => setShowModal(false)}>
-    <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-      <h2>Courses at {selectedInstitution?.name}</h2>
-      
-      <div className="modal-filters">
-        <div className="search-bar">
-          <FaSearch />
-          <input
-            type="text"
-            placeholder="Search courses..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <select 
-          value={filterLevel} 
-          onChange={(e) => setFilterLevel(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">All Levels</option>
-          <option value="Certificate">Certificate</option>
-          <option value="Diploma">Diploma</option>
-          <option value="Degree">Degree</option>
-          <option value="Masters">Masters</option>
-          <option value="PhD">PhD</option>
-        </select>
-      </div>
+        {showModal && modalType === 'view-courses' && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+              <h2>Courses at {selectedInstitution?.name}</h2>
+              
+              <div className="modal-filters">
+                <div className="search-bar">
+                  <FaSearch />
+                  <input
+                    type="text"
+                    placeholder="Search courses..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <select 
+                  value={filterLevel} 
+                  onChange={(e) => setFilterLevel(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Levels</option>
+                  <option value="Certificate">Certificate</option>
+                  <option value="Diploma">Diploma</option>
+                  <option value="Degree">Degree</option>
+                  <option value="Masters">Masters</option>
+                  <option value="PhD">PhD</option>
+                </select>
+              </div>
 
-      <div className="courses-list">
-  {filteredCourses.map((course) => (
-    <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
-      <h3>{course.name}</h3>
-      <p><strong>Faculty:</strong> {course.faculty?.name}</p>
-      <p><strong>Duration:</strong> {course.duration}</p>
-      <p><strong>Level:</strong> {course.level}</p>
-      <p>{course.description}</p>
-      
-      {/* REQUIREMENT #2: Show eligibility status */}
-      {!course.eligible && (
-        <div className="eligibility-warning">
-          <FaTimesCircle style={{ color: '#e74c3c' }} />
-          <div>
-            <strong>Not Eligible</strong>
-            <p>{course.eligibilityReason}</p>
-            <small>Required: {course.requiredQualification}</small>
-            <small>Your qualifications: {course.yourQualifications || 'None listed'}</small>
+              <div className="courses-list">
+                {filteredCourses.map((course) => (
+                  <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
+                    <h3>{course.name}</h3>
+                    <p><strong>Faculty:</strong> {course.faculty?.name}</p>
+                    <p><strong>Duration:</strong> {course.duration}</p>
+                    <p><strong>Level:</strong> {course.level}</p>
+                    <p>{course.description}</p>
+                    
+                    {!course.eligible && (
+                      <div className="eligibility-warning">
+                        <FaTimesCircle style={{ color: '#e74c3c' }} />
+                        <div>
+                          <strong>Not Eligible</strong>
+                          <p>{course.eligibilityReason}</p>
+                          <small>Required: {course.requiredQualification}</small>
+                          <small>Your qualifications: {course.yourQualifications || 'None listed'}</small>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {course.eligible && (
+                      <div className="eligibility-success">
+                        <FaCheckCircle style={{ color: '#27ae60' }} />
+                        <span>{course.eligibilityReason}</span>
+                      </div>
+                    )}
+                    
+                    <button 
+                      className="btn-primary" 
+                      onClick={() => handleApplyCourse(course)}
+                      disabled={!course.eligible}
+                    >
+                      {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="btn-secondary" onClick={() => {
+                setShowModal(false);
+                setSearchTerm('');
+                setFilterLevel('all');
+              }}>
+                Close
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-      
-      {course.eligible && (
-        <div className="eligibility-success">
-          <FaCheckCircle style={{ color: '#27ae60' }} />
-          <span>{course.eligibilityReason}</span>
-        </div>
-      )}
-      
-      <button 
-        className="btn-primary" 
-        onClick={() => handleApplyCourse(course)}
-        disabled={!course.eligible}
-      >
-        {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
-      </button>
-    </div>
-  ))}
-</div>
-      <button className="btn-secondary" onClick={() => {
-        setShowModal(false);
-        setSearchTerm('');
-        setFilterLevel('all');
-      }}>
-        Close
-      </button>
-    </div>
-  </div>
-)}
+        )}
 
-{/* APPLY FOR JOB MODAL */}
-{showModal && modalType === 'apply-job' && (
-  <div className="modal-overlay" onClick={() => setShowModal(false)}>
-    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-      <h2>Apply for {selectedJob?.title}</h2>
-      <div className="job-details">
-        <p><strong>Company:</strong> {selectedJob?.company}</p>
-        <p><strong>Location:</strong> {selectedJob?.location}</p>
-        <p><strong>Salary:</strong> {selectedJob?.salary}</p>
-      </div>
-      <form onSubmit={handleSubmitJobApplication}>
-        <div className="form-group">
-          <label>Cover Letter *</label>
-          <textarea
-            name="coverLetter"
-            rows="8"
-            placeholder="Explain why you're a great fit for this position..."
-            required
+        {/* APPLY FOR JOB MODAL */}
+        {showModal && modalType === 'apply-job' && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>Apply for {selectedJob?.title}</h2>
+              <div className="job-details">
+                <p><strong>Company:</strong> {selectedJob?.company}</p>
+                <p><strong>Location:</strong> {selectedJob?.location}</p>
+                <p><strong>Salary:</strong> {selectedJob?.salary}</p>
+              </div>
+              <form onSubmit={handleSubmitJobApplication}>
+                <div className="form-group">
+                  <label>Cover Letter *</label>
+                  <textarea
+                    name="coverLetter"
+                    rows="8"
+                    placeholder="Explain why you're a great fit for this position..."
+                    required
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Submit Application
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* UPLOAD TRANSCRIPT MODAL */}
+        {showModal && modalType === 'upload-transcript' && (
+          <TranscriptUploadModal
+            onClose={() => setShowModal(false)}
+            onSubmit={handleTranscriptUpload}
           />
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-primary">
-            Submit Application
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-
-{/* UPLOAD TRANSCRIPT MODAL - ONLY ONE VERSION WITH FILE UPLOAD */}
-{showModal && modalType === 'upload-transcript' && (
-  <div className="modal-overlay" onClick={() => setShowModal(false)}>
-    <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-      <h2>Upload Academic Transcript</h2>
-      <p className="subtitle">Complete your graduation profile to apply for jobs</p>
-      <form onSubmit={handleUploadTranscript}>
-        <div className="form-group">
-          <label>Transcript File (PDF) *</label>
-          <input 
-            type="file" 
-            name="transcript" 
-            accept=".pdf"
-            required
-          />
-          <small>Upload your official academic transcript (PDF only, max 10MB)</small>
-        </div>
-
-        <div className="form-group">
-          <label>Graduation Year *</label>
-          <input 
-            type="number" 
-            name="graduationYear" 
-            min="2000" 
-            max={new Date().getFullYear()}
-            required 
-          />
-        </div>
-
-        <div className="form-group">
-          <label>GPA (Optional)</label>
-          <input 
-            type="number" 
-            name="gpa" 
-            step="0.01" 
-            min="0" 
-            max="4"
-            placeholder="e.g., 3.5"
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Additional Certificates (PDF, optional)</label>
-          <input 
-            type="file" 
-            name="certificates" 
-            accept=".pdf"
-            multiple
-          />
-          <small>You can select multiple certificate files (max 5)</small>
-        </div>
-
-        <div className="form-group">
-          <label>Extra-Curricular Activities (comma-separated)</label>
-          <textarea
-            name="activities"
-            rows="3"
-            placeholder="e.g., Student Council President, Debate Team, Volunteer Work"
-          />
-        </div>
-
-        <div className="modal-actions">
-          <button 
-            type="button" 
-            className="btn-secondary" 
-            onClick={() => setShowModal(false)}
-          >
-            Cancel
-          </button>
-          <button type="submit" className="btn-primary">
-            Upload Transcript
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
+        )}
 
       </div>
     </div>
