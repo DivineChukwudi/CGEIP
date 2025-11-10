@@ -1,10 +1,11 @@
-// client/src/utils/pdfExtractor.js - FIXED VERSION
+// client/src/utils/pdfExtractor.js - FIXED WITH ERROR HANDLING
 import * as pdfjsLib from 'pdfjs-dist';
 
-// ✅ FIXED: Use stable PDF.js worker version
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// ✅ FIXED: Use matching worker version
+const WORKER_VERSION = '3.11.174';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${WORKER_VERSION}/pdf.worker.min.js`;
 
-// Common subject patterns to look for
+// Common subject patterns
 const COMMON_SUBJECTS = [
   'Mathematics', 'Math', 'Algebra', 'Calculus', 'Statistics',
   'English', 'English Language', 'Literature',
@@ -33,21 +34,36 @@ const GRADE_PATTERNS = [
 export async function extractTextFromPDF(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      // Add error handling options
+      stopAtErrors: false,
+      isEvalSupported: false,
+      useSystemFonts: true
+    });
+    
+    const pdf = await loadingTask.promise;
     
     let fullText = '';
     
     for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += pageText + '\n';
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      } catch (pageError) {
+        console.warn(`⚠️ Could not read page ${i}:`, pageError.message);
+        continue; // Skip this page but continue with others
+      }
     }
     
     return fullText;
   } catch (error) {
-    console.error('PDF extraction error:', error);
-    throw new Error('Failed to extract text from PDF: ' + error.message);
+    console.error('❌ PDF extraction error:', error);
+    // Return a more user-friendly error
+    throw new Error('Unable to read this PDF format. Please enter your information manually.');
   }
 }
 
@@ -57,6 +73,7 @@ export async function extractTextFromPDF(file) {
 function parseGrade(gradeText) {
   gradeText = gradeText.trim();
   
+  // Try percentage first
   const percentMatch = gradeText.match(/(\d{1,3})%?/);
   if (percentMatch) {
     const percent = parseInt(percentMatch[1]);
@@ -65,11 +82,13 @@ function parseGrade(gradeText) {
     }
   }
   
+  // Try letter grade
   const letterMatch = gradeText.match(/([A-F][+-]?)/i);
   if (letterMatch) {
     return { type: 'letter', value: letterMatch[1].toUpperCase(), display: letterMatch[1].toUpperCase() };
   }
   
+  // Try GPA
   const gpaMatch = gradeText.match(/(\d\.\d{1,2})/);
   if (gpaMatch) {
     const gpa = parseFloat(gpaMatch[1]);
@@ -91,12 +110,14 @@ export function extractSubjectsAndGrades(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
+    // Skip header lines
     if (line.toLowerCase().includes('transcript') || 
         line.toLowerCase().includes('student name') ||
         line.toLowerCase().includes('student id')) {
       continue;
     }
     
+    // Look for common subjects
     let foundSubject = null;
     for (const subject of COMMON_SUBJECTS) {
       if (line.toLowerCase().includes(subject.toLowerCase())) {
@@ -130,6 +151,7 @@ export function extractSubjectsAndGrades(text) {
     }
   }
   
+  // Fallback: try to find any patterns
   if (subjects.length === 0) {
     for (const line of lines) {
       const words = line.split(/\s+/);
@@ -205,30 +227,62 @@ export function calculateOverallPercentage(subjects) {
 }
 
 /**
- * Main extraction function
+ * Main extraction function with comprehensive error handling
  */
 export async function extractTranscriptData(pdfFile) {
   try {
-    console.log('Extracting text from PDF...');
-    const text = await extractTextFromPDF(pdfFile);
+    console.log('🔍 Starting PDF extraction...');
     
-    console.log('Parsing subjects and grades...');
+    // Try to extract text
+    let text = '';
+    try {
+      text = await extractTextFromPDF(pdfFile);
+      console.log('✅ Text extracted:', text.length, 'characters');
+    } catch (extractError) {
+      console.error('❌ Text extraction failed:', extractError.message);
+      return {
+        success: false,
+        error: 'Could not read PDF. Please enter your information manually.',
+        subjects: [],
+        overallPercentage: null
+      };
+    }
+    
+    // If we got very little text, the PDF might be image-based
+    if (text.trim().length < 50) {
+      console.warn('⚠️ Very little text found - might be scanned image');
+      return {
+        success: false,
+        error: 'This appears to be a scanned document. Please enter your information manually.',
+        subjects: [],
+        overallPercentage: null
+      };
+    }
+    
+    // Try to parse subjects and grades
+    console.log('🔍 Parsing subjects and grades...');
     const subjects = extractSubjectsAndGrades(text);
     
-    console.log('Calculating overall percentage...');
+    console.log('✅ Found', subjects.length, 'subjects');
+    
+    // Calculate overall percentage
     const overallPercentage = calculateOverallPercentage(subjects);
     
+    // Return success even if no subjects found (user will enter manually)
     return {
-      success: true,
+      success: subjects.length > 0,
       subjects: subjects.slice(0, 10),
       overallPercentage,
-      rawText: text.substring(0, 1000)
+      rawText: text.substring(0, 500),
+      message: subjects.length > 0 
+        ? 'Data extracted successfully'
+        : 'Could not find subjects automatically. Please enter manually.'
     };
   } catch (error) {
-    console.error('Transcript extraction error:', error);
+    console.error('❌ Transcript extraction error:', error);
     return {
       success: false,
-      error: error.message,
+      error: 'Unable to scan this PDF. Please enter your information manually.',
       subjects: [],
       overallPercentage: null
     };
