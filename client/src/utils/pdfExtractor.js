@@ -1,8 +1,8 @@
-// client/src/utils/pdfExtractor.js
+// client/src/utils/pdfExtractor.js - FIXED VERSION
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// ✅ FIXED: Use stable PDF.js worker version
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // Common subject patterns to look for
 const COMMON_SUBJECTS = [
@@ -21,10 +21,10 @@ const COMMON_SUBJECTS = [
 
 // Grade/percentage patterns
 const GRADE_PATTERNS = [
-  /([A-F][+-]?)/gi, // Letter grades: A, B+, C-, etc.
-  /(\d{1,3})%/g, // Percentages: 85%, 90%
-  /(\d{1,3})\s*\/\s*100/g, // Fractions: 85/100
-  /(\d\.\d{1,2})\s*\/\s*4\.0/g, // GPA: 3.5/4.0
+  /([A-F][+-]?)/gi,
+  /(\d{1,3})%/g,
+  /(\d{1,3})\s*\/\s*100/g,
+  /(\d\.\d{1,2})\s*\/\s*4\.0/g,
 ];
 
 /**
@@ -37,7 +37,6 @@ export async function extractTextFromPDF(file) {
     
     let fullText = '';
     
-    // Extract text from all pages
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
@@ -58,7 +57,6 @@ export async function extractTextFromPDF(file) {
 function parseGrade(gradeText) {
   gradeText = gradeText.trim();
   
-  // Try to parse as percentage
   const percentMatch = gradeText.match(/(\d{1,3})%?/);
   if (percentMatch) {
     const percent = parseInt(percentMatch[1]);
@@ -67,13 +65,11 @@ function parseGrade(gradeText) {
     }
   }
   
-  // Try to parse as letter grade
   const letterMatch = gradeText.match(/([A-F][+-]?)/i);
   if (letterMatch) {
     return { type: 'letter', value: letterMatch[1].toUpperCase(), display: letterMatch[1].toUpperCase() };
   }
   
-  // Try to parse as GPA
   const gpaMatch = gradeText.match(/(\d\.\d{1,2})/);
   if (gpaMatch) {
     const gpa = parseFloat(gpaMatch[1]);
@@ -92,18 +88,15 @@ export function extractSubjectsAndGrades(text) {
   const lines = text.split('\n').map(line => line.trim()).filter(line => line);
   const subjects = [];
   
-  // Simple heuristic: look for lines that contain both a subject name and a grade
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Skip header lines
     if (line.toLowerCase().includes('transcript') || 
         line.toLowerCase().includes('student name') ||
         line.toLowerCase().includes('student id')) {
       continue;
     }
     
-    // Check if line contains a known subject
     let foundSubject = null;
     for (const subject of COMMON_SUBJECTS) {
       if (line.toLowerCase().includes(subject.toLowerCase())) {
@@ -113,7 +106,6 @@ export function extractSubjectsAndGrades(text) {
     }
     
     if (foundSubject) {
-      // Try to find a grade in the same line or next few lines
       const searchText = line + ' ' + (lines[i + 1] || '') + ' ' + (lines[i + 2] || '');
       
       for (const pattern of GRADE_PATTERNS) {
@@ -138,30 +130,24 @@ export function extractSubjectsAndGrades(text) {
     }
   }
   
-  // If we didn't find structured data, try a more aggressive approach
   if (subjects.length === 0) {
-    // Look for any line with a number that could be a grade
     for (const line of lines) {
       const words = line.split(/\s+/);
       
-      // Skip short lines
       if (words.length < 2) continue;
       
-      // Look for potential subject (2+ consecutive capitalized words)
       let subjectWords = [];
       let foundGrade = null;
       
       for (let i = 0; i < words.length; i++) {
         const word = words[i];
         
-        // Check if this looks like a grade
         const grade = parseGrade(word);
         if (grade) {
           foundGrade = grade;
           break;
         }
         
-        // Check if this looks like part of a subject name
         if (/^[A-Z]/.test(word) && word.length > 2) {
           subjectWords.push(word);
         }
@@ -197,10 +183,8 @@ export function calculateOverallPercentage(subjects) {
     if (subject.gradeType === 'percentage') {
       percentage = subject.gradeValue;
     } else if (subject.gradeType === 'gpa') {
-      // Convert GPA to percentage (approximate)
       percentage = (subject.gradeValue / 4.0) * 100;
     } else if (subject.gradeType === 'letter') {
-      // Convert letter grade to percentage (approximate)
       const letterToPercent = {
         'A+': 97, 'A': 93, 'A-': 90,
         'B+': 87, 'B': 83, 'B-': 80,
@@ -236,9 +220,9 @@ export async function extractTranscriptData(pdfFile) {
     
     return {
       success: true,
-      subjects: subjects.slice(0, 10), // Limit to 10 subjects
+      subjects: subjects.slice(0, 10),
       overallPercentage,
-      rawText: text.substring(0, 1000) // Keep first 1000 chars for debugging
+      rawText: text.substring(0, 1000)
     };
   } catch (error) {
     console.error('Transcript extraction error:', error);

@@ -172,13 +172,20 @@ export default function StudentDashboard({ user }) {
     }
   };
 
-  // FIXED: Moved transcript upload handler outside of JSX
+  // FIXED: Moved transcript upload handler outside of JSX with loading state
+  const [isUploading, setIsUploading] = useState(false);
+  
   const handleTranscriptUpload = async (formData) => {
     try {
+      setIsUploading(true);
       setError('');
+      setSuccess('');
+      
       const result = await studentAPI.uploadTranscript(formData);
+      
       setSuccess(result.message);
       setShowModal(false);
+      setIsUploading(false);
 
       // Reload data after 2 seconds
       setTimeout(() => {
@@ -186,6 +193,7 @@ export default function StudentDashboard({ user }) {
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.error || err.message);
+      setIsUploading(false);
     }
   };
 

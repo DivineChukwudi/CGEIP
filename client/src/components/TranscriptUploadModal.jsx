@@ -1,27 +1,25 @@
-// client/src/components/TranscriptUploadModal.jsx
+// client/src/components/TranscriptUploadModal.jsx - WITH LOADING STATES
 import React, { useState } from 'react';
-import { FaFileUpload, FaSpinner, FaCheckCircle, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaFileUpload, FaSpinner, FaCheckCircle, FaTrash, FaPlus } from 'react-icons/fa';
 import { extractTranscriptData, getAllSubjects } from '../utils/pdfExtractor';
 
 export default function TranscriptUploadModal({ onClose, onSubmit }) {
-  const [step, setStep] = useState(1); // 1: Upload, 2: Review & Edit, 3: Final Details
+  const [step, setStep] = useState(1);
   const [pdfFile, setPdfFile] = useState(null);
   const [certificateFiles, setCertificateFiles] = useState([]);
   const [extracting, setExtracting] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // ✅ NEW
   const [extractionError, setExtractionError] = useState('');
   
-  // Extracted data
   const [subjects, setSubjects] = useState([]);
   const [overallPercentage, setOverallPercentage] = useState('');
   
-  // Additional form fields
   const [graduationYear, setGraduationYear] = useState('');
   const [gpa, setGpa] = useState('');
   const [activities, setActivities] = useState('');
   
   const allSubjects = getAllSubjects();
 
-  // Handle PDF file upload
   const handlePDFUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -79,7 +77,6 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     }
   };
 
-  // Handle certificate files upload
   const handleCertificateUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length + certificateFiles.length > 5) {
@@ -89,12 +86,10 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     setCertificateFiles([...certificateFiles, ...files.slice(0, 5 - certificateFiles.length)]);
   };
 
-  // Update subject
   const updateSubject = (index, field, value) => {
     const updated = [...subjects];
     updated[index] = { ...updated[index], [field]: value };
     
-    // If updating grade, try to parse it
     if (field === 'grade') {
       const percentMatch = value.match(/(\d{1,3})/);
       if (percentMatch) {
@@ -109,21 +104,18 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     setSubjects(updated);
   };
 
-  // Add new subject row
   const addSubject = () => {
     if (subjects.length < 15) {
       setSubjects([...subjects, { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0 }]);
     }
   };
 
-  // Remove subject row
   const removeSubject = (index) => {
     if (subjects.length > 1) {
       setSubjects(subjects.filter((_, i) => i !== index));
     }
   };
 
-  // Calculate average percentage
   const calculateAverage = () => {
     const validGrades = subjects.filter(s => s.gradeValue > 0);
     if (validGrades.length === 0) return 0;
@@ -132,13 +124,12 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     return Math.round(total / validGrades.length);
   };
 
-  // Auto-calculate overall percentage
   const autoCalculatePercentage = () => {
     const avg = calculateAverage();
     setOverallPercentage(avg.toString());
   };
 
-  // Handle form submission
+  // ✅ ENHANCED: Handle form submission with loading state
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -152,14 +143,14 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
       return;
     }
 
-    // Validate subjects
     const validSubjects = subjects.filter(s => s.subject && s.grade);
     if (validSubjects.length === 0) {
       alert('Please add at least one subject with a grade');
       return;
     }
 
-    // Create FormData
+    setSubmitting(true); // ✅ Start loading
+
     const formData = new FormData();
     formData.append('transcript', pdfFile);
     formData.append('graduationYear', graduationYear);
@@ -167,16 +158,20 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     if (gpa) formData.append('gpa', gpa);
     if (activities) formData.append('extraCurricularActivities', JSON.stringify(activities.split(',').map(a => a.trim())));
     
-    // Add subjects data
     formData.append('subjects', JSON.stringify(validSubjects));
     formData.append('overallPercentage', overallPercentage || calculateAverage().toString());
     
-    // Add certificates
     certificateFiles.forEach(file => {
       formData.append('certificates', file);
     });
 
-    await onSubmit(formData);
+    try {
+      await onSubmit(formData);
+      setSubmitting(false);
+    } catch (error) {
+      console.error('Submission error:', error);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -212,6 +207,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                   accept=".pdf"
                   onChange={handlePDFUpload}
                   style={{ display: 'none' }}
+                  disabled={extracting}
                 />
                 <label htmlFor="transcript-upload" className="upload-label">
                   {extracting ? (
@@ -244,7 +240,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
             </div>
           )}
 
-          {/* STEP 2: Review & Edit Extracted Data */}
+          {/* STEP 2: Review & Edit */}
           {step === 2 && (
             <div className="review-step">
               <div className="section-header">
@@ -364,6 +360,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                   max={new Date().getFullYear()}
                   required
                   placeholder="e.g., 2024"
+                  disabled={submitting}
                 />
               </div>
 
@@ -377,6 +374,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                   min="0"
                   max="4"
                   placeholder="e.g., 3.5"
+                  disabled={submitting}
                 />
                 <small>If applicable, enter your GPA out of 4.0</small>
               </div>
@@ -388,6 +386,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                   accept=".pdf"
                   multiple
                   onChange={handleCertificateUpload}
+                  disabled={submitting}
                 />
                 <small>You can select up to 5 certificate files</small>
                 
@@ -400,6 +399,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                           type="button"
                           onClick={() => setCertificateFiles(certificateFiles.filter((_, i) => i !== index))}
                           className="btn-icon danger"
+                          disabled={submitting}
                         >
                           <FaTrash />
                         </button>
@@ -416,6 +416,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                   onChange={(e) => setActivities(e.target.value)}
                   rows="3"
                   placeholder="e.g., Student Council, Debate Team, Volunteer Work"
+                  disabled={submitting}
                 />
               </div>
 
@@ -426,14 +427,45 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                 <p><strong>Certificates:</strong> {certificateFiles.length}</p>
               </div>
 
+              {/* ✅ ENHANCED: Submit button with loading state */}
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setStep(2)}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setStep(2)}
+                  disabled={submitting}
+                >
                   ← Back
                 </button>
-                <button type="submit" className="btn-primary">
-                  <FaFileUpload /> Submit Transcript
+                <button 
+                  type="submit" 
+                  className="btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <FaSpinner className="spinner" /> Submitting Transcript...
+                    </>
+                  ) : (
+                    <>
+                      <FaFileUpload /> Submit Transcript
+                    </>
+                  )}
                 </button>
               </div>
+
+              {/* ✅ NEW: Progress indicator while submitting */}
+              {submitting && (
+                <div className="upload-progress">
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-animated"></div>
+                  </div>
+                  <p className="progress-text">
+                    📤 Uploading transcript and certificates...<br/>
+                    <small>Please wait, this may take a moment</small>
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -506,7 +538,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
             transition: all 0.3s;
           }
 
-          .upload-label:hover {
+          .upload-label:hover:not([disabled]) {
             border-color: #667eea;
             background: #f9fafb;
           }
@@ -644,6 +676,57 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
           .summary-box p {
             margin: 8px 0;
             color: #047857;
+          }
+
+          /* ✅ NEW: Upload progress styles */
+          .upload-progress {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f0f9ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-align: center;
+          }
+
+          .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+          }
+
+          .progress-bar-animated {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+          }
+
+          @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+
+          .progress-text {
+            color: #1e40af;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+          }
+
+          .progress-text small {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: normal;
+            color: #6b7280;
+          }
+
+          button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
           }
         `}</style>
       </div>
