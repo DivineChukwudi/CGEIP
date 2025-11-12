@@ -202,7 +202,7 @@ export const adminAPI = {
     const { data } = await api.get('/admin/logs');
     return data;
   },
-  // Transcript Management
+// Transcript Management
 getTranscripts: async () => {
   const { data } = await api.get('/admin/transcripts');
   return data;
@@ -210,6 +210,11 @@ getTranscripts: async () => {
 
 verifyTranscript: async (transcriptId) => {
   const { data } = await api.put(`/admin/transcripts/${transcriptId}/verify`);
+  return data;
+},
+
+declineTranscript: async (transcriptId, reason) => {
+  const { data } = await api.put(`/admin/transcripts/${transcriptId}/decline`, { reason });
   return data;
 },
 

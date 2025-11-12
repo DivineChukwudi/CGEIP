@@ -252,7 +252,7 @@ router.get('/transcripts', async (req, res) => {
 });
 
 // Verify a transcript
-router.post('/transcripts/:id/verify', async (req, res) => {
+router.put('/transcripts/:id/verify', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -268,7 +268,8 @@ router.post('/transcripts/:id/verify', async (req, res) => {
     await db.collection(collections.TRANSCRIPTS).doc(id).update({
       verified: true,
       verifiedAt: new Date().toISOString(),
-      verifiedBy: req.user.uid
+      verifiedBy: req.user.uid,
+      status: 'verified'
     });
     
     // Update student's profile
@@ -290,6 +291,54 @@ router.post('/transcripts/:id/verify', async (req, res) => {
   }
 });
 
+// Decline a transcript
+router.put('/transcripts/:id/decline', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    if (!reason || reason.trim().length < 10) {
+      return res.status(400).json({ 
+        error: 'Please provide a detailed reason for declining (at least 10 characters)' 
+      });
+    }
+    
+    const transcriptDoc = await db.collection(collections.TRANSCRIPTS).doc(id).get();
+    
+    if (!transcriptDoc.exists) {
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+    
+    const transcriptData = transcriptDoc.data();
+    
+    // Update transcript as declined
+    await db.collection(collections.TRANSCRIPTS).doc(id).update({
+      verified: false,
+      declined: true,
+      declinedAt: new Date().toISOString(),
+      declinedBy: req.user.uid,
+      declineReason: reason,
+      status: 'declined'
+    });
+    
+    // Update student's profile
+    await db.collection(collections.USERS).doc(transcriptData.studentId).update({
+      transcriptVerified: false,
+      transcriptDeclined: true
+    });
+    
+    console.log(`❌ Transcript ${id} declined for student ${transcriptData.studentId}`);
+    
+    res.json({ 
+      message: 'Transcript declined',
+      transcriptId: id,
+      studentId: transcriptData.studentId
+    });
+  } catch (error) {
+    console.error('Decline transcript error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // Notify student about transcript verification
 router.post('/notify-student', async (req, res) => {
   try {

@@ -380,13 +380,13 @@ const [unreadCount, setUnreadCount] = useState(0);
     }
   };
 
-
-  // ==================== TRANSCRIPT MANAGEMENT ====================
+// ==================== TRANSCRIPT MANAGEMENT ====================
 const handleViewTranscript = (transcript) => {
   setSelectedTranscript(transcript);
   setModalType('view-transcript');
   setShowModal(true);
 }; 
+
 const handleVerifyTranscript = async (transcriptId, studentId) => {
   try {
     await adminAPI.verifyTranscript(transcriptId);
@@ -396,7 +396,7 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
       `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/admin/notify-student`,
       {
         studentId,
-        title: 'Transcript Verified ✅',
+        title: 'Transcript Verified',
         message: 'Your academic transcript has been verified by the admin. You can now apply for jobs!',
         type: 'general'
       },
@@ -406,6 +406,42 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
     );
 
     showSuccess('Transcript verified successfully! Student has been notified.');
+    loadData();
+  } catch (err) {
+    setError(err.message);
+  }
+};
+
+const handleDeclineTranscript = async (transcriptId, studentId) => {
+  const reason = prompt('Please provide a reason for declining this transcript (minimum 10 characters):');
+  
+  if (!reason) {
+    return; // User cancelled
+  }
+  
+  if (reason.trim().length < 10) {
+    setError('Decline reason must be at least 10 characters long');
+    return;
+  }
+  
+  try {
+    await adminAPI.declineTranscript(transcriptId, reason);
+    
+    // Send notification to student
+    await axios.post(
+      `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/admin/notify-student`,
+      {
+        studentId,
+        title: 'Transcript Declined ❌',
+        message: `Your transcript has been declined. Reason: ${reason}. Please upload a new transcript that meets our requirements.`,
+        type: 'general'
+      },
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      }
+    );
+
+    showSuccess('Transcript declined. Student has been notified.');
     loadData();
   } catch (err) {
     setError(err.message);
@@ -1010,26 +1046,43 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
               <td>{transcript.graduationYear}</td>
               <td>{transcript.overallPercentage || 'N/A'}%</td>
               <td>{transcript.subjects?.length || 0} subjects</td>
-              <td>
-                <span className={`status-badge ${transcript.verified ? 'status-active' : 'status-pending'}`}>
-                  {transcript.verified ? '✓ Verified' : '⏳ Pending'}
+                <td>
+                <span className={`status-badge ${
+                  transcript.verified ? 'status-active' : 
+                  transcript.declined ? 'status-rejected' : 
+                  'status-pending'
+                }`}>
+                  {transcript.verified ? '✓ Verified' : 
+                   transcript.declined ? '✗ Declined' : 
+                   '⏳ Pending'}
                 </span>
               </td>
               <td>{new Date(transcript.uploadedAt).toLocaleDateString()}</td>
-              <td>
+             <td>
                 <button
                   className="btn-info btn-sm"
                   onClick={() => handleViewTranscript(transcript)}
                 >
                   <FaEye /> View
                 </button>
-                {!transcript.verified && (
-                  <button
-                    className="btn-success btn-sm"
-                    onClick={() => handleVerifyTranscript(transcript.id, transcript.studentId)}
-                  >
-                    <FaCheck /> Verify
-                  </button>
+                {!transcript.verified && !transcript.declined && (
+                  <>
+                    <button
+                      className="btn-success btn-sm"
+                      onClick={() => handleVerifyTranscript(transcript.id, transcript.studentId)}
+                    >
+                      <FaCheck /> Verify
+                    </button>
+                    <button
+                      className="btn-danger btn-sm"
+                      onClick={() => handleDeclineTranscript(transcript.id, transcript.studentId)}
+                    >
+                      <FaTimes /> Decline
+                    </button>
+                  </>
+                )}
+                {transcript.declined && (
+                  <span className="text-danger">Declined</span>
                 )}
               </td>
             </tr>
@@ -1147,7 +1200,7 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
           </div>
         )}
 
-        {/* Verification Status */}
+{/* Verification Status */}
         <div className="info-section">
           <h3>✅ Verification Status</h3>
           <div className="verification-status">
@@ -1155,6 +1208,14 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
               <div className="verified-badge">
                 <FaCheckCircle style={{ color: '#10b981' }} />
                 <span>Verified on {new Date(selectedTranscript.verifiedAt).toLocaleDateString()}</span>
+              </div>
+            ) : selectedTranscript.declined ? (
+              <div className="declined-badge">
+                <FaTimesCircle style={{ color: '#ef4444' }} />
+                <div>
+                  <span>Declined on {new Date(selectedTranscript.declinedAt).toLocaleDateString()}</span>
+                  <p className="decline-reason"><strong>Reason:</strong> {selectedTranscript.declineReason}</p>
+                </div>
               </div>
             ) : (
               <div className="pending-badge">
@@ -1173,16 +1234,27 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
         >
           Close
         </button>
-        {!selectedTranscript.verified && (
-          <button
-            className="btn-success"
-            onClick={() => {
-              handleVerifyTranscript(selectedTranscript.id, selectedTranscript.studentId);
-              setShowModal(false);
-            }}
-          >
-            <FaCheck /> Verify Transcript
-          </button>
+        {!selectedTranscript.verified && !selectedTranscript.declined && (
+          <>
+            <button
+              className="btn-danger"
+              onClick={() => {
+                handleDeclineTranscript(selectedTranscript.id, selectedTranscript.studentId);
+                setShowModal(false);
+              }}
+            >
+              <FaTimes /> Decline Transcript
+            </button>
+            <button
+              className="btn-success"
+              onClick={() => {
+                handleVerifyTranscript(selectedTranscript.id, selectedTranscript.studentId);
+                setShowModal(false);
+              }}
+            >
+              <FaCheck /> Verify Transcript
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -1373,6 +1445,56 @@ const handleVerifyTranscript = async (transcriptId, studentId) => {
     .info-grid {
       grid-template-columns: 1fr;
     }
+  }
+    .verified-badge,
+  .pending-badge,
+  .declined-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .verified-badge {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .pending-badge {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .declined-badge {
+    background: #fee2e2;
+    color: #991b1b;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .declined-badge > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .decline-reason {
+    margin-top: 10px;
+    padding: 10px;
+    background: white;
+    border-left: 3px solid #ef4444;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: normal;
+    color: #374151;
+  }
+
+  .text-danger {
+    color: #ef4444 !important;
+    font-weight: 600;
   }
 `}</style>
         {/* ==================== MODALS ==================== */}
