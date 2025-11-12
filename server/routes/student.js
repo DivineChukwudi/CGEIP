@@ -945,4 +945,23 @@ router.put('/notifications/read-all', async (req, res) => {
   }
 });
 
+router.get('/institutions', async (req, res) => {
+  try {
+    // Get ALL institutions (don't filter by status since institutions might not have status field)
+    const snapshot = await db.collection(collections.INSTITUTIONS).get();
+    
+    const institutions = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }));
+    
+    console.log(`📚 Found ${institutions.length} institutions for student`);
+    
+    res.json(institutions);
+  } catch (error) {
+    console.error('Get institutions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

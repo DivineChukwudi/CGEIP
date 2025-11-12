@@ -405,6 +405,71 @@ export default function StudentDashboard({ user }) {
                 </button>
               </div>
             )}
+            <div className="cards-grid">
+              {filteredJobs.map((job) => (
+                <div key={job.id} className={`job-card ${!job.eligible ? 'not-eligible' : ''}`}>
+                  <div className="job-header">
+                    <h3>{job.title}</h3>
+                    {job.qualificationMatch !== undefined && (
+                      <span 
+                        className={`match-badge ${job.eligible ? 'qualified' : 'not-qualified'}`}
+                        style={{
+                          backgroundColor: job.eligible ? '#10b981' : '#ef4444',
+                          color: 'white'
+                        }}
+                      >
+                        {job.qualificationMatch}% Match
+                      </span>
+                    )}
+                  </div>
+                  <p><strong>Company:</strong> {job.company}</p>
+                  <p><strong>Location:</strong> {job.location}</p>
+                  <p><strong>Salary:</strong> {job.salary}</p>
+                  <p><strong>Requirements:</strong> {job.qualifications}</p>
+                  <p className="job-description">{job.description}</p>
+                  
+                  {!job.eligible && (
+                    <div className="eligibility-warning" style={{
+                      background: '#fee2e2',
+                      border: '1px solid #fca5a5',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      marginTop: '10px',
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'start'
+                    }}>
+                      <FaTimesCircle style={{ color: '#dc2626', marginTop: '2px', flexShrink: 0 }} />
+                      <div>
+                        <strong style={{ color: '#991b1b', display: 'block', marginBottom: '4px' }}>
+                          Not Currently Qualified
+                        </strong>
+                        <p style={{ color: '#7f1d1d', fontSize: '14px', margin: 0 }}>
+                          {job.eligibilityReason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => handleApplyJob(job)}
+                    disabled={!profile?.isGraduate || !job.eligible}
+                    style={{
+                      marginTop: '12px',
+                      opacity: (!profile?.isGraduate || !job.eligible) ? 0.5 : 1,
+                      cursor: (!profile?.isGraduate || !job.eligible) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {!profile?.isGraduate 
+                      ? 'Upload Transcript First' 
+                      : !job.eligible 
+                        ? 'Not Qualified' 
+                        : 'Apply Now'}
+                  </button>
+                </div>
+              ))}
+            </div>
 
             <div className="cards-grid">
               {filteredInstitutions.map((inst) => {
