@@ -209,8 +209,16 @@
 
 .card-3 {
   bottom: 80px;
-  left: 80px;
+  right: 0;
   animation-delay: 2s;
+}
+
+@media (max-width: 768px) {
+  .card-3 {
+    right: auto;
+    left: auto;
+    right: 10px;
+  }
 }
 
 @keyframes float {
