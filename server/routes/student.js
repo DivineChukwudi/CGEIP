@@ -260,36 +260,39 @@ function checkSubjectPrerequisites(student, course) {
 function calculateJobMatchAndEligibility(student, job) {
   let score = 0;
   let eligible = false;
+  let reason = '';
 
-  // Must be a graduate with transcript to be eligible
-  if (!student.isGraduate || !student.transcriptId) {
-    return { score: 0, eligible: false, reason: 'Must be a verified graduate' };
-  }
-
-  // Has verified transcript (40 points)
+  // Base eligibility: student should have transcript uploaded
   if (student.transcriptId && student.transcriptVerified) {
     score += 40;
-    eligible = true;
+    reason = 'Verified graduate';
   } else if (student.transcriptId) {
     score += 20;
+    reason = 'Transcript pending verification';
+  } else {
+    score += 5;
+    reason = 'No transcript uploaded';
   }
 
   // Qualifications match (40 points)
   if (student.qualifications && job.qualifications) {
-    const studentQuals = student.qualifications.map(q => q.toLowerCase());
+    const studentQuals = student.qualifications.map(q => 
+      typeof q === 'string' ? q.toLowerCase() : q?.qualificationLevel?.toLowerCase() || ''
+    );
     const jobQuals = job.qualifications.toLowerCase();
     
-    const hasRequiredQual = studentQuals.some(q => jobQuals.includes(q));
+    const hasRequiredQual = studentQuals.some(q => q && jobQuals.includes(q));
     if (hasRequiredQual) {
       score += 40;
-      eligible = true;
+      reason = 'Qualifications match';
     } else {
       // Partial match (20 points)
       const partialMatch = studentQuals.some(q => 
-        jobQuals.split(' ').some(word => word.includes(q) || q.includes(word))
+        q && jobQuals.split(' ').some(word => word.includes(q) || q.includes(word))
       );
       if (partialMatch) {
         score += 20;
+        reason = 'Partial qualifications match';
       }
     }
   }
@@ -299,13 +302,14 @@ function calculateJobMatchAndEligibility(student, job) {
     score += 20;
   }
 
-  // Student is eligible if they have at least 50% match
-  eligible = score >= 50;
+  // Eligible if they have at least some qualifications or transcript
+  // This allows students to browse and apply even if not fully qualified
+  eligible = score >= 5;
 
   return { 
     score: Math.min(score, 100), 
     eligible,
-    reason: eligible ? 'Qualified for this position' : 'Does not meet minimum requirements'
+    reason: `${reason} (${Math.min(score, 100)}% match)`
   };
 }
 
@@ -1058,7 +1062,7 @@ router.get('/jobs', async (req, res) => {
       const companyDoc = await db.collection(collections.USERS)
         .doc(jobData.companyId).get();
       
-      // REQUIREMENT #4: Calculate match and eligibility
+      // Calculate match and eligibility
       const match = calculateJobMatchAndEligibility(student, jobData);
       
       return {
@@ -1071,10 +1075,11 @@ router.get('/jobs', async (req, res) => {
       };
     }));
 
-    // REQUIREMENT #4: Only show jobs student is qualified for
-    const qualifiedJobs = jobs.filter(job => job.eligible);
-
-    res.json(qualifiedJobs);
+    // Show all active jobs - students can see them even if not fully qualified
+    // The eligibility flag is still calculated for UI/UX purposes
+    console.log(`📁 Returning ${jobs.length} active jobs to student`);
+    
+    res.json(jobs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
