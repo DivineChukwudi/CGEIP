@@ -339,7 +339,6 @@ export default function Login({ setUser }) {
         {/* Error Message */}
         {error && (
           <div className="error-message">
-            <FaExclamationTriangle style={{ marginRight: '8px' }} />
             {error}
           </div>
         )}
