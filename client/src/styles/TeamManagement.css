@@ -11,21 +11,21 @@
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  border: 2px solid #bfdbfe;
   transition: all 0.3s ease;
 }
 
 .team-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-  border-color: #d1d5db;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
 }
 
 .team-card-image {
   width: 100%;
   height: 250px;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,7 +41,7 @@
 
 .team-card-placeholder {
   font-size: 80px;
-  color: #d1d5db;
+  color: #7dd3fc;
 }
 
 .team-card-content {
@@ -56,7 +56,7 @@
 }
 
 .team-role {
-  color: #6b7280;
+  color: #2563eb;
   font-weight: 600;
   margin: 0 0 12px 0;
   font-size: 14px;
@@ -81,26 +81,26 @@
 }
 
 .team-social a {
-  color: #6b7280;
+  color: #2563eb;
   font-size: 20px;
   transition: all 0.2s;
   text-decoration: none;
   padding: 8px;
   border-radius: 4px;
-  background: #f3f4f6;
+  background: #f0f9ff;
 }
 
 .team-social a:hover {
-  color: #1f2937;
-  background: #e5e7eb;
+  color: white;
+  background: #2563eb;
 }
 
 .team-card-actions {
   display: flex;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-top: 1px solid #bfdbfe;
+  background: #f0f9ff;
 }
 
 .loading-message {
@@ -113,9 +113,9 @@
 .no-members {
   text-align: center;
   padding: 60px 20px;
-  background: white;
+  background: #f0f9ff;
   border-radius: 8px;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed #2563eb;
   margin-top: 24px;
 }
 
