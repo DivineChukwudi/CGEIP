@@ -1,4 +1,3 @@
-// client/src/App.jsx - FIXED VERSION WITH DEBUG
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -21,10 +20,10 @@ export default function App() {
       const userData = localStorage.getItem("user");
       if (!token || !userData) return null;
       const parsedUser = JSON.parse(userData);
-      console.log("✓ User loaded from localStorage:", parsedUser);
+      console.log("User loaded from localStorage:", parsedUser);
       return { ...parsedUser, token };
     } catch (error) {
-      console.error("✗ Error parsing user from localStorage:", error);
+      console.error("Error parsing user from localStorage:", error);
       localStorage.clear();
       return null;
     }
@@ -44,34 +43,34 @@ export default function App() {
       const data = await response.json();
       setTeamMembers(data);
     } catch (error) {
-      console.error("✗ Failed to load team members:", error);
+      console.error("Failed to load team members:", error);
       setTeamMembers([]);
     }
   };
 
   const logout = () => {
-    console.log("✓ Logging out user");
+    console.log("Logging out user");
     localStorage.clear();
     setUser(null);
   };
 
   function ProtectedRoute({ user, allowedRoles, children }) {
     if (!user) {
-      console.log("✗ No user - redirecting to login");
+      console.log("No user - redirecting to login");
       return <Navigate to="/login" replace />;
     }
 
     if (!user.role) {
-      console.error("✗ User has no role - redirecting to login");
+      console.error("User has no role - redirecting to login");
       return <Navigate to="/login" replace />;
     }
 
     if (!allowedRoles.includes(user.role)) {
-      console.error(`✗ User role '${user.role}' not allowed. Allowed: ${allowedRoles.join(", ")}`);
+      console.error(`User role '${user.role}' not allowed. Allowed: ${allowedRoles.join(", ")}`);
       return <Navigate to="/login" replace />;
     }
 
-    console.log(`✓ Access granted to ${user.role} dashboard`);
+    console.log(`Access granted to ${user.role} dashboard`);
     return children;
   }
 

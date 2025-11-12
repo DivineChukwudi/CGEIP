@@ -78,7 +78,7 @@ export default function Register() {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(firebaseAuth, provider);
       
-      console.log('✓ Google user signed in:', result.user);
+      console.log('Google user signed in:', result.user);
 
       const email = result.user.email;
       const name = result.user.displayName || email.split('@')[0];
@@ -111,13 +111,13 @@ export default function Register() {
       setGoogleLoading(false);
       
       // Show success message
-      setSuccess('✓ Google account connected! Please select your role and create a password to complete registration.');
+      setSuccess('Google account connected! Please select your role and create a password to complete registration.');
       
       // Clear success message after 5 seconds
       setTimeout(() => setSuccess(''), 5000);
         
     } catch (error) {
-      console.error('✗ Google sign-up error:', error);
+      console.error('Google sign-up error:', error);
       setError(error.message || 'Google sign-up failed. Please try again.');
       setGoogleLoading(false);
     }
@@ -129,7 +129,7 @@ export default function Register() {
     setError('');
     setSuccess('');
 
-    console.log('📤 Submitting registration form');
+    console.log('Submitting registration form');
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -147,7 +147,7 @@ export default function Register() {
     try {
       const { confirmPassword, ...registerData } = formData;
       
-      console.log('📤 Sending registration data:', {
+      console.log('Sending registration data:', {
         name: registerData.name,
         email: registerData.email,
         role: registerData.role,
@@ -167,7 +167,7 @@ export default function Register() {
           name: registerData.name
         });
 
-        console.log('✅ Google registration completed:', response.data);
+        console.log('Google registration completed:', response.data);
 
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
@@ -195,7 +195,7 @@ export default function Register() {
         // Normal email/password registration
         const response = await authAPI.register(registerData);
         
-        console.log('✅ Registration response:', response);
+        console.log('Registration response:', response);
 
         setSuccess(response.message || 'Registration successful! Please check your email to verify your account.');
         
@@ -214,8 +214,8 @@ export default function Register() {
         }, 3000);
       }
     } catch (err) {
-      console.error('❌ Registration error:', err);
-      console.error('❌ Error response:', err.response?.data);
+      console.error('Registration error:', err);
+      console.error('Error response:', err.response?.data);
       
       let errorMessage = err.response?.data?.error || err.message || 'Registration failed. Please try again.';
       
@@ -277,7 +277,7 @@ export default function Register() {
                 fontSize: '13px'
               }}>
                 <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#856404' }}>
-                  📧 Check your email inbox
+                  Check your email inbox
                 </p>
                 <p style={{ margin: '0', color: '#856404' }}>
                   If you don't see the verification email, <strong>please check your spam/junk folder</strong>. 
@@ -301,7 +301,7 @@ export default function Register() {
             </>
           ) : isGoogleUser ? (
             <>
-              <FaGoogle /> ✓ Google Account Connected
+              <FaGoogle /> Google Account Connected
             </>
           ) : (
             <>

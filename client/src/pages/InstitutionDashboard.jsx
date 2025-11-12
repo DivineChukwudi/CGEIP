@@ -25,7 +25,7 @@ export default function InstitutionDashboard({ user }) {
   const [applicationDetails, setApplicationDetails] = useState(null);
   const [studentTranscripts, setStudentTranscripts] = useState([]);
 
-  // ✅ NOTIFICATION INTEGRATION
+  // NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'institution', user?.uid);
   const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'institution', user?.uid);
 
@@ -482,10 +482,10 @@ export default function InstitutionDashboard({ user }) {
                           </>
                         )}
                         {app.status === 'admitted' && (
-                          <span style={{ color: '#28a745' }}>✓ Admitted</span>
+                          <span style={{ color: '#28a745' }}>Admitted</span>
                         )}
                         {app.status === 'rejected' && (
-                          <span style={{ color: '#dc3545' }}>✗ Rejected</span>
+                          <span style={{ color: '#dc3545' }}>Rejected</span>
                         )}
                       </td>
                     </tr>
@@ -555,8 +555,8 @@ export default function InstitutionDashboard({ user }) {
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-content large-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>📋 Application Details</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}>✕</button>
+                <h2>Application Details</h2>
+                <button className="close-btn" onClick={() => setShowModal(false)}>X</button>
               </div>
               
               <div className="modal-body details-section">

@@ -20,7 +20,7 @@ export default function CompanyDashboard({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // ✅ NOTIFICATION INTEGRATION
+  // NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'company', user?.uid);
   const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'company', user?.uid);
 

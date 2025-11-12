@@ -1,4 +1,3 @@
-// client/src/components/Navbar.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaSignOutAlt, FaGraduationCap, FaBars, FaTimes } from 'react-icons/fa';

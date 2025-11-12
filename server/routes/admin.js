@@ -10,10 +10,10 @@ router.use(verifyToken);
 router.use(checkRole(['admin']));
 
 // ==================== INSTITUTIONS ====================
-// ✅ FIX #1: Get ALL institutions (from both INSTITUTIONS and USERS collections)
+// FIXED: Get ALL institutions (from both INSTITUTIONS and USERS collections)
 router.get('/institutions', async (req, res) => {
   try {
-    console.log('📚 Admin fetching ALL institutions...');
+    console.log('Admin fetching ALL institutions...');
     
     // Get institutions from INSTITUTIONS collection
     const institutionsSnapshot = await db.collection(collections.INSTITUTIONS).get();
@@ -48,7 +48,7 @@ router.get('/institutions', async (req, res) => {
       }
     });
     
-    console.log(`✅ Found ${institutionsSnapshot.size} institutions in INSTITUTIONS collection`);
+    console.log(`Found ${institutionsSnapshot.size} institutions in INSTITUTIONS collection`);
     
     // Add registered institutions from USERS collection
     // NOTE: These institution users do NOT have a corresponding INSTITUTIONS document yet!
@@ -72,24 +72,24 @@ router.get('/institutions', async (req, res) => {
           createdAt: data.createdAt
         });
         
-        console.log(`✅ Added self-registered institution: ${data.name} (ID: ${doc.id})`);
+        console.log(`Added self-registered institution: ${data.name} (ID: ${doc.id})`);
       }
     });
     
     // Sort alphabetically
     institutions.sort((a, b) => a.name.localeCompare(b.name));
     
-    console.log(`✅ Total ${institutions.length} institutions returned to frontend`);
-    console.log('📋 Institution IDs:', institutions.map(i => ({ id: i.id, name: i.name, source: i.source })));
+    console.log(`Total ${institutions.length} institutions returned to frontend`);
+    console.log('Institution IDs:', institutions.map(i => ({ id: i.id, name: i.name, source: i.source })));
     
     res.json(institutions);
   } catch (error) {
-    console.error('❌ Get institutions error:', error);
+    console.error('Get institutions error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ✅ FIX #2: Create institution WITH auto user account
+// FIXED: Create institution WITH auto user account
 router.post('/institutions', async (req, res) => {
   let userCreated = false;
   let firebaseUid = null;
@@ -118,11 +118,11 @@ router.post('/institutions', async (req, res) => {
 
     const instDocRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
     institutionId = instDocRef.id;
-    console.log('✅ Institution document created:', institutionId);
+    console.log('Institution document created:', institutionId);
 
-    // ✅ If email provided and user account requested, create login credentials
+    // FIXED: If email provided and user account requested, create login credentials
     if (email && createUserAccount !== false) {
-      console.log('🔐 Creating user account for institution:', email);
+      console.log('Creating user account for institution:', email);
 
       // Check if email already exists
       const existingUser = await db.collection(collections.USERS)
@@ -145,7 +145,7 @@ router.post('/institutions', async (req, res) => {
           userId: existingUserId
         });
 
-        console.log('✅ Linked to existing user:', existingUserId);
+        console.log('Linked to existing user:', existingUserId);
 
         return res.status(201).json({ 
           id: institutionId, 
@@ -158,7 +158,7 @@ router.post('/institutions', async (req, res) => {
 
       // Generate temporary password
       const tempPassword = crypto.randomBytes(8).toString('hex');
-      console.log('🔑 Generated temp password:', tempPassword);
+      console.log('Generated temp password:', tempPassword);
 
       try {
         // Create Firebase Auth user
@@ -171,7 +171,7 @@ router.post('/institutions', async (req, res) => {
 
         firebaseUid = userRecord.uid;
         userCreated = true;
-        console.log('✅ Firebase user created:', firebaseUid);
+        console.log('Firebase user created:', firebaseUid);
 
         // Create user document
         const userData = {
@@ -189,7 +189,7 @@ router.post('/institutions', async (req, res) => {
         };
 
         await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
-        console.log('✅ User document created');
+        console.log('User document created');
 
         // Update institution with user link
         await db.collection(collections.INSTITUTIONS).doc(institutionId).update({
@@ -208,7 +208,7 @@ router.post('/institutions', async (req, res) => {
         });
 
       } catch (authError) {
-        console.error('❌ Firebase Auth error:', authError);
+        console.error('Firebase Auth error:', authError);
         
         // Rollback institution creation if user creation fails
         await db.collection(collections.INSTITUTIONS).doc(institutionId).delete();
@@ -231,9 +231,9 @@ router.post('/institutions', async (req, res) => {
     if (userCreated && firebaseUid) {
       try {
         await auth.deleteUser(firebaseUid);
-        console.log('🧹 Cleaned up Firebase user');
+        console.log('Cleaned up Firebase user');
       } catch (cleanupError) {
-        console.error('❌ Cleanup failed:', cleanupError.message);
+        console.error('Cleanup failed:', cleanupError.message);
       }
     }
 
@@ -241,9 +241,9 @@ router.post('/institutions', async (req, res) => {
       // Only delete institution if we failed to create user
       try {
         await db.collection(collections.INSTITUTIONS).doc(institutionId).delete();
-        console.log('🧹 Cleaned up institution document');
+        console.log('Cleaned up institution document');
       } catch (cleanupError) {
-        console.error('❌ Institution cleanup failed:', cleanupError.message);
+        console.error('Institution cleanup failed:', cleanupError.message);
       }
     }
     
@@ -296,9 +296,9 @@ router.delete('/institutions/:id', async (req, res) => {
     // Delete institution
     await db.collection(collections.INSTITUTIONS).doc(id).delete();
     
-    // ✅ Optionally delete linked user account (or just unlink it)
-    if (instData?.userId) {
-      console.log('⚠️ Institution had linked user:', instData.userId);
+    // FIXED: Optionally delete linked user account (or just unlink it)
+    if (instData.userId) {
+      console.log('Institution had linked user:', instData.userId);
       // You can choose to delete or just unlink:
       // await db.collection(collections.USERS).doc(instData.userId).delete();
       // OR just unlink:
@@ -328,31 +328,31 @@ router.get('/faculties', async (req, res) => {
 router.post('/faculties', async (req, res) => {
   try {
     const { institutionId, name, description } = req.body;
-    console.log('📝 POST /faculties - Received:', { institutionId, name, description });
+    console.log('POST /faculties - Received:', { institutionId, name, description });
     
     if (!institutionId || !name) {
-      console.error('❌ Missing required fields - institutionId:', institutionId, 'name:', name);
+      console.error('Missing required fields - institutionId:', institutionId, 'name:', name);
       return res.status(400).json({ error: 'Institution ID and name are required' });
     }
     
-    console.log('🔍 Checking if institution exists (checking both INSTITUTIONS and USERS collections)');
+    console.log('Checking if institution exists (checking both INSTITUTIONS and USERS collections)');
     
     // First, try to find in INSTITUTIONS collection
     let instDoc = await db.collection(collections.INSTITUTIONS).doc(institutionId).get();
     
     // If not found, check if it's a user ID (self-registered institution)
     if (!instDoc.exists) {
-      console.log('⚠️  Not found in INSTITUTIONS, checking USERS collection...');
+      console.log('Not found in INSTITUTIONS, checking USERS collection...');
       const userDoc = await db.collection(collections.USERS).doc(institutionId).get();
       
       if (!userDoc.exists || userDoc.data().role !== 'institution') {
-        console.error('❌ Neither institution document nor institution user found:', institutionId);
+        console.error('Neither institution document nor institution user found:', institutionId);
         return res.status(404).json({ error: 'Institution not found' });
       }
       
-      console.log('✅ Found institution user:', userDoc.data().name);
+      console.log('Found institution user:', userDoc.data().name);
     } else {
-      console.log('✅ Found institution document:', instDoc.data().name);
+      console.log('Found institution document:', instDoc.data().name);
     }
     
     const facultyData = {
@@ -363,12 +363,12 @@ router.post('/faculties', async (req, res) => {
       createdBy: req.user.uid
     };
     
-    console.log('✅ Creating faculty:', name);
+    console.log('Creating faculty:', name);
     const docRef = await db.collection(collections.FACULTIES).add(facultyData);
-    console.log('✅ Faculty created:', docRef.id);
+    console.log('Faculty created:', docRef.id);
     res.status(201).json({ id: docRef.id, ...facultyData });
   } catch (error) {
-    console.error('❌ POST /faculties error:', error.message);
+    console.error('POST /faculties error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

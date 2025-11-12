@@ -264,17 +264,17 @@ const [unreadCount, setUnreadCount] = useState(0);
     try {
       // Validate institutionId
       if (!formData.institutionId) {
-        setError('❌ Please select an institution');
+        setError('Please select an institution');
         return;
       }
       
       if (!formData.name || !formData.name.trim()) {
-        setError('❌ Please enter a faculty name');
+        setError('Please enter a faculty name');
         return;
       }
       
       if (!formData.description || !formData.description.trim()) {
-        setError('❌ Please enter a description');
+        setError('Please enter a description');
         return;
       }
       
@@ -419,7 +419,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
       `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/admin/notify-student`,
       {
         studentId,
-        title: 'Transcript Declined ❌',
+        title: 'Transcript Declined',
         message: `Your transcript has been declined. Reason: ${reason}. Please upload a new transcript that meets our requirements.`,
         type: 'general'
       },
@@ -957,7 +957,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                           {u.status || 'active'}
                         </span>
                       </td>
-                      <td>{u.emailVerified ? '✓ Yes' : '✗ No'}</td>
+                      <td>{u.emailVerified ? 'Yes' : 'No'}</td>
                       <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                       <td>
                         {u.id !== user.uid && (
@@ -1025,8 +1025,8 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                   transcript.declined ? 'status-rejected' : 
                   'status-pending'
                 }`}>
-                  {transcript.verified ? '✓ Verified' : 
-                   transcript.declined ? '✗ Declined' : 
+                  {transcript.verified ? 'Verified' : 
+                   transcript.declined ? 'Declined' : 
                    '⏳ Pending'}
                 </span>
               </td>
@@ -1071,7 +1071,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
   <div className="modal-overlay" onClick={() => setShowModal(false)}>
     <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>
       <div className="modal-header">
-        <h2>📄 Transcript Details</h2>
+        <h2>Transcript Details</h2>
         <button className="close-modal-btn" onClick={() => setShowModal(false)}>
           <FaTimes />
         </button>
@@ -1080,7 +1080,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
       <div className="transcript-details">
         {/* Student Info */}
         <div className="info-section">
-          <h3>👤 Student Information</h3>
+          <h3>Student Information</h3>
           <div className="info-grid">
             <div className="info-item">
               <strong>Name:</strong>
@@ -1103,7 +1103,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
 
         {/* Transcript Document */}
         <div className="info-section">
-          <h3>📄 Transcript Document</h3>
+          <h3>Transcript Document</h3>
           <div className="document-preview">
             <a 
               href={selectedTranscript.transcriptUrl} 
@@ -1119,7 +1119,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
         {/* Subjects and Grades */}
         {selectedTranscript.subjects && selectedTranscript.subjects.length > 0 && (
           <div className="info-section">
-            <h3>📚 Subjects and Grades</h3>
+            <h3>Subjects and Grades</h3>
             <div className="subjects-table">
               <table>
                 <thead>
@@ -1144,7 +1144,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
         {/* Certificates */}
         {selectedTranscript.certificates && selectedTranscript.certificates.length > 0 && (
           <div className="info-section">
-            <h3>🏆 Additional Certificates</h3>
+            <h3>Additional Certificates</h3>
             <div className="certificates-list">
               {selectedTranscript.certificates.map((cert, index) => (
                 <a 
@@ -1154,7 +1154,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                   rel="noopener noreferrer"
                   className="certificate-link"
                 >
-                  📄 Certificate {index + 1}
+                  Certificate {index + 1}
                 </a>
               ))}
             </div>
@@ -1164,7 +1164,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
         {/* Extra-Curricular Activities */}
         {selectedTranscript.extraCurricularActivities && selectedTranscript.extraCurricularActivities.length > 0 && (
           <div className="info-section">
-            <h3>🎯 Extra-Curricular Activities</h3>
+            <h3>Extra-Curricular Activities</h3>
             <ul className="activities-list">
               {selectedTranscript.extraCurricularActivities.map((activity, index) => (
                 <li key={index}>{activity}</li>
@@ -1175,7 +1175,7 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
 
 {/* Verification Status */}
         <div className="info-section">
-          <h3>✅ Verification Status</h3>
+          <h3>Verification Status</h3>
           <div className="verification-status">
             {selectedTranscript.verified ? (
               <div className="verified-badge">

@@ -233,7 +233,7 @@ router.put('/profile', async (req, res) => {
 
 router.get('/institutions', async (req, res) => {
   try {
-    console.log('🏫 Student fetching ALL institutions...');
+    console.log('Student fetching ALL institutions...');
     
     // Get admin-created institutions from INSTITUTIONS collection
     const institutionsSnapshot = await db.collection(collections.INSTITUTIONS)
@@ -270,7 +270,7 @@ router.get('/institutions', async (req, res) => {
       }
     });
     
-    console.log(`✅ Found ${institutionsSnapshot.size} admin-created institutions`);
+    console.log(`Found ${institutionsSnapshot.size} admin-created institutions`);
     
     // Process self-registered institutions
     institutionUsersSnapshot.docs.forEach(doc => {
@@ -292,14 +292,14 @@ router.get('/institutions', async (req, res) => {
           createdAt: data.createdAt
         });
         
-        console.log(`✅ Added self-registered institution: ${data.name}`);
+        console.log(`Added self-registered institution: ${data.name}`);
       }
     });
     
     // Sort alphabetically
     institutions.sort((a, b) => a.name.localeCompare(b.name));
     
-    console.log(`✅ Total ${institutions.length} institutions returned to student`);
+    console.log(`Total ${institutions.length} institutions returned to student`);
     
     res.json(institutions);
   } catch (error) {
@@ -312,13 +312,13 @@ router.get('/institutions', async (req, res) => {
 router.get('/institutions/:institutionId/faculties', async (req, res) => {
   try {
     const { institutionId } = req.params;
-    console.log('📚 Fetching faculties for institution:', institutionId);
+    console.log('Fetching faculties for institution:', institutionId);
     
     const snapshot = await db.collection(collections.FACULTIES)
       .where('institutionId', '==', institutionId)
       .get();
     
-    console.log(`✅ Found ${snapshot.size} faculties for institution`);
+    console.log(`Found ${snapshot.size} faculties for institution`);
     
     const faculties = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -336,7 +336,7 @@ router.get('/institutions/:institutionId/faculties', async (req, res) => {
 router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (req, res) => {
   try {
     const { institutionId, facultyId } = req.params;
-    console.log('📚 Fetching courses for faculty:', facultyId, 'in institution:', institutionId);
+    console.log('Fetching courses for faculty:', facultyId, 'in institution:', institutionId);
     
     // Get student profile for eligibility check
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
@@ -348,7 +348,7 @@ router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (r
       .where('status', '==', 'active')
       .get();
     
-    console.log(`✅ Found ${snapshot.size} courses for faculty`);
+    console.log(`Found ${snapshot.size} courses for faculty`);
     
     const courses = await Promise.all(snapshot.docs.map(async doc => {
       const courseData = doc.data();

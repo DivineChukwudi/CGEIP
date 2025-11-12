@@ -136,7 +136,7 @@ export default function StudentDashboard({ user }) {
     setSelectedFaculty(null);
     try {
       const facultyData = await studentAPI.getInstitutionFaculties(institution.id);
-      console.log(`📚 Fetched ${facultyData.length} faculties for institution:`, institution.name, facultyData);
+      console.log(`Fetched ${facultyData.length} faculties for institution:`, institution.name, facultyData);
       setFaculties(facultyData);
       setModalType('view-faculties');
       setShowModal(true);
@@ -150,7 +150,7 @@ export default function StudentDashboard({ user }) {
     setSelectedFaculty(faculty);
     try {
       const courseData = await studentAPI.getFacultyCourses(selectedInstitution.id, faculty.id);
-      console.log(`📚 Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
+      console.log(`Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
       setCourses(courseData);
       setModalType('view-courses');
     } catch (err) {
@@ -582,7 +582,7 @@ export default function StudentDashboard({ user }) {
                             </button>
                           )}
                           {app.selected && (
-                            <span className="text-success">✓ Enrolled</span>
+                            <span className="text-success">Enrolled</span>
                           )}
                         </td>
                       </tr>
@@ -797,7 +797,7 @@ export default function StudentDashboard({ user }) {
                     <div className="info-item">
                       <strong>Verification Status:</strong>
                       <span className={profile.transcriptVerified ? 'text-success' : 'text-warning'}>
-                        {profile.transcriptVerified ? '✓ Verified' : '⏳ Pending Verification'}
+                        {profile.transcriptVerified ? 'Verified' : 'Pending Verification'}
                       </span>
                     </div>
                     <div className="info-item">

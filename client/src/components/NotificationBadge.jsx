@@ -1,4 +1,3 @@
-// client/src/components/NotificationBadge.jsx
 import React from 'react';
 
 export default function NotificationBadge({ count, variant = 'default' }) {
