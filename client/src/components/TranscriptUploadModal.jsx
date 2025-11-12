@@ -189,7 +189,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
           {step === 1 && (
             <div className="upload-step">
               <div className="upload-instructions">
-                <h3>📋 Upload Your Transcript (PDF)</h3>
+                <h3>Upload Your Transcript (PDF)</h3>
                 <p>We'll try to scan and extract your grades automatically. If it doesn't work, you can enter them manually.</p>
               </div>
 

@@ -1,4 +1,4 @@
-// client/src/pages/StudentDashboard.jsx - COMPLETE FIXED VERSION
+// client/src/pages/StudentDashboard.jsx - COMPLETE ENHANCED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import TranscriptUploadModal from '../components/TranscriptUploadModal';
 import { studentAPI } from '../utils/api';
@@ -14,9 +14,14 @@ import {
   FaBell,
   FaFile,
   FaSearch,
-  FaTrophy
+  FaTrophy,
+  FaEdit,
+  FaFilter
 } from 'react-icons/fa';
+import axios from 'axios';
 import '../styles/global.css';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function StudentDashboard({ user }) {
   const [activeTab, setActiveTab] = useState('institutions');
@@ -35,13 +40,17 @@ export default function StudentDashboard({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [selectedJob, setSelectedJob] = useState(null);
+  const [jobInterest, setJobInterest] = useState('all');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Load data based on active tab
   const loadData = useCallback(async () => {
     try {
       if (activeTab === 'institutions') {
         const data = await studentAPI.getInstitutions();
-        setInstitutions(data);
+        // Sort alphabetically
+        const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
+        setInstitutions(sorted);
       } else if (activeTab === 'my-applications') {
         const data = await studentAPI.getApplications();
         setApplications(data);
@@ -57,6 +66,9 @@ export default function StudentDashboard({ user }) {
       } else if (activeTab === 'notifications') {
         const data = await studentAPI.getNotifications();
         setNotifications(data);
+      } else if (activeTab === 'my-transcript') {
+        const data = await studentAPI.getProfile();
+        setProfile(data);
       }
     } catch (err) {
       setError(err.message);
@@ -67,18 +79,43 @@ export default function StudentDashboard({ user }) {
     loadData();
   }, [loadData]);
 
-  // Load notifications count on mount
+  // Load notifications count and mark as read when tab opens
   useEffect(() => {
-    const loadNotifications = async () => {
+    const loadNotificationsCount = async () => {
       try {
         const data = await studentAPI.getNotifications();
-        setNotifications(data);
+        const unread = data.filter(n => !n.read).length;
+        setUnreadCount(unread);
       } catch (err) {
         console.error('Failed to load notifications:', err);
       }
     };
-    loadNotifications();
+    
+    loadNotificationsCount();
+
+    // Auto-refresh notifications every 30 seconds
+    const interval = setInterval(loadNotificationsCount, 30000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  // Mark notifications as read when tab is opened
+  useEffect(() => {
+    if (activeTab === 'notifications' && unreadCount > 0) {
+      const markAsRead = async () => {
+        try {
+          await studentAPI.markAllNotificationsAsRead();
+          setUnreadCount(0);
+        } catch (err) {
+          console.error('Failed to mark notifications as read:', err);
+        }
+      };
+      
+      // Delay marking as read by 1 second to ensure user sees them
+      const timeout = setTimeout(markAsRead, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [activeTab, unreadCount]);
 
   const handleViewCourses = async (institution) => {
     setSelectedInstitution(institution);
@@ -172,7 +209,6 @@ export default function StudentDashboard({ user }) {
     }
   };
 
-  // FIXED: Moved transcript upload handler outside of JSX with loading state
   const [isUploading, setIsUploading] = useState(false);
   
   const handleTranscriptUpload = async (formData) => {
@@ -187,7 +223,6 @@ export default function StudentDashboard({ user }) {
       setShowModal(false);
       setIsUploading(false);
 
-      // Reload data after 2 seconds
       setTimeout(() => {
         loadData();
       }, 2000);
@@ -224,7 +259,7 @@ export default function StudentDashboard({ user }) {
     return statusMap[status] || status;
   };
 
-  // Filter institutions
+  // Filter institutions with search
   const filteredInstitutions = institutions.filter(inst => 
     inst.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inst.location.toLowerCase().includes(searchTerm.toLowerCase())
@@ -236,19 +271,36 @@ export default function StudentDashboard({ user }) {
     (searchTerm === '' || course.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Filter jobs
-  const filteredJobs = jobs.filter(job =>
-    job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    job.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter jobs by interest
+  const filteredJobs = jobs.filter(job => {
+    const matchesInterest = jobInterest === 'all' || 
+      job.title.toLowerCase().includes(jobInterest.toLowerCase()) ||
+      job.qualifications?.toLowerCase().includes(jobInterest.toLowerCase());
+    
+    const matchesSearch = searchTerm === '' ||
+      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.location.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesInterest && matchesSearch;
+  });
 
-  // Count applications per institution
+  // Get unique job categories for filter
+  const jobCategories = ['all', ...new Set(jobs.map(job => {
+    const title = job.title.toLowerCase();
+    if (title.includes('engineer')) return 'engineering';
+    if (title.includes('developer') || title.includes('programmer')) return 'technology';
+    if (title.includes('manager') || title.includes('director')) return 'management';
+    if (title.includes('sales') || title.includes('marketing')) return 'sales & marketing';
+    if (title.includes('accountant') || title.includes('finance')) return 'finance';
+    if (title.includes('teacher') || title.includes('lecturer')) return 'education';
+    if (title.includes('nurse') || title.includes('doctor')) return 'healthcare';
+    return 'other';
+  }))];
+
   const getApplicationCount = (institutionId) => {
     return applications.filter(app => app.institutionId === institutionId).length;
   };
-
-  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
     <div className="dashboard-container">
@@ -281,6 +333,12 @@ export default function StudentDashboard({ user }) {
           <FaFileUpload /> My Job Applications
         </button>
         <button
+          className={activeTab === 'my-transcript' ? 'active' : ''}
+          onClick={() => setActiveTab('my-transcript')}
+        >
+          <FaFile /> My Transcript
+        </button>
+        <button
           className={activeTab === 'profile' ? 'active' : ''}
           onClick={() => setActiveTab('profile')}
         >
@@ -291,8 +349,13 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('notifications')}
         >
           <FaBell /> Notifications
-          {unreadNotifications > 0 && (
-            <span className="badge">{unreadNotifications}</span>
+          {unreadCount > 0 && (
+            <span className="badge" style={{ 
+              background: '#ef4444',
+              animation: 'pulse 2s infinite'
+            }}>
+              {unreadCount}
+            </span>
           )}
         </button>
       </div>
@@ -331,6 +394,18 @@ export default function StudentDashboard({ user }) {
                 />
               </div>
             </div>
+            
+            {filteredInstitutions.length === 0 && searchTerm && (
+              <div className="empty-state">
+                <FaSearch size={48} />
+                <h3>No institutions found</h3>
+                <p>Try a different search term</p>
+                <button className="btn-secondary" onClick={() => setSearchTerm('')}>
+                  Clear Search
+                </button>
+              </div>
+            )}
+
             <div className="cards-grid">
               {filteredInstitutions.map((inst) => {
                 const appCount = getApplicationCount(inst.id);
@@ -427,14 +502,36 @@ export default function StudentDashboard({ user }) {
           <>
             <div className="section-header">
               <h2>Available Job Opportunities</h2>
-              <div className="search-bar">
-                <FaSearch />
-                <input
-                  type="text"
-                  placeholder="Search jobs by title, company, or location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaFilter style={{ color: '#667eea' }} />
+                  <select
+                    value={jobInterest}
+                    onChange={(e) => setJobInterest(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="all">All Categories</option>
+                    {jobCategories.slice(1).map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="search-bar" style={{ flex: 1 }}>
+                  <FaSearch />
+                  <input
+                    type="text"
+                    placeholder="Search jobs by title, company, or location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -454,6 +551,20 @@ export default function StudentDashboard({ user }) {
                     Upload Transcript
                   </button>
                 </div>
+              </div>
+            )}
+
+            {filteredJobs.length === 0 && (
+              <div className="empty-state">
+                <FaBriefcase size={48} />
+                <h3>No jobs found in this category</h3>
+                <p>Try selecting a different category or clearing your search</p>
+                <button className="btn-secondary" onClick={() => {
+                  setJobInterest('all');
+                  setSearchTerm('');
+                }}>
+                  Clear Filters
+                </button>
               </div>
             )}
 
@@ -535,6 +646,111 @@ export default function StudentDashboard({ user }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* MY TRANSCRIPT TAB */}
+        {activeTab === 'my-transcript' && profile && (
+          <>
+            <div className="section-header">
+              <h2>My Academic Transcript</h2>
+              {profile.isGraduate && (
+                <button 
+                  className="btn-primary"
+                  onClick={() => {
+                    setModalType('upload-transcript');
+                    setShowModal(true);
+                  }}
+                >
+                  <FaEdit /> Update Transcript
+                </button>
+              )}
+            </div>
+
+            {!profile.isGraduate ? (
+              <div className="empty-state">
+                <FaFile size={48} />
+                <h3>No Transcript Uploaded</h3>
+                <p>Upload your academic transcript to apply for jobs</p>
+                <button 
+                  className="btn-primary"
+                  onClick={() => {
+                    setModalType('upload-transcript');
+                    setShowModal(true);
+                  }}
+                >
+                  <FaFileUpload /> Upload Transcript
+                </button>
+              </div>
+            ) : (
+              <div className="profile-container">
+                <div className="info-card">
+                  <h3>Transcript Information</h3>
+                  <div className="info-grid">
+                    <div className="info-item">
+                      <strong>Graduation Year:</strong>
+                      <span>{profile.transcript?.graduationYear || 'N/A'}</span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Overall Percentage:</strong>
+                      <span>{profile.transcript?.overallPercentage || profile.overallPercentage || 'N/A'}%</span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Verification Status:</strong>
+                      <span className={profile.transcriptVerified ? 'text-success' : 'text-warning'}>
+                        {profile.transcriptVerified ? '✓ Verified' : '⏳ Pending Verification'}
+                      </span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Transcript File:</strong>
+                      <a href={profile.transcript?.transcriptUrl} target="_blank" rel="noopener noreferrer">
+                        View Document
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {profile.transcript?.subjects && profile.transcript.subjects.length > 0 && (
+                  <div className="info-card">
+                    <h3>Subjects and Grades</h3>
+                    <div className="subjects-grid">
+                      {profile.transcript.subjects.map((subject, index) => (
+                        <div key={index} className="subject-item">
+                          <strong>{subject.subject}</strong>
+                          <span className="grade-badge">{subject.grade}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {profile.transcript?.certificates && profile.transcript.certificates.length > 0 && (
+                  <div className="info-card">
+                    <h3>Additional Certificates</h3>
+                    <ul className="certificates-list">
+                      {profile.transcript.certificates.map((cert, index) => (
+                        <li key={index}>
+                          <a href={cert} target="_blank" rel="noopener noreferrer">
+                            Certificate {index + 1}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {profile.transcript?.extraCurricularActivities && profile.transcript.extraCurricularActivities.length > 0 && (
+                  <div className="info-card">
+                    <h3>Extra-Curricular Activities</h3>
+                    <ul className="activities-list">
+                      {profile.transcript.extraCurricularActivities.map((activity, index) => (
+                        <li key={index}>{activity}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -760,6 +976,147 @@ export default function StudentDashboard({ user }) {
         )}
 
       </div>
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 15px;
+          margin-top: 15px;
+        }
+
+        .info-item {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          padding: 12px;
+          background: #f9fafb;
+          border-radius: 6px;
+        }
+
+        .info-item strong {
+          color: #374151;
+          font-size: 14px;
+        }
+
+        .info-item span, .info-item a {
+          color: #6b7280;
+          font-size: 15px;
+        }
+
+        .info-card {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+
+        .info-card h3 {
+          margin: 0 0 15px 0;
+          color: #1f2937;
+          font-size: 18px;
+          border-bottom: 2px solid #f0f0f0;
+          padding-bottom: 10px;
+        }
+
+        .subjects-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
+          margin-top: 15px;
+        }
+
+        .subject-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 15px;
+          background: #f3f4f6;
+          border-radius: 6px;
+          border-left: 3px solid #667eea;
+        }
+
+        .subject-item strong {
+          color: #374151;
+          font-size: 14px;
+        }
+
+        .grade-badge {
+          background: #667eea;
+          color: white;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 13px;
+        }
+
+        .certificates-list, .activities-list {
+          list-style: none;
+          padding: 0;
+          margin: 15px 0 0 0;
+        }
+
+        .certificates-list li, .activities-list li {
+          padding: 10px;
+          background: #f9fafb;
+          border-left: 3px solid #10b981;
+          margin-bottom: 8px;
+          border-radius: 4px;
+        }
+
+        .certificates-list a {
+          color: #667eea;
+          text-decoration: none;
+          font-weight: 600;
+        }
+
+        .certificates-list a:hover {
+          text-decoration: underline;
+        }
+
+        .activities-list li {
+          border-left-color: #f59e0b;
+          color: #374151;
+        }
+
+        .text-success {
+          color: #10b981 !important;
+          font-weight: 600;
+        }
+
+        .text-warning {
+          color: #f59e0b !important;
+          font-weight: 600;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: #6b7280;
+        }
+
+        .empty-state svg {
+          color: #d1d5db;
+          margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+          color: #374151;
+          margin: 0 0 10px 0;
+          font-size: 24px;
+        }
+
+        .empty-state p {
+          margin: 0 0 25px 0;
+          font-size: 16px;
+        }
+      `}</style>
     </div>
   );
 }

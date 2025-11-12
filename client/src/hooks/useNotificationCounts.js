@@ -1,4 +1,4 @@
-// client/src/hooks/useNotificationCounts.js
+// client/src/hooks/useNotificationCounts.js - UPDATED
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -9,6 +9,7 @@ export function useNotificationCounts(userRole, userId) {
     // Admin counts
     pendingCompanies: 0,
     totalUsers: 0,
+    pendingTranscripts: 0,
     
     // Institution counts
     pendingApplications: 0,

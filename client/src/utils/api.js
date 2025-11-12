@@ -202,6 +202,25 @@ export const adminAPI = {
     const { data } = await api.get('/admin/logs');
     return data;
   },
+  // Transcript Management
+getTranscripts: async () => {
+  const { data } = await api.get('/admin/transcripts');
+  return data;
+},
+
+verifyTranscript: async (transcriptId) => {
+  const { data } = await api.put(`/admin/transcripts/${transcriptId}/verify`);
+  return data;
+},
+
+// Notification
+notifyStudent: async (studentId, notification) => {
+  const { data } = await api.post('/admin/notify-student', {
+    studentId,
+    ...notification
+  });
+  return data;
+},
 };
 
 // ============================================

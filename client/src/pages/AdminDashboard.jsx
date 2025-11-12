@@ -1,6 +1,7 @@
 // client/src/pages/AdminDashboard.jsx - FIXED WITH SEARCH & SORT
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
+import { FaCertificate } from 'react-icons/fa';
 import { FaPlus, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import NotificationBadge from '../components/NotificationBadge';
@@ -21,6 +22,9 @@ export default function AdminDashboard({ user }) {
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [transcripts, setTranscripts] = useState([]);
+const [selectedTranscript, setSelectedTranscript] = useState(null);
+const [unreadCount, setUnreadCount] = useState(0);
 
   // ==================== SEARCH & SORT STATE ====================
   const [searchTerms, setSearchTerms] = useState({
@@ -28,7 +32,8 @@ export default function AdminDashboard({ user }) {
     faculties: '',
     courses: '',
     companies: '',
-    users: ''
+    users: '',
+    transcripts: ''
   });
 
   const [sortConfig, setSortConfig] = useState({
@@ -64,6 +69,30 @@ export default function AdminDashboard({ user }) {
 
     markNotificationsRead();
   }, [activeTab, counts.totalUsers, refreshCounts]);
+
+  useEffect(() => {
+  const loadNotificationsCount = async () => {
+    try {
+      // Load unread count for badge
+      if (counts?.totalUsers > 0) {
+        setUnreadCount(counts.totalUsers);
+      }
+    } catch (err) {
+      console.error('Failed to load notification count:', err);
+    }
+  };
+  
+  loadNotificationsCount();
+
+  // Auto-refresh every 30 seconds
+  const interval = setInterval(() => {
+    refreshCounts();
+    loadNotificationsCount();
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [counts, refreshCounts]);
+
 
   // ==================== SEARCH HELPER ====================
   const searchFilter = (items, searchTerm) => {
@@ -158,7 +187,10 @@ export default function AdminDashboard({ user }) {
       } else if (activeTab === 'users') {
         const data = await adminAPI.getUsers();
         setAllUsers(data);
-      }
+      } else if (activeTab === 'transcripts') {
+      const data = await adminAPI.getTranscripts();
+      setTranscripts(data);
+    } 5000
     } catch (err) {
       setError(err.message);
     }
@@ -348,6 +380,38 @@ export default function AdminDashboard({ user }) {
     }
   };
 
+
+  // ==================== TRANSCRIPT MANAGEMENT ====================
+const handleViewTranscript = (transcript) => {
+  setSelectedTranscript(transcript);
+  setModalType('view-transcript');
+  setShowModal(true);
+}; 
+const handleVerifyTranscript = async (transcriptId, studentId) => {
+  try {
+    await adminAPI.verifyTranscript(transcriptId);
+    
+    // Send notification to student
+    await axios.post(
+      `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/admin/notify-student`,
+      {
+        studentId,
+        title: 'Transcript Verified ✅',
+        message: 'Your academic transcript has been verified by the admin. You can now apply for jobs!',
+        type: 'general'
+      },
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      }
+    );
+
+    showSuccess('Transcript verified successfully! Student has been notified.');
+    loadData();
+  } catch (err) {
+    setError(err.message);
+  }
+};
+
   // ==================== COMPANY MANAGEMENT ====================
   const handleUpdateCompanyStatus = async (id, status) => {
     try {
@@ -428,7 +492,10 @@ export default function AdminDashboard({ user }) {
     } else if (tabName === 'users') {
       items = allUsers;
       searchKey = 'users';
-    }
+    } else if (tabName === 'transcripts') {
+    items = transcripts;
+    searchKey = 'transcripts';
+  }
 
     const searched = searchFilter(items, searchTerms[searchKey]);
     return sortItems(searched, tabName);
@@ -527,6 +594,33 @@ export default function AdminDashboard({ user }) {
         >
           <FaUsers /> Manage Team
         </button>
+        <button
+  className={activeTab === 'transcripts' ? 'active' : ''}
+  onClick={() => setActiveTab('transcripts')}
+>
+  <FaCertificate /> Verify Transcripts
+  {counts?.pendingTranscripts > 0 && (
+    <NotificationBadge 
+      count={counts.pendingTranscripts} 
+      variant="warning"
+    />
+  )}
+</button>
+<button
+  className={activeTab === 'users' ? 'active' : ''}
+  onClick={() => setActiveTab('users')}
+>
+  <FaUserGraduate /> All Users
+  {counts?.totalUsers > 0 && (
+    <NotificationBadge 
+      count={counts.totalUsers} 
+      variant="info"
+      style={{
+        animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none'
+      }}
+    />
+  )}
+</button>
       </div>
 
       <div className="dashboard-content">
@@ -875,6 +969,412 @@ export default function AdminDashboard({ user }) {
           </>
         )}
 
+
+{/* ==================== TRANSCRIPT VERIFICATION TAB ==================== */}
+{activeTab === 'transcripts' && (
+  <>
+    <div className="section-header">
+      <h2>Student Transcript Verification</h2>
+      <p className="subtitle">Review and verify student transcripts</p>
+    </div>
+    
+    <div className="search-bar">
+      <FaSearch />
+      <input
+        type="text"
+        placeholder="Search by student name or email..."
+        value={searchTerms.transcripts || ''}
+        onChange={(e) => setSearchTerms({ ...searchTerms, transcripts: e.target.value })}
+      />
+    </div>
+
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Email</th>
+            <th>Graduation Year</th>
+            <th>Overall %</th>
+            <th>Subjects</th>
+            <th>Status</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transcripts.map((transcript) => (
+            <tr key={transcript.id}>
+              <td>{transcript.studentInfo?.name || 'Unknown'}</td>
+              <td>{transcript.studentInfo?.email || 'N/A'}</td>
+              <td>{transcript.graduationYear}</td>
+              <td>{transcript.overallPercentage || 'N/A'}%</td>
+              <td>{transcript.subjects?.length || 0} subjects</td>
+              <td>
+                <span className={`status-badge ${transcript.verified ? 'status-active' : 'status-pending'}`}>
+                  {transcript.verified ? '✓ Verified' : '⏳ Pending'}
+                </span>
+              </td>
+              <td>{new Date(transcript.uploadedAt).toLocaleDateString()}</td>
+              <td>
+                <button
+                  className="btn-info btn-sm"
+                  onClick={() => handleViewTranscript(transcript)}
+                >
+                  <FaEye /> View
+                </button>
+                {!transcript.verified && (
+                  <button
+                    className="btn-success btn-sm"
+                    onClick={() => handleVerifyTranscript(transcript.id, transcript.studentId)}
+                  >
+                    <FaCheck /> Verify
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+)}
+
+{/* ==================== TRANSCRIPT DETAIL MODAL ==================== */}
+{showModal && modalType === 'view-transcript' && selectedTranscript && (
+  <div className="modal-overlay" onClick={() => setShowModal(false)}>
+    <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h2>📄 Transcript Details</h2>
+        <button className="close-modal-btn" onClick={() => setShowModal(false)}>
+          <FaTimes />
+        </button>
+      </div>
+
+      <div className="transcript-details">
+        {/* Student Info */}
+        <div className="info-section">
+          <h3>👤 Student Information</h3>
+          <div className="info-grid">
+            <div className="info-item">
+              <strong>Name:</strong>
+              <span>{selectedTranscript.studentInfo?.name}</span>
+            </div>
+            <div className="info-item">
+              <strong>Email:</strong>
+              <span>{selectedTranscript.studentInfo?.email}</span>
+            </div>
+            <div className="info-item">
+              <strong>Graduation Year:</strong>
+              <span>{selectedTranscript.graduationYear}</span>
+            </div>
+            <div className="info-item">
+              <strong>Overall Percentage:</strong>
+              <span>{selectedTranscript.overallPercentage || 'N/A'}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Transcript Document */}
+        <div className="info-section">
+          <h3>📄 Transcript Document</h3>
+          <div className="document-preview">
+            <a 
+              href={selectedTranscript.transcriptUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn-primary"
+            >
+              <FaEye /> View Transcript PDF
+            </a>
+          </div>
+        </div>
+
+        {/* Subjects and Grades */}
+        {selectedTranscript.subjects && selectedTranscript.subjects.length > 0 && (
+          <div className="info-section">
+            <h3>📚 Subjects and Grades</h3>
+            <div className="subjects-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedTranscript.subjects.map((subject, index) => (
+                    <tr key={index}>
+                      <td>{subject.subject}</td>
+                      <td><span className="grade-badge">{subject.grade}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Certificates */}
+        {selectedTranscript.certificates && selectedTranscript.certificates.length > 0 && (
+          <div className="info-section">
+            <h3>🏆 Additional Certificates</h3>
+            <div className="certificates-list">
+              {selectedTranscript.certificates.map((cert, index) => (
+                <a 
+                  key={index}
+                  href={cert} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="certificate-link"
+                >
+                  📄 Certificate {index + 1}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Extra-Curricular Activities */}
+        {selectedTranscript.extraCurricularActivities && selectedTranscript.extraCurricularActivities.length > 0 && (
+          <div className="info-section">
+            <h3>🎯 Extra-Curricular Activities</h3>
+            <ul className="activities-list">
+              {selectedTranscript.extraCurricularActivities.map((activity, index) => (
+                <li key={index}>{activity}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Verification Status */}
+        <div className="info-section">
+          <h3>✅ Verification Status</h3>
+          <div className="verification-status">
+            {selectedTranscript.verified ? (
+              <div className="verified-badge">
+                <FaCheckCircle style={{ color: '#10b981' }} />
+                <span>Verified on {new Date(selectedTranscript.verifiedAt).toLocaleDateString()}</span>
+              </div>
+            ) : (
+              <div className="pending-badge">
+                <FaClock style={{ color: '#f59e0b' }} />
+                <span>Pending Verification</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="modal-actions">
+        <button 
+          className="btn-secondary" 
+          onClick={() => setShowModal(false)}
+        >
+          Close
+        </button>
+        {!selectedTranscript.verified && (
+          <button
+            className="btn-success"
+            onClick={() => {
+              handleVerifyTranscript(selectedTranscript.id, selectedTranscript.studentId);
+              setShowModal(false);
+            }}
+          >
+            <FaCheck /> Verify Transcript
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+<style jsx>{`
+  .transcript-details {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .info-section {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .info-section h3 {
+    margin: 0 0 15px 0;
+    color: #1f2937;
+    font-size: 16px;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .info-item strong {
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .info-item span {
+    color: #1f2937;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .document-preview {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .subjects-table {
+    overflow-x: auto;
+  }
+
+  .subjects-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .subjects-table th,
+  .subjects-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .subjects-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .grade-badge {
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .certificates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .certificate-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .certificate-link:hover {
+    background: #f3f4f6;
+    border-color: #667eea;
+  }
+
+  .activities-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .activities-list li {
+    padding: 10px;
+    background: white;
+    border-left: 3px solid #f59e0b;
+    margin-bottom: 8px;
+    border-radius: 4px;
+  }
+
+  .verification-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .verified-badge,
+  .pending-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .verified-badge {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .pending-badge {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .modal-content.extra-large {
+    max-width: 900px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    color: #1f2937;
+  }
+
+  .close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.2s;
+  }
+
+  .close-modal-btn:hover {
+    color: #1f2937;
+  }
+
+  @media (max-width: 768px) {
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+`}</style>
         {/* ==================== MODALS ==================== */}
         
         {/* Institution Modal */}

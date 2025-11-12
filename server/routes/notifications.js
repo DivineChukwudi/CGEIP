@@ -296,4 +296,132 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/counts', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRole = req.user.role;
+    
+    const counts = {
+      // Admin counts
+      pendingCompanies: 0,
+      totalUsers: 0,
+      pendingTranscripts: 0,
+      
+      // Institution counts
+      pendingApplications: 0,
+      totalApplications: 0,
+      
+      // Student counts
+      admittedApplications: 0,
+      
+      // Company counts
+      newApplicants: 0,
+      totalJobs: 0,
+      
+      // Universal
+      unreadNotifications: 0
+    };
+
+    // Get unread notifications count (universal)
+    const unreadSnapshot = await db.collection(collections.NOTIFICATIONS)
+      .where('userId', '==', userId)
+      .where('read', '==', false)
+      .get();
+    counts.unreadNotifications = unreadSnapshot.size;
+
+    // Role-specific counts
+    if (userRole === 'admin') {
+      // Pending companies
+      const pendingCompaniesSnapshot = await db.collection(collections.USERS)
+        .where('role', '==', 'company')
+        .where('status', '==', 'pending')
+        .get();
+      counts.pendingCompanies = pendingCompaniesSnapshot.size;
+      
+      // Total new users (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const newUsersSnapshot = await db.collection(collections.USERS)
+        .where('createdAt', '>=', sevenDaysAgo.toISOString())
+        .get();
+      counts.totalUsers = newUsersSnapshot.size;
+      
+      // Pending transcripts (NEW)
+      const pendingTranscriptsSnapshot = await db.collection(collections.TRANSCRIPTS)
+        .where('verified', '==', false)
+        .get();
+      counts.pendingTranscripts = pendingTranscriptsSnapshot.size;
+      
+    } else if (userRole === 'institution') {
+      // Get institution's courses
+      const coursesSnapshot = await db.collection(collections.COURSES)
+        .where('institutionId', '==', userId)
+        .get();
+      const courseIds = coursesSnapshot.docs.map(doc => doc.id);
+      
+      if (courseIds.length > 0) {
+        // Pending applications
+        let totalPending = 0;
+        let totalAll = 0;
+        
+        for (let i = 0; i < courseIds.length; i += 10) {
+          const batch = courseIds.slice(i, i + 10);
+          
+          const pendingSnapshot = await db.collection(collections.APPLICATIONS)
+            .where('courseId', 'in', batch)
+            .where('status', '==', 'pending')
+            .get();
+          totalPending += pendingSnapshot.size;
+          
+          const allSnapshot = await db.collection(collections.APPLICATIONS)
+            .where('courseId', 'in', batch)
+            .get();
+          totalAll += allSnapshot.size;
+        }
+        
+        counts.pendingApplications = totalPending;
+        counts.totalApplications = totalAll;
+      }
+      
+    } else if (userRole === 'student') {
+      // Admitted applications
+      const admittedSnapshot = await db.collection(collections.APPLICATIONS)
+        .where('studentId', '==', userId)
+        .where('status', '==', 'admitted')
+        .get();
+      counts.admittedApplications = admittedSnapshot.size;
+      
+    } else if (userRole === 'company') {
+      // Get company's jobs
+      const jobsSnapshot = await db.collection(collections.JOBS)
+        .where('companyId', '==', userId)
+        .get();
+      const jobIds = jobsSnapshot.docs.map(doc => doc.id);
+      counts.totalJobs = jobsSnapshot.size;
+      
+      if (jobIds.length > 0) {
+        // New applicants (qualified - score >= 70%)
+        let totalQualified = 0;
+        
+        for (let i = 0; i < jobIds.length; i += 10) {
+          const batch = jobIds.slice(i, i + 10);
+          
+          const applicantsSnapshot = await db.collection(collections.JOB_APPLICATIONS)
+            .where('jobId', 'in', batch)
+            .where('qualificationMatch', '>=', 70)
+            .where('status', '==', 'pending')
+            .get();
+          totalQualified += applicantsSnapshot.size;
+        }
+        
+        counts.newApplicants = totalQualified;
+      }
+    }
+
+    res.json(counts);
+  } catch (error) {
+    console.error('Get notification counts error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 module.exports = router;
