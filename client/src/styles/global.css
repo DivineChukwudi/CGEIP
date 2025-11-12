@@ -134,8 +134,8 @@ body {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #4b5563;
-  box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 /* Password Input Wrapper */
@@ -157,8 +157,8 @@ body {
 
 .password-input-wrapper input:focus {
   outline: none !important;
-  border-color: #4b5563 !important;
-  box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.1) !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
 }
 
 .password-toggle-btn {
@@ -359,7 +359,7 @@ body {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #4b5563;
+  accent-color: #2563eb;
 }
 
 .role-option input[type="radio"]:checked + .role-details {
@@ -434,11 +434,11 @@ body {
 }
 
 .btn-secondary {
-  background: white;
-  color: #4b5563;
+  background: #f0f9ff;
+  color: #2563eb;
   padding: 0.75rem 1.5rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #bfdbfe;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -446,12 +446,13 @@ body {
 }
 
 .btn-secondary:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #1e40af;
 }
 
 .btn-success {
-  background: #4b5563;
+  background: #10b981;
   color: white;
   padding: 0.75rem 1.5rem;
   border-radius: 6px;
@@ -463,12 +464,12 @@ body {
 }
 
 .btn-success:hover {
-  background: #374151;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .btn-danger {
-  background: #6b7280;
+  background: #ef4444;
   color: white;
   padding: 8px 16px;
   border: none;
@@ -483,11 +484,11 @@ body {
 }
 
 .btn-danger:hover {
-  background: #4b5563;
+  background: #dc2626;
 }
 
 .btn-warning {
-  background: #9ca3af;
+  background: #f59e0b;
   color: white;
   padding: 8px 16px;
   border: none;
@@ -1063,7 +1064,7 @@ body {
 }
 
 .match-badge {
-  background: #4b5563;
+  background: #2563eb;
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
@@ -1179,7 +1180,7 @@ tr.selected-row {
 }
 
 .selected-badge {
-  background: #4b5563;
+  background: #2563eb;
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
@@ -2736,7 +2737,7 @@ tr.selected-row {
 .match-badge {
   display: inline-block;
   padding: 4px 10px;
-  background: #4b5563;
+  background: #2563eb;
   color: white;
   border-radius: 6px;
   font-size: 12px;
