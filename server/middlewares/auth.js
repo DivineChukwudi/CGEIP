@@ -1,4 +1,3 @@
-// server/middlewares/auth.js
 const jwt = require('jsonwebtoken');
 const { db, collections } = require('../config/firebase');
 
