@@ -471,7 +471,7 @@ export default function StudentDashboard({ user }) {
               ))}
             </div>
 
-            <div className="cards-grid">
+           <div className="cards-grid">
               {filteredInstitutions.map((inst) => {
                 const appCount = getApplicationCount(inst.id);
                 return (
