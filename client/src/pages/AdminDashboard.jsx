@@ -188,9 +188,9 @@ const [unreadCount, setUnreadCount] = useState(0);
         const data = await adminAPI.getUsers();
         setAllUsers(data);
       } else if (activeTab === 'transcripts') {
-      const data = await adminAPI.getTranscripts();
-      setTranscripts(data);
-    } 5000
+        const data = await adminAPI.getTranscripts();
+        setTranscripts(data);
+      }
     } catch (err) {
       setError(err.message);
     }

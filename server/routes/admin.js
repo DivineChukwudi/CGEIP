@@ -1,39 +1,246 @@
+// server/routes/admin.js - FIXED WITH AUTO USER ACCOUNT CREATION
 const express = require('express');
 const { db, auth, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
+const crypto = require('crypto');
 
 const router = express.Router();
 
-// All routes require admin authentication
 router.use(verifyToken);
 router.use(checkRole(['admin']));
 
 // ==================== INSTITUTIONS ====================
+// ✅ FIX #1: Get ALL institutions (from both INSTITUTIONS and USERS collections)
 router.get('/institutions', async (req, res) => {
   try {
-    const snapshot = await db.collection(collections.INSTITUTIONS).get();
-    const institutions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log('📚 Admin fetching ALL institutions...');
+    
+    // Get institutions from INSTITUTIONS collection
+    const institutionsSnapshot = await db.collection(collections.INSTITUTIONS).get();
+    
+    // Get institution users from USERS collection
+    const institutionUsersSnapshot = await db.collection(collections.USERS)
+      .where('role', '==', 'institution')
+      .get();
+    
+    const institutions = [];
+    const processedEmails = new Set();
+    
+    // Process INSTITUTIONS collection
+    institutionsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      institutions.push({
+        id: doc.id,
+        name: data.name,
+        description: data.description || '',
+        location: data.location || '',
+        contact: data.contact || '',
+        website: data.website || '',
+        email: data.email || '',
+        userId: data.userId || null,
+        status: 'active',
+        source: 'admin-created',
+        createdAt: data.createdAt
+      });
+      
+      if (data.email) {
+        processedEmails.add(data.email.toLowerCase());
+      }
+    });
+    
+    // Add registered institutions from USERS collection
+    institutionUsersSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const email = data.email.toLowerCase();
+      
+      // Skip if already in institutions (linked)
+      if (!processedEmails.has(email)) {
+        institutions.push({
+          id: data.institutionId || doc.id,
+          name: data.name,
+          description: `${data.name} - Higher Learning Institution`,
+          location: 'Lesotho',
+          contact: data.email,
+          website: '',
+          email: data.email,
+          userId: doc.id,
+          status: data.status || 'active',
+          source: 'self-registered',
+          createdAt: data.createdAt
+        });
+      }
+    });
+    
+    // Sort alphabetically
+    institutions.sort((a, b) => a.name.localeCompare(b.name));
+    
+    console.log(`✅ Found ${institutions.size} total institutions for admin`);
+    
     res.json(institutions);
   } catch (error) {
+    console.error('❌ Get institutions error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// ✅ FIX #2: Create institution WITH auto user account
 router.post('/institutions', async (req, res) => {
+  let userCreated = false;
+  let firebaseUid = null;
+  let institutionId = null;
+
   try {
-    const { name, description, location, contact, website } = req.body;
+    const { name, description, location, contact, website, email, createUserAccount } = req.body;
+
+    if (!name || !location || !contact) {
+      return res.status(400).json({ 
+        error: 'Name, location, and contact are required' 
+      });
+    }
+
+    // Create institution document first
     const institutionData = {
       name,
-      description,
+      description: description || '',
       location,
       contact,
-      website,
+      website: website || '',
+      status: 'active',
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
-    const docRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
-    res.status(201).json({ id: docRef.id, ...institutionData });
+
+    const instDocRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
+    institutionId = instDocRef.id;
+    console.log('✅ Institution document created:', institutionId);
+
+    // ✅ If email provided and user account requested, create login credentials
+    if (email && createUserAccount !== false) {
+      console.log('🔐 Creating user account for institution:', email);
+
+      // Check if email already exists
+      const existingUser = await db.collection(collections.USERS)
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (!existingUser.empty) {
+        // Email exists - just link to existing user
+        const existingUserData = existingUser.docs[0].data();
+        const existingUserId = existingUser.docs[0].id;
+
+        await db.collection(collections.USERS).doc(existingUserId).update({
+          institutionId: institutionId,
+          updatedAt: new Date().toISOString()
+        });
+
+        await db.collection(collections.INSTITUTIONS).doc(institutionId).update({
+          email: email,
+          userId: existingUserId
+        });
+
+        console.log('✅ Linked to existing user:', existingUserId);
+
+        return res.status(201).json({ 
+          id: institutionId, 
+          ...institutionData,
+          email,
+          userId: existingUserId,
+          message: 'Institution created and linked to existing user account'
+        });
+      }
+
+      // Generate temporary password
+      const tempPassword = crypto.randomBytes(8).toString('hex');
+      console.log('🔑 Generated temp password:', tempPassword);
+
+      try {
+        // Create Firebase Auth user
+        const userRecord = await auth.createUser({
+          email: email,
+          password: tempPassword,
+          displayName: name,
+          emailVerified: true // Admin-created accounts are pre-verified
+        });
+
+        firebaseUid = userRecord.uid;
+        userCreated = true;
+        console.log('✅ Firebase user created:', firebaseUid);
+
+        // Create user document
+        const userData = {
+          uid: userRecord.uid,
+          email: email,
+          name: name,
+          role: 'institution',
+          institutionId: institutionId,
+          emailVerified: true,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          createdBy: req.user.uid,
+          tempPassword: tempPassword, // Store for admin to share
+          isAdminCreated: true
+        };
+
+        await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
+        console.log('✅ User document created');
+
+        // Update institution with user link
+        await db.collection(collections.INSTITUTIONS).doc(institutionId).update({
+          email: email,
+          userId: userRecord.uid
+        });
+
+        return res.status(201).json({ 
+          id: institutionId, 
+          ...institutionData,
+          email,
+          userId: userRecord.uid,
+          tempPassword: tempPassword, // Return so admin can share
+          message: 'Institution created with login credentials',
+          instructions: `Share these credentials with the institution:\nEmail: ${email}\nTemporary Password: ${tempPassword}\nThey should change this password after first login.`
+        });
+
+      } catch (authError) {
+        console.error('❌ Firebase Auth error:', authError);
+        
+        // Rollback institution creation if user creation fails
+        await db.collection(collections.INSTITUTIONS).doc(institutionId).delete();
+        
+        throw new Error('Failed to create user account: ' + authError.message);
+      }
+    }
+
+    // No email provided - just return institution
+    res.status(201).json({ 
+      id: institutionId, 
+      ...institutionData,
+      message: 'Institution created without user account (no email provided)'
+    });
+
   } catch (error) {
+    console.error('Create institution error:', error);
+    
+    // Cleanup on error
+    if (userCreated && firebaseUid) {
+      try {
+        await auth.deleteUser(firebaseUid);
+        console.log('🧹 Cleaned up Firebase user');
+      } catch (cleanupError) {
+        console.error('❌ Cleanup failed:', cleanupError.message);
+      }
+    }
+
+    if (institutionId && !userCreated && email) {
+      // Only delete institution if we failed to create user
+      try {
+        await db.collection(collections.INSTITUTIONS).doc(institutionId).delete();
+        console.log('🧹 Cleaned up institution document');
+      } catch (cleanupError) {
+        console.error('❌ Institution cleanup failed:', cleanupError.message);
+      }
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -42,6 +249,12 @@ router.put('/institutions/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = { ...req.body, updatedAt: new Date().toISOString() };
+    
+    // Don't allow changing userId or critical fields via regular update
+    delete updateData.userId;
+    delete updateData.createdAt;
+    delete updateData.createdBy;
+    
     await db.collection(collections.INSTITUTIONS).doc(id).update(updateData);
     res.json({ message: 'Institution updated successfully' });
   } catch (error) {
@@ -52,26 +265,50 @@ router.put('/institutions/:id', async (req, res) => {
 router.delete('/institutions/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Get institution to find linked user
+    const instDoc = await db.collection(collections.INSTITUTIONS).doc(id).get();
+    const instData = instDoc.data();
+    
+    // Delete related faculties and courses
     const facultiesSnapshot = await db.collection(collections.FACULTIES)
       .where('institutionId', '==', id).get();
     const deletePromises = [];
+    
     facultiesSnapshot.forEach(doc => {
       deletePromises.push(doc.ref.delete());
     });
+    
     const coursesSnapshot = await db.collection(collections.COURSES)
       .where('institutionId', '==', id).get();
     coursesSnapshot.forEach(doc => {
       deletePromises.push(doc.ref.delete());
     });
+    
     await Promise.all(deletePromises);
+    
+    // Delete institution
     await db.collection(collections.INSTITUTIONS).doc(id).delete();
+    
+    // ✅ Optionally delete linked user account (or just unlink it)
+    if (instData?.userId) {
+      console.log('⚠️ Institution had linked user:', instData.userId);
+      // You can choose to delete or just unlink:
+      // await db.collection(collections.USERS).doc(instData.userId).delete();
+      // OR just unlink:
+      await db.collection(collections.USERS).doc(instData.userId).update({
+        institutionId: null,
+        status: 'inactive'
+      });
+    }
+    
     res.json({ message: 'Institution and related data deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==================== FACULTIES ====================
+// ==================== REST OF ADMIN ROUTES (FACULTIES, COURSES, etc.) ====================
 router.get('/faculties', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.FACULTIES).get();
@@ -136,7 +373,6 @@ router.delete('/faculties/:id', async (req, res) => {
   }
 });
 
-// ==================== COURSES ====================
 router.get('/courses', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.COURSES).get();
@@ -170,6 +406,7 @@ router.post('/courses', async (req, res) => {
       requirements: requirements || '',
       capacity: capacity || 50,
       enrolledCount: 0,
+      status: 'active',
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
@@ -214,8 +451,6 @@ router.delete('/courses/:id', async (req, res) => {
   }
 });
 
-// ==================== TRANSCRIPTS ====================
-// Get all transcripts for verification
 router.get('/transcripts', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.TRANSCRIPTS).get();
@@ -223,7 +458,6 @@ router.get('/transcripts', async (req, res) => {
     const transcripts = await Promise.all(snapshot.docs.map(async doc => {
       const transcriptData = doc.data();
       
-      // Get student info
       const studentDoc = await db.collection(collections.USERS)
         .doc(transcriptData.studentId).get();
       
@@ -237,7 +471,6 @@ router.get('/transcripts', async (req, res) => {
       };
     }));
     
-    // Sort by upload date (newest first)
     transcripts.sort((a, b) => {
       const dateA = new Date(a.uploadedAt);
       const dateB = new Date(b.uploadedAt);
@@ -251,7 +484,6 @@ router.get('/transcripts', async (req, res) => {
   }
 });
 
-// Verify a transcript
 router.put('/transcripts/:id/verify', async (req, res) => {
   try {
     const { id } = req.params;
@@ -264,7 +496,6 @@ router.put('/transcripts/:id/verify', async (req, res) => {
     
     const transcriptData = transcriptDoc.data();
     
-    // Update transcript as verified
     await db.collection(collections.TRANSCRIPTS).doc(id).update({
       verified: true,
       verifiedAt: new Date().toISOString(),
@@ -272,13 +503,10 @@ router.put('/transcripts/:id/verify', async (req, res) => {
       status: 'verified'
     });
     
-    // Update student's profile
     await db.collection(collections.USERS).doc(transcriptData.studentId).update({
       transcriptVerified: true,
       transcriptVerifiedAt: new Date().toISOString()
     });
-    
-    console.log(`✅ Transcript ${id} verified for student ${transcriptData.studentId}`);
     
     res.json({ 
       message: 'Transcript verified successfully',
@@ -291,7 +519,6 @@ router.put('/transcripts/:id/verify', async (req, res) => {
   }
 });
 
-// Decline a transcript
 router.put('/transcripts/:id/decline', async (req, res) => {
   try {
     const { id } = req.params;
@@ -311,7 +538,6 @@ router.put('/transcripts/:id/decline', async (req, res) => {
     
     const transcriptData = transcriptDoc.data();
     
-    // Update transcript as declined
     await db.collection(collections.TRANSCRIPTS).doc(id).update({
       verified: false,
       declined: true,
@@ -321,13 +547,10 @@ router.put('/transcripts/:id/decline', async (req, res) => {
       status: 'declined'
     });
     
-    // Update student's profile
     await db.collection(collections.USERS).doc(transcriptData.studentId).update({
       transcriptVerified: false,
       transcriptDeclined: true
     });
-    
-    console.log(`❌ Transcript ${id} declined for student ${transcriptData.studentId}`);
     
     res.json({ 
       message: 'Transcript declined',
@@ -339,7 +562,7 @@ router.put('/transcripts/:id/decline', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// Notify student about transcript verification
+
 router.post('/notify-student', async (req, res) => {
   try {
     const { studentId, title, message, type } = req.body;
@@ -359,8 +582,6 @@ router.post('/notify-student', async (req, res) => {
     
     await db.collection(collections.NOTIFICATIONS).add(notificationData);
     
-    console.log(`📧 Notification sent to student ${studentId}`);
-    
     res.json({ message: 'Notification sent successfully' });
   } catch (error) {
     console.error('Send notification error:', error);
@@ -368,7 +589,6 @@ router.post('/notify-student', async (req, res) => {
   }
 });
 
-// ==================== COMPANIES ====================
 router.get('/companies', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.USERS)
@@ -412,7 +632,6 @@ router.delete('/companies/:id', async (req, res) => {
   }
 });
 
-// ==================== REPORTS ====================
 router.get('/reports', async (req, res) => {
   try {
     const stats = {
@@ -449,32 +668,6 @@ router.get('/reports', async (req, res) => {
   }
 });
 
-// ==================== ADMISSIONS ====================
-router.post('/admissions/publish', async (req, res) => {
-  try {
-    const { title, message, deadline, targetInstitutions } = req.body;
-    const admissionData = {
-      title,
-      message,
-      deadline,
-      targetInstitutions: targetInstitutions || [],
-      publishedBy: req.user.uid,
-      publishedAt: new Date().toISOString(),
-      type: 'admission_announcement'
-    };
-    const docRef = await db.collection(collections.NOTIFICATIONS).add(admissionData);
-    res.status(201).json({ 
-      id: docRef.id, 
-      ...admissionData,
-      message: 'Admission announcement published successfully'
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==================== USER MANAGEMENT ====================
-// Get all users
 router.get('/users', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.USERS).get();
@@ -482,6 +675,7 @@ router.get('/users', async (req, res) => {
       const data = doc.data();
       delete data.password;
       delete data.verificationToken;
+      delete data.tempPassword;
       return { id: doc.id, ...data };
     });
     res.json(users);
@@ -490,7 +684,6 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Update user status
 router.put('/users/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -512,7 +705,6 @@ router.put('/users/:id/status', async (req, res) => {
   }
 });
 
-// Get single user details
 router.get('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -570,13 +762,10 @@ router.get('/users/:id', async (req, res) => {
   }
 });
 
-// DELETE USER - This must be LAST among user routes
 router.delete('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { force } = req.query;
-
-    console.log(`[DELETE USER] Admin ${req.user.uid} attempting to delete user ${id}, force=${force}`);
 
     if (id === req.user.uid) {
       return res.status(400).json({ error: 'You cannot delete your own account' });
@@ -693,6 +882,8 @@ router.delete('/users/:id', async (req, res) => {
       appsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
       const notifsSnapshot = await db.collection(collections.NOTIFICATIONS).where('userId', '==', id).get();
       notifsSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
+      
+      // ✅ CRITICAL FIX: Also delete the institution record
       const instSnapshot = await db.collection(collections.INSTITUTIONS).where('email', '==', userData.email).get();
       instSnapshot.docs.forEach(doc => deletePromises.push(doc.ref.delete()));
     }

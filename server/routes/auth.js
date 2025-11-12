@@ -1,4 +1,4 @@
-// server/routes/auth.js - COMPLETE VERSION WITH EMAIL VERIFICATION
+// server/routes/auth.js - COMPLETE MERGED VERSION
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -7,10 +7,11 @@ const { sendVerificationEmail } = require('../utils/email');
 
 const router = express.Router();
 
-// ==================== REGISTER ====================
+// ==================== REGISTER WITH INSTITUTION/COMPANY SYNC ====================
 router.post('/register', async (req, res) => {
   let userCreated = false;
   let firebaseUid = null;
+  let institutionId = null;
 
   try {
     const { email, password, role, name, ...additionalData } = req.body;
@@ -65,13 +66,47 @@ router.post('/register', async (req, res) => {
       ...additionalData
     };
 
+    // ✅ If registering as INSTITUTION, create INSTITUTION document too
+    if (role === 'institution') {
+      console.log('🏛️ Creating institution record for:', name);
+      
+      const institutionData = {
+        name: name,
+        email: email,
+        description: additionalData.description || `${name} - Higher Learning Institution`,
+        location: additionalData.location || 'Lesotho',
+        contact: additionalData.contact || email,
+        website: additionalData.website || '',
+        status: 'active',
+        userId: userRecord.uid, // Link to user account
+        createdAt: new Date().toISOString(),
+        createdBy: 'self-registration'
+      };
+
+      // Create institution document
+      const instRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
+      institutionId = instRef.id;
+      console.log('✅ Institution document created:', institutionId);
+      
+      // Link user to institution
+      userData.institutionId = institutionId;
+    }
+
+    // ✅ If registering as COMPANY, set pending status
+    if (role === 'company') {
+      console.log('🏢 Company registration for:', name);
+      userData.status = 'pending'; // Companies need admin approval
+    }
+
     // Save to Firestore
     await db.collection(collections.USERS).doc(userRecord.uid).set(userData);
 
     // Send response IMMEDIATELY
     res.status(201).json({ 
       message: 'Registration successful! Please check your email to verify your account.',
-      uid: userRecord.uid
+      uid: userRecord.uid,
+      role: role,
+      ...(institutionId && { institutionId })
     });
 
     // Send verification email ASYNCHRONOUSLY
@@ -97,11 +132,17 @@ router.post('/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     
-    // Clean up Firebase Auth user if Firestore fails
+    // Clean up Firebase Auth user and institution if Firestore fails
     if (userCreated && firebaseUid) {
       try {
         await auth.deleteUser(firebaseUid);
         console.log('🧹 Cleaned up Firebase Auth user after error');
+        
+        // Also cleanup institution if it was created
+        if (institutionId) {
+          await db.collection(collections.INSTITUTIONS).doc(institutionId).delete();
+          console.log('🧹 Cleaned up institution document after error');
+        }
       } catch (cleanupError) {
         console.error('❌ Cleanup failed:', cleanupError.message);
       }
@@ -326,7 +367,7 @@ router.post('/resend-verification', async (req, res) => {
   }
 });
 
-// ==================== GOOGLE SIGN-IN ====================
+// ==================== GOOGLE SIGN-IN WITH INSTITUTION SYNC ====================
 router.post('/google-signin', async (req, res) => {
   try {
     const { idToken, role } = req.body;
@@ -360,6 +401,28 @@ router.post('/google-signin', async (req, res) => {
         authProvider: 'google',
         createdAt: new Date().toISOString()
       };
+
+      // ✅ If Google user registers as institution, create institution record
+      if (role === 'institution') {
+        console.log('🏛️ Creating institution for Google user:', name);
+        
+        const institutionData = {
+          name: userData.name,
+          email: email,
+          description: `${userData.name} - Higher Learning Institution`,
+          location: 'Lesotho',
+          contact: email,
+          website: '',
+          status: 'active',
+          userId: uid,
+          createdAt: new Date().toISOString(),
+          createdBy: 'google-registration'
+        };
+
+        const instRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
+        userData.institutionId = instRef.id;
+        console.log('✅ Institution created for Google user:', instRef.id);
+      }
 
       await db.collection(collections.USERS).doc(uid).set(userData);
       console.log('✅ New Google user created:', email);
@@ -400,9 +463,7 @@ router.post('/google-signin', async (req, res) => {
   }
 });
 
-
-
-// ==================== GOOGLE COMPLETE REGISTRATION (NEW) ====================
+// ==================== GOOGLE COMPLETE REGISTRATION WITH INSTITUTION SYNC ====================
 router.post('/google-complete-registration', async (req, res) => {
   try {
     const { idToken, role, password, name } = req.body;
@@ -431,7 +492,7 @@ router.post('/google-complete-registration', async (req, res) => {
     }
 
     // Create new user with Google auth + password
-    userData = {
+    const userData = {
       uid,
       email,
       name: name || decodedToken.name || email.split('@')[0],
@@ -443,6 +504,28 @@ router.post('/google-complete-registration', async (req, res) => {
       hasPassword: true, // User set a password
       createdAt: new Date().toISOString()
     };
+
+    // ✅ Create institution record if role is institution
+    if (role === 'institution') {
+      console.log('🏛️ Creating institution for Google complete registration:', name);
+      
+      const institutionData = {
+        name: userData.name,
+        email: email,
+        description: `${userData.name} - Higher Learning Institution`,
+        location: 'Lesotho',
+        contact: email,
+        website: '',
+        status: 'active',
+        userId: uid,
+        createdAt: new Date().toISOString(),
+        createdBy: 'google-registration'
+      };
+
+      const instRef = await db.collection(collections.INSTITUTIONS).add(institutionData);
+      userData.institutionId = instRef.id;
+      console.log('✅ Institution created:', instRef.id);
+    }
 
     // Store user in Firestore
     await db.collection(collections.USERS).doc(uid).set(userData);
@@ -482,7 +565,7 @@ router.post('/google-complete-registration', async (req, res) => {
   }
 });
 
-// ==================== CHECK IF USER EXISTS (NEW) ====================
+// ==================== CHECK IF USER EXISTS ====================
 router.post('/check-user', async (req, res) => {
   try {
     const { email } = req.body;
