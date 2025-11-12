@@ -149,7 +149,9 @@ export default function StudentDashboard({ user }) {
     setSelectedFaculty(faculty);
     setSearchTerm('');
     setFilterLevel('all');
+    setCourses([]); // Reset courses while loading
     try {
+      console.log('Fetching courses for:', faculty.name, 'in institution:', selectedInstitution.id);
       const courseData = await studentAPI.getFacultyCourses(selectedInstitution.id, faculty.id);
       console.log(`Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
       setCourses(courseData);
@@ -157,6 +159,7 @@ export default function StudentDashboard({ user }) {
     } catch (err) {
       console.error('Error fetching courses:', err);
       setError(err.message);
+      setCourses([]);
     }
   };
 
@@ -993,7 +996,7 @@ export default function StudentDashboard({ user }) {
               <div style={{ marginBottom: '1.5rem' }}>
                 <h2 style={{ marginBottom: '0.5rem' }}>Courses in {selectedFaculty?.name}</h2>
                 <p style={{ color: '#6b7280', margin: 0 }}>
-                  {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} available - Click on any course to apply
+                  {courses.length} available course{courses.length !== 1 ? 's' : ''} - Select a course to apply
                 </p>
               </div>
               
@@ -1068,14 +1071,18 @@ export default function StudentDashboard({ user }) {
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                 <button className="btn-secondary" onClick={() => {
-                  setModalType('view-faculties');
+                  setSelectedFaculty(null);
+                  setCourses([]);
                   setSearchTerm('');
                   setFilterLevel('all');
+                  setModalType('view-faculties');
                 }}>
                   ← Back to Faculties
                 </button>
                 <button className="btn-secondary" onClick={() => {
                   setShowModal(false);
+                  setSelectedFaculty(null);
+                  setCourses([]);
                   setSearchTerm('');
                   setFilterLevel('all');
                 }}>
