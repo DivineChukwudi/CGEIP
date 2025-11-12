@@ -169,6 +169,86 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// ==================== LOGIN WITH FIREBASE ID TOKEN ====================
+router.post('/firebase-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'Firebase ID token is required' });
+    }
+
+    // Verify Firebase ID token
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { uid, email } = decodedToken;
+
+    // Get user from Firestore
+    const userDoc = await db.collection(collections.USERS).doc(uid).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+
+    // ✅ Block login if email is not verified
+    if (!userData.emailVerified) {
+      console.log(`❌ Login blocked: ${email} - Email not verified`);
+      return res.status(403).json({ 
+        error: 'Please verify your email address before logging in.',
+        emailVerified: false,
+        message: 'Check your inbox for the verification email. If you haven\'t received it, you can request a new one.',
+        email: email,
+        uid: userData.uid
+      });
+    }
+
+    // Check account status
+    if (userData.status === 'suspended') {
+      return res.status(403).json({ 
+        error: 'Your account has been suspended. Please contact support.' 
+      });
+    }
+
+    if (userData.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Your account is pending admin approval.' 
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { uid: userData.uid, email: userData.email, role: userData.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Update last login
+    await db.collection(collections.USERS).doc(userData.uid).update({
+      lastLogin: new Date().toISOString()
+    });
+
+    delete userData.verificationToken;
+
+    console.log(`✅ Login successful: ${email} (${userData.role})`);
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: userData
+    });
+
+  } catch (error) {
+    console.error('Firebase login error:', error);
+    
+    if (error.code === 'auth/invalid-argument') {
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    
+    res.status(500).json({ error: error.message || 'Login failed' });
+  }
+});
+
 // ==================== LOGIN WITH STRICT EMAIL VERIFICATION ====================
 router.post('/login', async (req, res) => {
   try {
@@ -178,29 +258,6 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // ✅ CRITICAL: Verify password using Firebase Auth
-    try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
-      const firebaseUser = userCredential.user;
-      
-      console.log(`✅ Firebase auth successful for: ${email}`);
-    } catch (firebaseError) {
-      console.error(`❌ Firebase auth failed: ${firebaseError.message}`);
-      
-      // Map Firebase error messages to user-friendly ones
-      if (firebaseError.code === 'auth/invalid-credential' || 
-          firebaseError.code === 'auth/wrong-password' ||
-          firebaseError.code === 'auth/user-not-found') {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-      
-      if (firebaseError.code === 'auth/too-many-requests') {
-        return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
-      }
-      
-      throw firebaseError;
-    }
-
     // Get user from Firestore
     const usersSnapshot = await db.collection(collections.USERS)
       .where('email', '==', email)
@@ -208,7 +265,7 @@ router.post('/login', async (req, res) => {
       .get();
 
     if (usersSnapshot.empty) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const userDoc = usersSnapshot.docs[0];
@@ -263,7 +320,7 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Login failed' });
   }
 });
 

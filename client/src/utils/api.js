@@ -1,4 +1,3 @@
-// client/src/utils/api.js - MERGED & COMPLETE VERSION WITH DELETE USER
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -25,15 +24,21 @@ api.interceptors.request.use(
   }
 );
 
-// Handle response errors - redirect on 401
+// Handle response errors - redirect on 401 ONLY for protected endpoints (not login/register)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.warn('Authentication failed - redirecting to login');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Don't redirect if this is a login/register endpoint (bad credentials)
+      const url = error.config?.url;
+      const isAuthEndpoint = url?.includes('/auth/login') || url?.includes('/auth/register') || url?.includes('/auth/google');
+      
+      if (!isAuthEndpoint) {
+        console.warn('Authentication failed - redirecting to login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     // Attach full response to error for better error handling
     if (error.response?.data) {

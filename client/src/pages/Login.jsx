@@ -12,7 +12,7 @@ import {
   FaGoogle, 
   FaExclamationTriangle 
 } from 'react-icons/fa';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import axios from 'axios';
 import '../styles/global.css';
@@ -135,28 +135,46 @@ export default function Login({ setUser }) {
     }
 
     try {
-      const response = await authAPI.login(formData);
+      // ✅ FIRST: Authenticate with Firebase to verify password
+      console.log('🔐 Authenticating with Firebase...');
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, formData.email, formData.password);
+      const idToken = await userCredential.user.getIdToken();
       
-      console.log('✓ Login response:', response);
+      console.log('✓ Firebase auth successful, getting server token...');
 
-      if (!response.user || !response.user.role) {
+      // ✅ SECOND: Call server with Firebase ID token to get JWT
+      const response = await fetch(`${API_URL}/auth/firebase-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      console.log('✓ Login response:', data);
+
+      if (!data.user || !data.user.role) {
         throw new Error('Invalid login response - missing user or role');
       }
 
       const userToSave = {
-        ...response.user,
-        role: response.user.role
+        ...data.user,
+        role: data.user.role
       };
 
-      localStorage.setItem('token', response.token);
+      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(userToSave));
       
       console.log('✓ Saved to localStorage:', userToSave);
       
-      setUser({ ...userToSave, token: response.token });
+      setUser({ ...userToSave, token: data.token });
       
-      if (response.warning) {
-        console.log('⚠️', response.warning);
+      if (data.warning) {
+        console.log('⚠️', data.warning);
       }
       
       console.log(`✓ Navigating to /${userToSave.role}`);
@@ -165,13 +183,24 @@ export default function Login({ setUser }) {
     } catch (err) {
       console.error('✗ Login error:', err);
       
-      // ✅ Check if error is due to unverified email
-      if (err.response?.status === 403 && err.response?.data?.emailVerified === false) {
+      // Handle Firebase auth errors with friendly messages
+      if (err.code === 'auth/user-not-found') {
+        setError('Email not found. Please check your email or create an account.');
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Incorrect email or password. Please try again.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address.');
+      } else if (err.code === 'auth/user-disabled') {
+        setError('This account has been disabled. Please contact support.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed login attempts. Please try again later.');
+      } else if (err.response?.status === 403 && err.response?.data?.emailVerified === false) {
+        // Email not verified error from server
         setError(err.response.data.error);
         setShowResendButton(true);
         setUnverifiedEmail(err.response.data.email);
       } else {
-        setError(err.response?.data?.error || err.message || 'Login failed. Please check your credentials.');
+        setError(err.message || 'Login failed. Please check your credentials.');
       }
     } finally {
       setLoading(false);
