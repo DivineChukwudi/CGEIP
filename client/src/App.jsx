@@ -13,6 +13,15 @@ import TeamManagement from "./pages/TeamManagement";
 import MeetTheTeam from "./pages/MeetTheTeam";
 import "./styles/global.css";
 
+// Page wrapper component to add fade-in animation
+function PageWrapper({ children }) {
+  return (
+    <div className="page-fade-in">
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -99,7 +108,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/" 
           element={
             !user ? (
-              <LandingPage />
+              <PageWrapper><LandingPage /></PageWrapper>
             ) : (
               <Navigate to={`/${user.role}`} replace />
             )
@@ -110,7 +119,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/login" 
           element={
             !user ? (
-              <Login setUser={setUser} />
+              <PageWrapper><Login setUser={setUser} /></PageWrapper>
             ) : (
               <Navigate to={`/${user.role}`} replace />
             )
@@ -121,22 +130,22 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/register" 
           element={
             !user ? (
-              <Register />
+              <PageWrapper><Register /></PageWrapper>
             ) : (
               <Navigate to={`/${user.role}`} replace />
             )
           } 
         />
 
-        <Route path="/verify-email" element={<EmailVerification />} />
-        <Route path="/team" element={<MeetTheTeam members={teamMembers} />} />
+        <Route path="/verify-email" element={<PageWrapper><EmailVerification /></PageWrapper>} />
+        <Route path="/team" element={<PageWrapper><MeetTheTeam members={teamMembers} /></PageWrapper>} />
 
         {/* Protected Routes */}
         <Route
           path="/admin"
           element={
             <ProtectedRoute user={user} allowedRoles={["admin"]}>
-              <AdminDashboard user={user} />
+              <PageWrapper><AdminDashboard user={user} /></PageWrapper>
             </ProtectedRoute>
           }
         />
@@ -145,7 +154,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/admin/team"
           element={
             <ProtectedRoute user={user} allowedRoles={["admin"]}>
-              <TeamManagement user={user} onUpdate={loadTeamMembers} />
+              <PageWrapper><TeamManagement user={user} onUpdate={loadTeamMembers} /></PageWrapper>
             </ProtectedRoute>
           }
         />
@@ -154,7 +163,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/institution"
           element={
             <ProtectedRoute user={user} allowedRoles={["institution"]}>
-              <InstitutionDashboard user={user} />
+              <PageWrapper><InstitutionDashboard user={user} /></PageWrapper>
             </ProtectedRoute>
           }
         />
@@ -163,7 +172,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/student"
           element={
             <ProtectedRoute user={user} allowedRoles={["student"]}>
-              <StudentDashboard user={user} />
+              <PageWrapper><StudentDashboard user={user} /></PageWrapper>
             </ProtectedRoute>
           }
         />
@@ -172,7 +181,7 @@ function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, Prote
           path="/company"
           element={
             <ProtectedRoute user={user} allowedRoles={["company"]}>
-              <CompanyDashboard user={user} />
+              <PageWrapper><CompanyDashboard user={user} /></PageWrapper>
             </ProtectedRoute>
           }
         />

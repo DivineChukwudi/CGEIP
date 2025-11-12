@@ -14,10 +14,10 @@ console.log('\n╔════════════════════�
 console.log('║   ENVIRONMENT VARIABLES CHECK           ║');
 console.log('╚═══════════════════════════════════════════╝');
 console.log('PORT:', PORT);
-console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? `✅ Set (${process.env.SENDGRID_API_KEY.length} chars, starts: ${process.env.SENDGRID_API_KEY.substring(0, 10)}...)` : '❌ Missing');
-console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL || '❌ Not set');
+console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? `Set (${process.env.SENDGRID_API_KEY.length} chars, starts: ${process.env.SENDGRID_API_KEY.substring(0, 10)}...)` : '❌ Missing');
+console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL || 'Not set');
 console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000 (default)');
-console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ Set' : '❌ Missing');
+console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Missing');
 console.log('');
 
 // ===================================
@@ -37,10 +37,10 @@ try {
     });
     
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin initialized');
+    console.log(' Admin initialized');
   }
 } catch (error) {
-  console.error('❌ Firebase initialization error:', error.message);
+  console.error('Firebase initialization error:', error.message);
 }
 
 // ===================================
@@ -55,13 +55,13 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-console.log('📋 Allowed CORS origins:', allowedOrigins);
+console.log('Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, Postman, or same-origin)
     if (!origin) {
-      console.log('✅ Allowing request with no origin');
+      console.log('Allowing request with no origin');
       return callback(null, true);
     }
     
@@ -69,18 +69,18 @@ app.use(cors({
     
     // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('✅ Origin allowed from list:', origin);
+      console.log(' Origin allowed from list:', origin);
       return callback(null, true);
     }
     
     // Allow all Vercel preview deployments
     if (origin && origin.includes('.vercel.app')) {
-      console.log('✅ Allowing Vercel deployment:', origin);
+      console.log('Allowing Vercel deployment:', origin);
       return callback(null, true);
     }
     
     // If we get here, block it
-    console.log('❌ CORS blocked origin:', origin);
+    console.log('CORS blocked origin:', origin);
     console.log('   Allowed origins:', allowedOrigins);
     callback(new Error('Not allowed by CORS'));
   },
@@ -170,7 +170,7 @@ app.get('/test-email', async (req, res) => {
       verificationLink
     );
     
-    console.log('✅ Test email sent successfully!\n');
+    console.log('Test email sent successfully!\n');
     
     res.json({ 
       success: true, 
@@ -179,7 +179,7 @@ app.get('/test-email', async (req, res) => {
       sentTo: testEmail
     });
   } catch (error) {
-    console.error('❌ Test email failed:', error.message);
+    console.error(' Test email failed:', error.message);
     
     res.json({ 
       success: false,
@@ -235,7 +235,7 @@ app.get('/test-cloudinary', async (req, res) => {
     const connected = await testCloudinaryConnection();
     
     if (connected) {
-      console.log('✅ Cloudinary test successful!\n');
+      console.log('Cloudinary test successful!\n');
       
       res.json({ 
         success: true, 
@@ -247,7 +247,7 @@ app.get('/test-cloudinary', async (req, res) => {
       throw new Error('Connection test failed');
     }
   } catch (error) {
-    console.error('❌ Cloudinary test failed:', error.message);
+    console.error(' Cloudinary test failed:', error.message);
     
     res.json({ 
       success: false,
@@ -310,7 +310,7 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.stack);
+  console.error('Error:', err.stack);
   
   if (process.env.NODE_ENV === 'production') {
     res.status(500).json({ error: 'Internal server error' });
@@ -331,12 +331,12 @@ if (require.main === module) {
     console.log('\n╔════════════════════════════════════════════════╗');
     console.log('║    SERVER STARTED (LOCAL DEVELOPMENT)       ║');
     console.log('╚════════════════════════════════════════════════╝');
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📧 Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
-    console.log(`🔥 Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
-    console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
-    console.log(`\n📍 Test endpoints:`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(` Email configured: ${process.env.SENDGRID_API_KEY ? '✅' : '❌'}`);
+    console.log(` Firebase configured: ${firebaseInitialized ? '✅' : '❌'}`);
+    console.log(` Frontend URL: ${process.env.FRONTEND_URL}`);
+    console.log(`\n Test endpoints:`);
     console.log(`   • Health: http://localhost:${PORT}/`); 
     console.log(`   • Status: http://localhost:${PORT}/api/status`);
     console.log(`   • Email Test: http://localhost:${PORT}/test-email`);

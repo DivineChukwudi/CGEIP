@@ -126,13 +126,14 @@ function checkSubjectPrerequisites(student, course) {
   });
   console.log(`   ═══════════════════════════════════════════`);
 
-  // If no required subjects, it's a general course
+  // If no required subjects, it's a general course - EVERYONE can apply
   if (!courseRequiredSubjects || courseRequiredSubjects.length === 0) {
-    console.log(`   ✅ No specific subjects required (General Course)`);
+    console.log(`   ✅ No specific subjects required (General Course - EVERYONE ELIGIBLE)`);
     return {
       eligible: true,
-      message: 'This is a general course - no specific subjects required',
+      message: 'This is a general course - no specific subjects required. Everyone can apply!',
       visible: true,
+      isGeneralCourse: true,
       subjectPrerequisites: null
     };
   }
@@ -520,6 +521,7 @@ router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (r
         // Add eligibility info
         eligible: eligibility.eligible,
         visible: eligibility.visible !== false, // IMPORTANT: Filter based on visibility
+        isGeneralCourse: eligibility.isGeneralCourse || false,
         eligibilityReason: eligibility.reason || eligibility.message,
         requiredQualification: eligibility.requiredQualification,
         yourQualifications: eligibility.yourQualifications
@@ -598,6 +600,7 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
         // Add eligibility info
         eligible: eligibility.eligible,
         visible: eligibility.visible !== false, // IMPORTANT: Filter based on visibility
+        isGeneralCourse: eligibility.isGeneralCourse || false,
         eligibilityReason: eligibility.reason || eligibility.message,
         requiredQualification: eligibility.requiredQualification,
         yourQualifications: eligibility.yourQualifications
@@ -636,26 +639,22 @@ router.post('/applications', async (req, res) => {
       });
     }
 
-    // Check max 2 applications per institution
-    const existingApps = await db.collection(collections.APPLICATIONS)
+    // Check max 2 applications per COURSE (per year) - in case of rejection, student can retry once
+    const currentYear = new Date().getFullYear();
+    const existingCourseApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
-      .where('institutionId', '==', institutionId)
+      .where('courseId', '==', courseId)
       .get();
 
-    if (existingApps.size >= 2) {
-      return res.status(400).json({ 
-        error: 'You can only apply to a maximum of 2 courses per institution' 
-      });
-    }
+    // Filter applications from current year only
+    const currentYearApps = existingCourseApps.docs.filter(doc => {
+      const appliedDate = new Date(doc.data().appliedAt);
+      return appliedDate.getFullYear() === currentYear;
+    });
 
-    // Check duplicate course application
-    const duplicateApp = existingApps.docs.find(doc => 
-      doc.data().courseId === courseId
-    );
-    
-    if (duplicateApp) {
+    if (currentYearApps.length >= 2) {
       return res.status(400).json({ 
-        error: 'You have already applied for this course' 
+        error: `You can only apply to this course a maximum of 2 times per year. You have already submitted ${currentYearApps.length} application(s) for this course in ${currentYear}. Please wait until next year to apply again.`
       });
     }
 

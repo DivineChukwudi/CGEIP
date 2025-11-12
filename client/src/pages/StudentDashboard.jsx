@@ -1134,6 +1134,21 @@ export default function StudentDashboard({ user }) {
                       <p><strong>Level:</strong> {course.level}</p>
                       <p>{course.description}</p>
                       
+                      {course.isGeneralCourse && (
+                        <div style={{
+                          padding: '10px',
+                          backgroundColor: '#e8f5e9',
+                          borderLeft: '4px solid #4caf50',
+                          marginBottom: '10px',
+                          borderRadius: '4px'
+                        }}>
+                          <strong style={{ color: '#2e7d32' }}>General Course</strong>
+                          <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#558b2f' }}>
+                            No specific subjects required - everyone can apply!
+                          </p>
+                        </div>
+                      )}
+                      
                       {!course.eligible && (
                         <div className="eligibility-warning">
                           <FaTimesCircle style={{ color: '#e74c3c' }} />

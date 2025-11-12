@@ -27,6 +27,30 @@ body {
 }
 
 /* ============================================
+   PAGE FADE-IN ANIMATIONS
+   ============================================ */
+.page-fade-in {
+  animation: pageIn 0.6s ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger animations for child elements */
+.page-fade-in > * {
+  animation: inheritAnimation;
+}
+
+/* ============================================
    AUTH PAGES
    ============================================ */
 .auth-container {
@@ -72,6 +96,7 @@ body {
   border: 1px solid #e0e7ff;
   position: relative;
   z-index: 1;
+  animation: cardSlideIn 0.7s ease-out;
 }
 
 .auth-header {
@@ -255,6 +280,28 @@ body {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -640,6 +687,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 50;
+  animation: fadeInDown 0.5s ease-out;
 }
 
 .navbar-container {
@@ -847,6 +895,7 @@ body {
   flex: 1;
   padding: 2rem;
   max-width: 1400px;
+  animation: pageIn 0.6s ease-out;
 }
 
 /* ============================================
