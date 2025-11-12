@@ -36,13 +36,13 @@
   gap: 12px;
   font-size: 20px;
   font-weight: 700;
-  color: #717579;
+  color: #0f1419;
   letter-spacing: -0.5px;
 }
 
 .logo-icon {
   font-size: 28px;
-  color: #717579;
+  color: #0f1419;
 }
 
 .header-actions {
@@ -52,9 +52,9 @@
 
 .btn-outline {
   padding: 10px 24px;
-  border: 2px solid #717579;
+  border: 2px solid #0f1419;
   background: transparent;
-  color: #717579;
+  color: #0f1419;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
@@ -63,7 +63,7 @@
 }
 
 .btn-outline:hover {
-  background: #717579;
+  background: #0f1419;
   color: white;
 }
 
@@ -79,7 +79,7 @@
 
 .btn-primary {
   padding: 10px 24px;
-  background: #717579;
+  background: #0f1419;
   color: white;
   border: none;
   border-radius: 6px;
@@ -93,8 +93,8 @@
 }
 
 .btn-primary:hover {
-  background: #5f6368;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #1a3a52;
+  box-shadow: 0 4px 12px rgba(15, 20, 25, 0.2);
 }
 
 .btn-secondary {
@@ -154,13 +154,13 @@
 }
 
 .gradient-text {
-  color: #717579;
+  color: #0f1419;
   font-weight: 700;
 }
 
 .hero-description {
   font-size: 18px;
-  color: #717579;
+  color: #1a3a52;
   line-height: 1.7;
   margin-bottom: 32px;
 }
@@ -192,7 +192,7 @@
 
 .floating-card svg {
   font-size: 24px;
-  color: #4b5563;
+  color: #0f1419;
 }
 
 .card-1 {
@@ -233,7 +233,7 @@
 /* Stats Section */
 .stats-section {
   padding: 60px 0;
-  background: linear-gradient(135deg, #717579 0%, #5f6368 100%);
+  background: linear-gradient(135deg, #0f1419 0%, #1a3a52 100%);
   color: white;
 }
 
@@ -289,7 +289,7 @@
 
 .section-header-center h2 {
   font-size: 40px;
-  color: #1a202c;
+  color: #0f1419;
   margin-bottom: 16px;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -297,7 +297,7 @@
 
 .section-header-center p {
   font-size: 18px;
-  color: #717579;
+  color: #1a3a52;
 }
 
 .features-grid {
@@ -326,7 +326,7 @@
   height: 80px;
   margin: 0 auto 24px;
   background: #f8f9fa;
-  color: #717579;
+  color: #0f1419;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -336,13 +336,13 @@
 
 .feature-card h3 {
   font-size: 22px;
-  color: #1a202c;
+  color: #0f1419;
   margin-bottom: 12px;
   font-weight: 600;
 }
 
 .feature-card p {
-  color: #717579;
+  color: #1a3a52;
   line-height: 1.7;
 }
 
@@ -361,7 +361,7 @@
 
 .benefits-text h2 {
   font-size: 40px;
-  color: #1a202c;
+  color: #0f1419;
   margin-bottom: 20px;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -369,7 +369,7 @@
 
 .benefits-intro {
   font-size: 18px;
-  color: #717579;
+  color: #1a3a52;
   line-height: 1.7;
   margin-bottom: 32px;
 }
@@ -411,7 +411,7 @@
 
 .visual-icon {
   font-size: 80px;
-  color: #717579;
+  color: #0f1419;
   margin-bottom: 24px;
 }
 
@@ -454,7 +454,7 @@
 
 .about-section-icon {
   font-size: 32px;
-  color: #4b5563;
+  color: #0f1419;
 }
 
 .about-story h3 {
@@ -492,7 +492,7 @@
 
 .vmv-icon {
   font-size: 48px;
-  color: #4b5563;
+  color: #0f1419;
   margin-bottom: 24px;
 }
 
@@ -525,13 +525,13 @@
 }
 
 .values-list li svg {
-  color: #4b5563;
+  color: #0f1419;
   font-size: 18px;
   flex-shrink: 0;
 }
 
 .about-motto {
-  background: #1f2937;
+  background: #0f1419;
   padding: 60px 48px;
   border-radius: 8px;
   text-align: center;
@@ -597,7 +597,7 @@
 
 .service-item svg {
   font-size: 48px;
-  color: #4b5563;
+  color: #0f1419;
   margin-bottom: 20px;
 }
 
@@ -658,7 +658,7 @@
 
 .contact-icon {
   font-size: 24px;
-  color: #4b5563;
+  color: #0f1419;
   flex-shrink: 0;
   margin-top: 4px;
 }
@@ -678,7 +678,7 @@
 }
 
 .contact-item a {
-  color: #4b5563;
+  color: #0f1419;
   text-decoration: none;
   font-weight: 600;
 }
@@ -688,7 +688,7 @@
 }
 
 .office-hours {
-  background: #1f2937;
+  background: #0f1419;
   padding: 24px;
   border-radius: 8px;
   color: white;
@@ -783,7 +783,7 @@
 /* CTA Section */
 .cta-section {
   padding: 100px 0;
-  background: #1f2937;
+  background: #0f1419;
   color: white;
 }
 
@@ -807,7 +807,7 @@
 
 /* Footer */
 .landing-footer {
-  background: #111827;
+  background: #0f1419;
   color: white;
   padding: 60px 0 24px;
 }
@@ -925,7 +925,7 @@
 
 .search-btn {
   padding: 16px 32px;
-  background: #1f2937;
+  background: #0f1419;
   color: white;
   border: none;
   border-radius: 6px;
@@ -937,8 +937,8 @@
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #374151;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #1a3a52;
+  box-shadow: 0 4px 12px rgba(15, 20, 25, 0.2);
 }
 
 .search-btn:disabled {
@@ -1045,7 +1045,7 @@
 
 .btn-primary-small {
   padding: 8px 16px;
-  background: #1f2937;
+  background: #0f1419;
   color: white;
   border: none;
   border-radius: 6px;
@@ -1057,7 +1057,7 @@
 }
 
 .btn-primary-small:hover {
-  background: #374151;
+  background: #1a3a52;
 }
 
 .no-results {

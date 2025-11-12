@@ -268,6 +268,8 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* COLOR THEME: Dark Blue & White (#0f1419 primary, #1a3a52 secondary) */
+
 .btn-google:hover:not(:disabled) {
   background: #f9fafb;
   border-color: #9ca3af;
@@ -394,7 +396,7 @@ body {
    BUTTONS
    ============================================ */
 .btn-primary {
-  background: #717579;
+  background: #0f1419;
   color: white;
   padding: 14px 24px;
   border: none;
@@ -411,8 +413,8 @@ body {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5f6368;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #1a3a52;
+  box-shadow: 0 4px 12px rgba(15, 20, 25, 0.2);
 }
 
 .btn-primary:disabled {
@@ -644,12 +646,12 @@ body {
   gap: 12px;
   font-size: 20px;
   font-weight: 700;
-  color: #717579;
+  color: #0f1419;
 }
 
 .navbar-icon {
   font-size: 28px;
-  color: #717579;
+  color: #0f1419;
 }
 
 .navbar-user {
@@ -666,7 +668,7 @@ body {
 
 .user-icon {
   font-size: 20px;
-  color: #717579;
+  color: #0f1419;
 }
 
 .user-details {
@@ -682,12 +684,12 @@ body {
 
 .user-role {
   font-size: 12px;
-  color: #717579;
+  color: #1a3a52;
   text-transform: capitalize;
 }
 
 .logout-btn {
-  background: #717579;
+  background: #0f1419;
   color: white;
   padding: 10px 20px;
   border: none;
@@ -702,8 +704,8 @@ body {
 }
 
 .logout-btn:hover {
-  background: #5f6368;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #1a3a52;
+  box-shadow: 0 2px 8px rgba(15, 20, 25, 0.2);
 }
 
 /* Mobile Menu */
@@ -712,7 +714,7 @@ body {
   background: none;
   border: none;
   font-size: 24px;
-  color: #717579;
+  color: #0f1419;
   cursor: pointer;
   padding: 8px;
   margin: 0;
@@ -720,7 +722,7 @@ body {
 }
 
 .mobile-menu-toggle:hover {
-  color: #5f6368;
+  color: #1a3a52;
   transform: scale(1.1);
 }
 
