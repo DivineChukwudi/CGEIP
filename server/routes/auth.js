@@ -1,4 +1,3 @@
-// server/routes/auth.js - COMPLETE MERGED VERSION
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -177,6 +176,29 @@ router.post('/login', async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // ✅ CRITICAL: Verify password using Firebase Auth
+    try {
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      const firebaseUser = userCredential.user;
+      
+      console.log(`✅ Firebase auth successful for: ${email}`);
+    } catch (firebaseError) {
+      console.error(`❌ Firebase auth failed: ${firebaseError.message}`);
+      
+      // Map Firebase error messages to user-friendly ones
+      if (firebaseError.code === 'auth/invalid-credential' || 
+          firebaseError.code === 'auth/wrong-password' ||
+          firebaseError.code === 'auth/user-not-found') {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+      
+      if (firebaseError.code === 'auth/too-many-requests') {
+        return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+      }
+      
+      throw firebaseError;
     }
 
     // Get user from Firestore
