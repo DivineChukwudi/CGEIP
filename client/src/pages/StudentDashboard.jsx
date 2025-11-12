@@ -1,4 +1,3 @@
-// client/src/pages/StudentDashboard.jsx - COMPLETE ENHANCED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import TranscriptUploadModal from '../components/TranscriptUploadModal';
 import { studentAPI } from '../utils/api';
@@ -148,6 +147,8 @@ export default function StudentDashboard({ user }) {
 
   const handleSelectFaculty = async (faculty) => {
     setSelectedFaculty(faculty);
+    setSearchTerm('');
+    setFilterLevel('all');
     try {
       const courseData = await studentAPI.getFacultyCourses(selectedInstitution.id, faculty.id);
       console.log(`Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
@@ -969,7 +970,7 @@ export default function StudentDashboard({ user }) {
                         className="btn-primary" 
                         onClick={() => handleSelectFaculty(faculty)}
                       >
-                        View Courses
+                        View Faculties & Courses
                       </button>
                     </div>
                   ))
