@@ -2,7 +2,7 @@
 
 .meet-team-page {
   min-height: 100vh;
-  background: #f3f4f6;
+  background: #f8f9fa;
   padding: 40px 20px;
   position: relative;
 }
@@ -12,9 +12,9 @@
   top: 32px;
   left: 32px;
   background: white;
-  color: #1f2937;
+  color: #717579;
   padding: 12px 24px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8eaed;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
@@ -28,8 +28,9 @@
 }
 
 .back-btn:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: #f8f9fa;
+  border-color: #d0d5dd;
+  color: #5f6368;
   transform: translateX(-5px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
@@ -43,7 +44,7 @@
 .team-header {
   text-align: center;
   margin-bottom: 60px;
-  color: #111827;
+  color: #1a202c;
 }
 
 .team-header h1 {
@@ -55,7 +56,7 @@
 
 .team-header p {
   font-size: 20px;
-  color: #6b7280;
+  color: #717579;
 }
 
 .team-members-grid {
@@ -69,7 +70,7 @@
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8eaed;
   transition: all 0.3s ease;
   animation: fadeInUp 0.6s ease-out;
 }
@@ -88,13 +89,13 @@
 .member-card:hover {
   transform: translateY(-8px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  border-color: #d1d5db;
+  border-color: #d0d5dd;
 }
 
 .member-image {
   width: 100%;
   height: 320px;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,7 +127,7 @@
 
 .member-placeholder {
   font-size: 100px;
-  color: #d1d5db;
+  color: #d0d5dd;
 }
 
 .member-info {
@@ -136,12 +137,12 @@
 .member-info h2 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: #1a202c;
   font-weight: 700;
 }
 
 .member-role {
-  color: #6b7280;
+  color: #717579;
   font-weight: 600;
   margin: 0 0 16px 0;
   font-size: 14px;
@@ -150,7 +151,7 @@
 }
 
 .member-bio {
-  color: #4b5563;
+  color: #5f6368;
   font-size: 15px;
   line-height: 1.7;
   margin: 0 0 24px 0;
@@ -160,11 +161,11 @@
   display: flex;
   gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e8eaed;
 }
 
 .member-social a {
-  color: #6b7280;
+  color: #717579;
   font-size: 22px;
   transition: all 0.2s ease;
   display: flex;
@@ -173,12 +174,12 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #f3f4f6;
+  background: #f8f9fa;
 }
 
 .member-social a:hover {
-  color: #1f2937;
-  background: #e5e7eb;
+  color: #1a202c;
+  background: #e8eaed;
   transform: translateY(-3px);
 }
 
@@ -186,7 +187,7 @@
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: #717579;
   font-size: 20px;
 }
 

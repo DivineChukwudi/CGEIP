@@ -1,6 +1,6 @@
 // client/src/App.jsx - FIXED VERSION WITH DEBUG
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
@@ -81,6 +81,17 @@ export default function App() {
 
   return (
     <Router>
+      <AppContent user={user} setUser={setUser} logout={logout} teamMembers={teamMembers} loadTeamMembers={loadTeamMembers} ProtectedRoute={ProtectedRoute} />
+    </Router>
+  );
+}
+
+function AppContent({ user, setUser, logout, teamMembers, loadTeamMembers, ProtectedRoute }) {
+  const location = useLocation();
+  const isTeamPage = location.pathname === '/team';
+
+  return (
+    <>
       {user && <Navbar user={user} logout={logout} />}
       
       <Routes>
@@ -171,14 +182,16 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <footer className="app-footer">
-        <div className="footer-copy">
-          &copy; {new Date().getFullYear()} Career Guidance and Employment Integration Platform. All rights reserved
-        </div>
-        <div className="footer-links">
-          <a href="/team">Meet the Team</a>
-        </div>
-      </footer>
-    </Router>
+      {!isTeamPage && (
+        <footer className="app-footer">
+          <div className="footer-copy">
+            &copy; {new Date().getFullYear()} Career Guidance and Employment Integration Platform. All rights reserved
+          </div>
+          <div className="footer-links">
+            <a href="/team">Meet the Team</a>
+          </div>
+        </footer>
+      )}
+    </>
   );
 }

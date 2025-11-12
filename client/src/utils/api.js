@@ -35,6 +35,10 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    // Attach full response to error for better error handling
+    if (error.response?.data) {
+      error.message = error.response.data.error || error.response.data.message || error.message;
+    }
     return Promise.reject(error);
   }
 );
@@ -358,8 +362,18 @@ export const studentAPI = {
     return data;
   },
 
+  getInstitutionFaculties: async (institutionId) => {
+    const { data } = await api.get(`/student/institutions/${institutionId}/faculties`);
+    return data;
+  },
+
   getInstitutionCourses: async (institutionId) => {
     const { data } = await api.get(`/student/institutions/${institutionId}/courses`);
+    return data;
+  },
+
+  getFacultyCourses: async (institutionId, facultyId) => {
+    const { data } = await api.get(`/student/institutions/${institutionId}/faculties/${facultyId}/courses`);
     return data;
   },
 

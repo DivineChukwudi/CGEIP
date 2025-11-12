@@ -1,7 +1,7 @@
 // client/src/pages/InstitutionDashboard.jsx - COMPLETE WITH AUTO-CLEAR NOTIFICATIONS
 import React, { useState, useEffect, useCallback } from 'react';
 import { institutionAPI } from '../utils/api';
-import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell } from 'react-icons/fa';
+import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell, FaEye, FaDownload, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaFileAlt } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
@@ -21,6 +21,9 @@ export default function InstitutionDashboard({ user }) {
   const [editingItem, setEditingItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [applicationDetails, setApplicationDetails] = useState(null);
+  const [studentTranscripts, setStudentTranscripts] = useState([]);
 
   // ✅ NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'institution', user?.uid);
@@ -189,6 +192,31 @@ export default function InstitutionDashboard({ user }) {
       loadData();
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  // ==================== VIEW APPLICATION DETAILS ====================
+  const handleViewApplicationDetails = async (application) => {
+    try {
+      setSelectedApplication(application);
+      setModalType('view-application-details');
+      setShowModal(true);
+      setError('');
+      
+      // Fetch student transcripts
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const { data: transcripts } = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/student/transcripts`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setStudentTranscripts(transcripts || []);
+    } catch (err) {
+      console.error('Error loading application details:', err);
+      setError('Could not load transcripts');
     }
   };
 
@@ -430,6 +458,13 @@ export default function InstitutionDashboard({ user }) {
                         </span>
                       </td>
                       <td>
+                        <button
+                          className="btn-info btn-sm"
+                          onClick={() => handleViewApplicationDetails(app)}
+                          title="View full application details"
+                        >
+                          <FaEye /> View Details
+                        </button>
                         {app.status === 'pending' && (
                           <>
                             <button
@@ -514,6 +549,189 @@ export default function InstitutionDashboard({ user }) {
         )}
 
         {/* ==================== MODALS ==================== */}
+        
+        {/* Application Details Modal */}
+        {showModal && modalType === 'view-application-details' && selectedApplication && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content large-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>📋 Application Details</h2>
+                <button className="close-btn" onClick={() => setShowModal(false)}>✕</button>
+              </div>
+              
+              <div className="modal-body details-section">
+                {error && <div className="error-message">{error}</div>}
+                
+                {/* Student Information Section */}
+                <div className="details-panel">
+                  <h3><FaUser /> Student Information</h3>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <label>Full Name:</label>
+                      <span>{selectedApplication.student?.name || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label><FaEnvelope /> Email:</label>
+                      <span>{selectedApplication.student?.email || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label><FaPhone /> Phone:</label>
+                      <span>{selectedApplication.student?.phone || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label><FaMapMarkerAlt /> Address:</label>
+                      <span>{selectedApplication.student?.address || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Date of Birth:</label>
+                      <span>{selectedApplication.student?.dateOfBirth ? new Date(selectedApplication.student.dateOfBirth).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Gender:</label>
+                      <span>{selectedApplication.student?.gender || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Application Information Section */}
+                <div className="details-panel">
+                  <h3><FaFileAlt /> Application Details</h3>
+                  <div className="details-grid">
+                    <div className="detail-item full-width">
+                      <label>Applied Course:</label>
+                      <span><strong>{selectedApplication.course?.name || 'N/A'}</strong></span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Application Date:</label>
+                      <span>{new Date(selectedApplication.appliedAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Status:</label>
+                      <span>
+                        <span className={`status-badge status-${selectedApplication.status}`}>
+                          {selectedApplication.status.toUpperCase()}
+                        </span>
+                      </span>
+                    </div>
+                    {selectedApplication.reason && (
+                      <div className="detail-item full-width">
+                        <label>Decision Reason:</label>
+                        <span>{selectedApplication.reason}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Academic Background Section */}
+                <div className="details-panel">
+                  <h3><FaGraduationCap /> Academic Background</h3>
+                  <div className="details-grid">
+                    <div className="detail-item">
+                      <label>Field of Study:</label>
+                      <span>{selectedApplication.student?.field || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Previous Institution:</label>
+                      <span>{selectedApplication.student?.previousInstitution || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>GPA/Grade:</label>
+                      <span>{selectedApplication.student?.gpa || 'N/A'}</span>
+                    </div>
+                    {selectedApplication.student?.qualifications && (
+                      <div className="detail-item full-width">
+                        <label>Qualifications:</label>
+                        <span>{selectedApplication.student.qualifications}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Uploaded Transcripts Section */}
+                <div className="details-panel">
+                  <h3><FaFileAlt /> Uploaded Transcripts</h3>
+                  {studentTranscripts && studentTranscripts.length > 0 ? (
+                    <div className="transcripts-list">
+                      {studentTranscripts.map((transcript, idx) => (
+                        <div key={idx} className="transcript-item">
+                          <div className="transcript-info">
+                            <span className="transcript-name">{transcript.fileName || `Transcript ${idx + 1}`}</span>
+                            <span className="transcript-date">
+                              Uploaded: {new Date(transcript.uploadedAt || transcript.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {transcript.fileUrl && (
+                            <a 
+                              href={transcript.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="btn-small"
+                            >
+                              <FaDownload /> Download
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-data">No transcripts uploaded</p>
+                  )}
+                </div>
+
+                {/* Application Notes Section */}
+                {selectedApplication.notes && (
+                  <div className="details-panel">
+                    <h3>Additional Notes</h3>
+                    <div className="notes-box">
+                      {selectedApplication.notes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                {selectedApplication.status === 'pending' && (
+                  <div className="modal-actions">
+                    <button 
+                      className="btn-success" 
+                      onClick={() => {
+                        handleUpdateApplicationStatus(selectedApplication.id, 'admitted');
+                        setShowModal(false);
+                      }}
+                    >
+                      <FaCheck /> Admit This Student
+                    </button>
+                    <button 
+                      className="btn-danger" 
+                      onClick={() => {
+                        handleUpdateApplicationStatus(selectedApplication.id, 'rejected');
+                        setShowModal(false);
+                      }}
+                    >
+                      <FaTimes /> Reject Application
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => setShowModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+                
+                {selectedApplication.status !== 'pending' && (
+                  <div className="modal-actions">
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => setShowModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Faculty Modal */}
         {showModal && (modalType === 'add-faculty' || modalType === 'edit-faculty') && (

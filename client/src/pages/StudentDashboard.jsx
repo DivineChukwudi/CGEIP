@@ -29,6 +29,8 @@ export default function StudentDashboard({ user }) {
   const [activeTab, setActiveTab] = useState('institutions');
   const [institutions, setInstitutions] = useState([]);
   const [selectedInstitution, setSelectedInstitution] = useState(null);
+  const [faculties, setFaculties] = useState([]);
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [courses, setCourses] = useState([]);
   const [applications, setApplications] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -131,12 +133,28 @@ export default function StudentDashboard({ user }) {
 
   const handleViewCourses = async (institution) => {
     setSelectedInstitution(institution);
+    setSelectedFaculty(null);
     try {
-      const data = await studentAPI.getInstitutionCourses(institution.id);
-      setCourses(data);
-      setModalType('view-courses');
+      const facultyData = await studentAPI.getInstitutionFaculties(institution.id);
+      console.log(`📚 Fetched ${facultyData.length} faculties for institution:`, institution.name, facultyData);
+      setFaculties(facultyData);
+      setModalType('view-faculties');
       setShowModal(true);
     } catch (err) {
+      console.error('Error fetching faculties:', err);
+      setError(err.message);
+    }
+  };
+
+  const handleSelectFaculty = async (faculty) => {
+    setSelectedFaculty(faculty);
+    try {
+      const courseData = await studentAPI.getFacultyCourses(selectedInstitution.id, faculty.id);
+      console.log(`📚 Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
+      setCourses(courseData);
+      setModalType('view-courses');
+    } catch (err) {
+      console.error('Error fetching courses:', err);
       setError(err.message);
     }
   };
@@ -153,8 +171,9 @@ export default function StudentDashboard({ user }) {
       setTimeout(() => setSuccess(''), 3000);
       loadData();
     } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(''), 3000);
+      console.error('Application error:', err);
+      setError(err.message || 'Failed to submit application');
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -933,11 +952,44 @@ export default function StudentDashboard({ user }) {
 
         {/* MODALS */}
         
+        {/* VIEW FACULTIES MODAL */}
+        {showModal && modalType === 'view-faculties' && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+              <h2>Faculties at {selectedInstitution?.name}</h2>
+              <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Select a faculty to view available courses</p>
+              
+              <div className="faculties-list">
+                {faculties && faculties.length > 0 ? (
+                  faculties.map((faculty) => (
+                    <div key={faculty.id} className="faculty-card">
+                      <h3>{faculty.name}</h3>
+                      {faculty.description && <p>{faculty.description}</p>}
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => handleSelectFaculty(faculty)}
+                      >
+                        View Courses
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ textAlign: 'center', color: '#9ca3af' }}>No faculties found</p>
+                )}
+              </div>
+              
+              <button className="btn-secondary" onClick={() => setShowModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* VIEW COURSES MODAL */}
         {showModal && modalType === 'view-courses' && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Courses at {selectedInstitution?.name}</h2>
+              <h2>Courses in {selectedFaculty?.name}</h2>
               
               <div className="modal-filters">
                 <div className="search-bar">
@@ -1001,13 +1053,22 @@ export default function StudentDashboard({ user }) {
                   </div>
                 ))}
               </div>
-              <button className="btn-secondary" onClick={() => {
-                setShowModal(false);
-                setSearchTerm('');
-                setFilterLevel('all');
-              }}>
-                Close
-              </button>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button className="btn-secondary" onClick={() => {
+                  setModalType('view-faculties');
+                  setSearchTerm('');
+                  setFilterLevel('all');
+                }}>
+                  ← Back to Faculties
+                </button>
+                <button className="btn-secondary" onClick={() => {
+                  setShowModal(false);
+                  setSearchTerm('');
+                  setFilterLevel('all');
+                }}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

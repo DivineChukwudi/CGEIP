@@ -35,6 +35,17 @@ function checkCourseEligibility(student, course) {
   const studentQualifications = student.qualifications || [];
   const requiredLevel = course.level || 'Certificate';
 
+  // If student has no qualifications, allow them to apply for Certificate/Diploma level
+  // They should update their profile after enrolling
+  if (studentQualifications.length === 0) {
+    if (requiredLevel === 'Certificate' || requiredLevel === 'Diploma') {
+      return { 
+        eligible: true,
+        message: 'Please update your profile with your qualifications after enrollment'
+      };
+    }
+  }
+
   // Qualification hierarchy
   const qualificationHierarchy = {
     'High School': 0,
@@ -297,6 +308,85 @@ router.get('/institutions', async (req, res) => {
   }
 });
 
+// Get faculties for an institution
+router.get('/institutions/:institutionId/faculties', async (req, res) => {
+  try {
+    const { institutionId } = req.params;
+    console.log('📚 Fetching faculties for institution:', institutionId);
+    
+    const snapshot = await db.collection(collections.FACULTIES)
+      .where('institutionId', '==', institutionId)
+      .get();
+    
+    console.log(`✅ Found ${snapshot.size} faculties for institution`);
+    
+    const faculties = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json(faculties);
+  } catch (error) {
+    console.error('❌ Get faculties error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get courses for a specific faculty
+router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (req, res) => {
+  try {
+    const { institutionId, facultyId } = req.params;
+    console.log('📚 Fetching courses for faculty:', facultyId, 'in institution:', institutionId);
+    
+    // Get student profile for eligibility check
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    const student = studentDoc.data();
+    
+    const snapshot = await db.collection(collections.COURSES)
+      .where('institutionId', '==', institutionId)
+      .where('facultyId', '==', facultyId)
+      .where('status', '==', 'active')
+      .get();
+    
+    console.log(`✅ Found ${snapshot.size} courses for faculty`);
+    
+    const courses = await Promise.all(snapshot.docs.map(async doc => {
+      const courseData = doc.data();
+      
+      const facultyDoc = await db.collection(collections.FACULTIES)
+        .doc(courseData.facultyId).get();
+      
+      const appCount = await db.collection(collections.APPLICATIONS)
+        .where('courseId', '==', doc.id)
+        .get();
+
+      // REQUIREMENT #2: Check eligibility for this course
+      const eligibility = checkCourseEligibility(student, courseData);
+      
+      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}`);
+      
+      return {
+        id: doc.id,
+        ...courseData,
+        faculty: facultyDoc.exists ? facultyDoc.data() : null,
+        applicationCount: appCount.size,
+        availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null,
+        // Add eligibility info
+        eligible: eligibility.eligible,
+        eligibilityReason: eligibility.reason || eligibility.message,
+        requiredQualification: eligibility.requiredQualification,
+        yourQualifications: eligibility.yourQualifications
+      };
+    }));
+
+    console.log(`📤 Returning ${courses.length} courses to student`);
+    res.json(courses);
+  } catch (error) {
+    console.error('❌ Get courses error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // REQUIREMENT #2: Get courses with eligibility check
 router.get('/institutions/:institutionId/courses', async (req, res) => {
   try {
@@ -346,6 +436,8 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
       // REQUIREMENT #2: Check eligibility for this course
       const eligibility = checkCourseEligibility(student, courseData);
       
+      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}`);
+      
       return {
         id: doc.id,
         ...courseData,
@@ -360,6 +452,7 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
       };
     }));
 
+    console.log(`📤 Returning ${courses.length} courses to student`);
     res.json(courses);
   } catch (error) {
     console.error('❌ Get courses error:', error);
@@ -427,6 +520,15 @@ router.post('/applications', async (req, res) => {
 
     // REQUIREMENT #2: Strict eligibility check
     const eligibility = checkCourseEligibility(student, course);
+    console.log('Eligibility check:', {
+      studentId: req.user.uid,
+      courseId,
+      courseName: course.name,
+      courseLevel: course.level,
+      studentQualifications: student?.qualifications,
+      eligibility
+    });
+    
     if (!eligibility.eligible) {
       return res.status(403).json({ 
         error: 'You do not meet the qualification requirements for this course',
