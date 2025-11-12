@@ -1,4 +1,3 @@
-// server/utils/email.js - ENHANCED VERSION WITH CONTACT FORM SUPPORT
 const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid with API key
@@ -33,7 +32,13 @@ const sendVerificationEmail = async (email, name, verificationLink) => {
       email: SENDER_EMAIL,
       name: 'Career Portal'
     },
+    replyTo: SENDER_EMAIL, // ✅ Important: Helps with deliverability
     subject: 'Verify Your Email - Career Portal',
+    // ✅ Anti-spam headers
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'SendGrid API'
+    },
     html: `
       <!DOCTYPE html>
       <html>
@@ -230,7 +235,13 @@ const sendNotificationEmail = async (email, subject, message) => {
       email: SENDER_EMAIL,
       name: 'Career Portal'
     },
+    replyTo: SENDER_EMAIL, // ✅ Anti-spam
     subject: subject,
+    // ✅ Anti-spam headers
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'SendGrid API'
+    },
     html: `
       <!DOCTYPE html>
       <html>
@@ -322,6 +333,12 @@ const sendContactFormEmail = async (name, email, subject, message) => {
     },
     replyTo: email, // Allow direct reply to the person who submitted the form
     subject: `CGEIP Contact Form: ${subject}`,
+    // ✅ Anti-spam headers
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'SendGrid API',
+      'List-Unsubscribe': `<mailto:${SENDER_EMAIL}>`
+    },
     html: `
       <!DOCTYPE html>
       <html>
