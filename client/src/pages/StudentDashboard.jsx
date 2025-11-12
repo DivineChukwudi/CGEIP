@@ -685,8 +685,8 @@ export default function StudentDashboard({ user }) {
               <div className="info-banner">
                 <FaFile />
                 <div>
-                  <strong>Upload Your Transcript to Apply for Jobs</strong>
-                  <p>You must be a graduate and upload your academic transcript before applying for job positions.</p>
+                  <strong>Upload Your Transcript to Apply for Institutions</strong>
+                  <p>You need a transcript to apply for courses at institutions. For job applications, you only need a CV.</p>
                   <button 
                     className="btn-secondary btn-sm"
                     onClick={() => {
@@ -819,7 +819,7 @@ export default function StudentDashboard({ user }) {
               <div className="empty-state">
                 <FaFile size={48} />
                 <h3>No Transcript Uploaded</h3>
-                <p>Upload your academic transcript to apply for jobs</p>
+                <p>You need a transcript to apply for courses at institutions. For job applications, only a CV is required.</p>
                 <button 
                   className="btn-primary"
                   onClick={() => {
