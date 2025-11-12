@@ -867,19 +867,20 @@
   margin-bottom: 16px;
   font-size: 16px;
   font-weight: 600;
-  color: #d1d5db;
+  color: #0ea5e9;
 }
 
 .footer-column a {
   display: block;
-  color: #e0f2fe;
+  color: #bfdbfe;
   text-decoration: none;
   margin-bottom: 12px;
   transition: color 0.2s;
+  font-weight: 500;
 }
 
 .footer-column a:hover {
-  color: #bfdbfe;
+  color: #2563eb;
 }
 
 .footer-bottom {
