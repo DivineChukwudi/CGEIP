@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { institutionAPI } from '../utils/api';
 import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
 import axios from 'axios';
 import '../styles/global.css';
@@ -23,40 +24,14 @@ export default function InstitutionDashboard({ user }) {
 
   // ✅ NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'institution', user?.uid);
+  const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'institution', user?.uid);
 
-  // ✅ AUTO-CLEAR NOTIFICATIONS WHEN TAB IS OPENED
+  // Clear tab notifications when tab is opened
   useEffect(() => {
-    const markNotificationsRead = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      // Map tabs to notification categories
-      const tabCategoryMap = {
-        'applications': 'applications',
-        'faculties': 'faculties',
-        'courses': 'courses',
-        'admissions': 'admissions'
-      };
-
-      const category = tabCategoryMap[activeTab];
-      
-      // Only clear if this tab has notifications
-      if (category && counts.pendingApplications > 0) {
-        try {
-          await axios.put(
-            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
-            { category },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          refreshCounts();
-        } catch (error) {
-          console.error('Error marking notifications as read:', error);
-        }
-      }
-    };
-
-    markNotificationsRead();
-  }, [activeTab, counts.pendingApplications, refreshCounts]);
+    if (activeTab !== 'dashboard') {
+      clearTabNotification(activeTab);
+    }
+  }, [activeTab, clearTabNotification]);
 
   const loadData = useCallback(async () => {
     setError('');
@@ -255,6 +230,9 @@ export default function InstitutionDashboard({ user }) {
           onClick={() => setActiveTab('faculties')}
         >
           <FaGraduationCap /> Faculties
+          {tabNotifications?.faculties > 0 && (
+            <NotificationBadge count={tabNotifications.faculties} variant="info" />
+          )}
         </button>
         
         <button
@@ -262,6 +240,9 @@ export default function InstitutionDashboard({ user }) {
           onClick={() => setActiveTab('courses')}
         >
           <FaBook /> Courses
+          {tabNotifications?.courses > 0 && (
+            <NotificationBadge count={tabNotifications.courses} variant="info" />
+          )}
         </button>
         
         <button
@@ -269,8 +250,8 @@ export default function InstitutionDashboard({ user }) {
           onClick={() => setActiveTab('applications')}
         >
           <FaUsers /> Applications
-          {counts?.pendingApplications > 0 && (
-            <NotificationBadge count={counts.pendingApplications} variant="warning" />
+          {tabNotifications?.applications > 0 && (
+            <NotificationBadge count={tabNotifications.applications} variant="warning" />
           )}
         </button>
         
@@ -286,8 +267,8 @@ export default function InstitutionDashboard({ user }) {
           onClick={() => setActiveTab('notifications')}
         >
           <FaBell /> Notifications
-          {counts?.unreadNotifications > 0 && (
-            <NotificationBadge count={counts.unreadNotifications} variant="default" />
+          {tabNotifications?.notifications > 0 && (
+            <NotificationBadge count={tabNotifications.notifications} variant="warning" />
           )}
         </button>
       </div>

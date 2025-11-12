@@ -4,6 +4,7 @@ import { adminAPI } from '../utils/api';
 import { FaCertificate } from 'react-icons/fa';
 import { FaPlus, FaClock, FaEye, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
 import axios from 'axios';
 import '../styles/global.css';
@@ -46,58 +47,27 @@ const [unreadCount, setUnreadCount] = useState(0);
 
   // Notifications - FIXED: Only trigger on tab change to users
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'admin', user?.uid);
+  const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'admin', user?.uid);
 
-  // Mark notifications as read ONLY when users tab is clicked
+  // Clear tab notifications when tab is opened
   useEffect(() => {
-    const markNotificationsRead = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      if (activeTab === 'users') {
-        try {
-          await axios.put(
-            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
-            { category: 'users' },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          refreshCounts();
-        } catch (error) {
-          console.error('Error marking notifications as read:', error);
-        }
-      }
-    };
-
-    markNotificationsRead();
-  }, [activeTab, counts.totalUsers, refreshCounts]);
-
-  useEffect(() => {
-  const loadNotificationsCount = async () => {
-    try {
-      // Load unread count for badge
-      if (counts?.totalUsers > 0) {
-        setUnreadCount(counts.totalUsers);
-      }
-    } catch (err) {
-      console.error('Failed to load notification count:', err);
+    if (activeTab !== 'dashboard') {
+      clearTabNotification(activeTab);
     }
-  };
-  
-  loadNotificationsCount();
+  }, [activeTab, clearTabNotification]);
 
-  // Auto-refresh every 30 seconds
-  const interval = setInterval(() => {
-    refreshCounts();
-    loadNotificationsCount();
-  }, 30000);
+  // Auto-refresh tab notification counts every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshCounts();
+    }, 30000);
 
-  return () => clearInterval(interval);
-}, [counts, refreshCounts]);
-
+    return () => clearInterval(interval);
+  }, [refreshCounts]);
 
   // ==================== SEARCH HELPER ====================
   const searchFilter = (items, searchTerm) => {
     if (!searchTerm.trim()) return items;
-    
     const term = searchTerm.toLowerCase();
     return items.filter(item => {
       // Search across common fields
@@ -292,6 +262,22 @@ const [unreadCount, setUnreadCount] = useState(0);
   const handleSubmitFaculty = async (e) => {
     e.preventDefault();
     try {
+      // Validate institutionId
+      if (!formData.institutionId) {
+        setError('❌ Please select an institution');
+        return;
+      }
+      
+      if (!formData.name || !formData.name.trim()) {
+        setError('❌ Please enter a faculty name');
+        return;
+      }
+      
+      if (!formData.description || !formData.description.trim()) {
+        setError('❌ Please enter a description');
+        return;
+      }
+      
       if (editingItem) {
         await adminAPI.updateFaculty(editingItem.id, formData);
         showSuccess('Faculty updated successfully!');
@@ -302,7 +288,8 @@ const [unreadCount, setUnreadCount] = useState(0);
       setShowModal(false);
       loadData();
     } catch (err) {
-      setError(err.message);
+      console.error('Faculty submission error:', err);
+      setError(err.message || 'Failed to save faculty');
     }
   };
 
@@ -592,6 +579,9 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
           onClick={() => setActiveTab('faculties')}
         >
           <FaGraduationCap /> Faculties
+          {tabNotifications?.faculties > 0 && (
+            <NotificationBadge count={tabNotifications.faculties} variant="info" />
+          )}
         </button>
         
         <button
@@ -599,6 +589,9 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
           onClick={() => setActiveTab('courses')}
         >
           <FaBook /> Courses
+          {tabNotifications?.courses > 0 && (
+            <NotificationBadge count={tabNotifications.courses} variant="info" />
+          )}
         </button>
         
         <button
@@ -606,8 +599,8 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
           onClick={() => setActiveTab('companies')}
         >
           <FaBriefcase /> Companies
-          {counts?.pendingCompanies > 0 && (
-            <NotificationBadge count={counts.pendingCompanies} variant="warning" />
+          {tabNotifications?.companies > 0 && (
+            <NotificationBadge count={tabNotifications.companies} variant="warning" />
           )}
         </button>
         
@@ -616,11 +609,8 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
           onClick={() => setActiveTab('users')}
         >
           <FaUserGraduate /> All Users
-          {counts?.totalUsers > 0 && (
-            <NotificationBadge 
-              count={counts.totalUsers} 
-              variant="info"
-            />
+          {tabNotifications?.users > 0 && (
+            <NotificationBadge count={tabNotifications.users} variant="info" />
           )}
         </button>
         
@@ -630,33 +620,16 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
         >
           <FaUsers /> Manage Team
         </button>
+
         <button
-  className={activeTab === 'transcripts' ? 'active' : ''}
-  onClick={() => setActiveTab('transcripts')}
->
-  <FaCertificate /> Verify Transcripts
-  {counts?.pendingTranscripts > 0 && (
-    <NotificationBadge 
-      count={counts.pendingTranscripts} 
-      variant="warning"
-    />
-  )}
-</button>
-<button
-  className={activeTab === 'users' ? 'active' : ''}
-  onClick={() => setActiveTab('users')}
->
-  <FaUserGraduate /> All Users
-  {counts?.totalUsers > 0 && (
-    <NotificationBadge 
-      count={counts.totalUsers} 
-      variant="info"
-      style={{
-        animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none'
-      }}
-    />
-  )}
-</button>
+          className={activeTab === 'transcripts' ? 'active' : ''}
+          onClick={() => setActiveTab('transcripts')}
+        >
+          <FaCertificate /> Verify Transcripts
+          {tabNotifications?.transcripts > 0 && (
+            <NotificationBadge count={tabNotifications.transcripts} variant="warning" />
+          )}
+        </button>
       </div>
 
       <div className="dashboard-content">

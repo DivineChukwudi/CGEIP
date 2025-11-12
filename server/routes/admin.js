@@ -26,7 +26,7 @@ router.get('/institutions', async (req, res) => {
     const institutions = [];
     const processedEmails = new Set();
     
-    // Process INSTITUTIONS collection
+    // Process INSTITUTIONS collection (these are admin-created institutions)
     institutionsSnapshot.docs.forEach(doc => {
       const data = doc.data();
       institutions.push({
@@ -48,7 +48,10 @@ router.get('/institutions', async (req, res) => {
       }
     });
     
+    console.log(`✅ Found ${institutionsSnapshot.size} institutions in INSTITUTIONS collection`);
+    
     // Add registered institutions from USERS collection
+    // NOTE: These institution users do NOT have a corresponding INSTITUTIONS document yet!
     institutionUsersSnapshot.docs.forEach(doc => {
       const data = doc.data();
       const email = data.email.toLowerCase();
@@ -56,7 +59,7 @@ router.get('/institutions', async (req, res) => {
       // Skip if already in institutions (linked)
       if (!processedEmails.has(email)) {
         institutions.push({
-          id: data.institutionId || doc.id,
+          id: doc.id,  // Use the user UID, not institutionId
           name: data.name,
           description: `${data.name} - Higher Learning Institution`,
           location: 'Lesotho',
@@ -68,13 +71,16 @@ router.get('/institutions', async (req, res) => {
           source: 'self-registered',
           createdAt: data.createdAt
         });
+        
+        console.log(`✅ Added self-registered institution: ${data.name} (ID: ${doc.id})`);
       }
     });
     
     // Sort alphabetically
     institutions.sort((a, b) => a.name.localeCompare(b.name));
     
-    console.log(`✅ Found ${institutions.size} total institutions for admin`);
+    console.log(`✅ Total ${institutions.length} institutions returned to frontend`);
+    console.log('📋 Institution IDs:', institutions.map(i => ({ id: i.id, name: i.name, source: i.source })));
     
     res.json(institutions);
   } catch (error) {
@@ -322,13 +328,33 @@ router.get('/faculties', async (req, res) => {
 router.post('/faculties', async (req, res) => {
   try {
     const { institutionId, name, description } = req.body;
+    console.log('📝 POST /faculties - Received:', { institutionId, name, description });
+    
     if (!institutionId || !name) {
+      console.error('❌ Missing required fields - institutionId:', institutionId, 'name:', name);
       return res.status(400).json({ error: 'Institution ID and name are required' });
     }
-    const instDoc = await db.collection(collections.INSTITUTIONS).doc(institutionId).get();
+    
+    console.log('🔍 Checking if institution exists (checking both INSTITUTIONS and USERS collections)');
+    
+    // First, try to find in INSTITUTIONS collection
+    let instDoc = await db.collection(collections.INSTITUTIONS).doc(institutionId).get();
+    
+    // If not found, check if it's a user ID (self-registered institution)
     if (!instDoc.exists) {
-      return res.status(404).json({ error: 'Institution not found' });
+      console.log('⚠️  Not found in INSTITUTIONS, checking USERS collection...');
+      const userDoc = await db.collection(collections.USERS).doc(institutionId).get();
+      
+      if (!userDoc.exists || userDoc.data().role !== 'institution') {
+        console.error('❌ Neither institution document nor institution user found:', institutionId);
+        return res.status(404).json({ error: 'Institution not found' });
+      }
+      
+      console.log('✅ Found institution user:', userDoc.data().name);
+    } else {
+      console.log('✅ Found institution document:', instDoc.data().name);
     }
+    
     const facultyData = {
       institutionId,
       name,
@@ -336,9 +362,13 @@ router.post('/faculties', async (req, res) => {
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid
     };
+    
+    console.log('✅ Creating faculty:', name);
     const docRef = await db.collection(collections.FACULTIES).add(facultyData);
+    console.log('✅ Faculty created:', docRef.id);
     res.status(201).json({ id: docRef.id, ...facultyData });
   } catch (error) {
+    console.error('❌ POST /faculties error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

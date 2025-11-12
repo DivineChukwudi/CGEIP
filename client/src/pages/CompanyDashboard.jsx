@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { companyAPI } from '../utils/api';
 import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle, FaBell } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
 import axios from 'axios';
 import '../styles/global.css';
@@ -21,52 +22,14 @@ export default function CompanyDashboard({ user }) {
 
   // ✅ NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'company', user?.uid);
+  const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'company', user?.uid);
 
-  // ✅ AUTO-CLEAR NOTIFICATIONS WHEN TAB IS OPENED
+  // Clear tab notifications when tab is opened
   useEffect(() => {
-    const markNotificationsRead = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      // Map tabs to notification categories
-      const tabCategoryMap = {
-        'jobs': 'jobs',
-        'notifications': 'notifications'
-      };
-
-      const category = tabCategoryMap[activeTab];
-      
-      // Clear notifications when viewing jobs tab (new applicants)
-      if (activeTab === 'jobs' && counts.newApplicants > 0) {
-        try {
-          await axios.put(
-            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-by-category`,
-            { category: 'jobs' },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          refreshCounts();
-        } catch (error) {
-          console.error('Error marking notifications as read:', error);
-        }
-      }
-
-      // Clear all notifications when viewing notifications tab
-      if (activeTab === 'notifications' && counts.unreadNotifications > 0) {
-        try {
-          await axios.put(
-            `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/notifications/read-all`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          refreshCounts();
-        } catch (error) {
-          console.error('Error marking all notifications as read:', error);
-        }
-      }
-    };
-
-    markNotificationsRead();
-  }, [activeTab, counts.newApplicants, counts.unreadNotifications, refreshCounts]);
+    if (activeTab !== 'dashboard') {
+      clearTabNotification(activeTab);
+    }
+  }, [activeTab, clearTabNotification]);
 
   useEffect(() => {
     loadJobs();
@@ -186,8 +149,8 @@ export default function CompanyDashboard({ user }) {
           onClick={() => setActiveTab('jobs')}
         >
           <FaBriefcase /> My Jobs
-          {counts?.newApplicants > 0 && (
-            <NotificationBadge count={counts.newApplicants} variant="success" />
+          {tabNotifications?.jobs > 0 && (
+            <NotificationBadge count={tabNotifications.jobs} variant="success" />
           )}
         </button>
 
@@ -196,8 +159,8 @@ export default function CompanyDashboard({ user }) {
           onClick={() => setActiveTab('notifications')}
         >
           <FaBell /> Notifications
-          {counts?.unreadNotifications > 0 && (
-            <NotificationBadge count={counts.unreadNotifications} variant="default" />
+          {tabNotifications?.notifications > 0 && (
+            <NotificationBadge count={tabNotifications.notifications} variant="warning" />
           )}
         </button>
       </div>

@@ -7,8 +7,9 @@ const router = express.Router();
 // Get all institutions (public)
 router.get('/institutions', async (req, res) => {
   try {
-    const snapshot = await db.collection(collections.INSTITUTIONS).get();
-    const institutions = snapshot.docs.map(doc => ({
+    // Get admin-created institutions
+    const adminSnapshot = await db.collection(collections.INSTITUTIONS).get();
+    const institutions = adminSnapshot.docs.map(doc => ({
       id: doc.id,
       name: doc.data().name,
       description: doc.data().description,
@@ -16,6 +17,29 @@ router.get('/institutions', async (req, res) => {
       contact: doc.data().contact,
       website: doc.data().website
     }));
+    console.log(`✅ Found ${institutions.length} admin-created institutions`);
+
+    // Get self-registered institutions (users with role='institution')
+    const usersSnapshot = await db.collection(collections.USERS)
+      .where('role', '==', 'institution')
+      .get();
+    
+    usersSnapshot.docs.forEach(doc => {
+      const userData = doc.data();
+      institutions.push({
+        id: doc.id,
+        name: userData.institutionName || userData.name || 'Institution',
+        description: userData.description || '',
+        location: userData.location || '',
+        contact: userData.email || '',
+        website: userData.website || ''
+      });
+      console.log(`✅ Added self-registered institution: ${userData.institutionName || userData.name}`);
+    });
+
+    // Sort by name
+    institutions.sort((a, b) => a.name.localeCompare(b.name));
+
     res.json(institutions);
   } catch (error) {
     console.error('Public institutions error:', error);

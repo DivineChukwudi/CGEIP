@@ -424,4 +424,226 @@ router.get('/counts', verifyToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Get per-tab notification counts for dashboard tabs
+router.get('/tab-counts', verifyToken, async (req, res) => {
+  try {
+    const { uid, role } = req.user;
+    const tabCounts = {
+      institutions: 0,
+      faculties: 0,
+      courses: 0,
+      companies: 0,
+      users: 0,
+      transcripts: 0,
+      applications: 0,
+      jobs: 0,
+      profile: 0,
+      notifications: 0
+    };
+
+    // Count unread notifications for the user
+    const unreadNotifs = await db.collection(collections.NOTIFICATIONS)
+      .where('userId', '==', uid)
+      .where('read', '==', false)
+      .get();
+    tabCounts.notifications = unreadNotifs.size;
+
+    // ADMIN TAB COUNTS
+    if (role === 'admin') {
+      // Pending companies
+      const pendingCompanies = await db.collection(collections.USERS)
+        .where('role', '==', 'company')
+        .where('status', '==', 'pending')
+        .get();
+      tabCounts.companies = pendingCompanies.size;
+
+      // New user registrations
+      const newUsers = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'user_registered')
+        .where('read', '==', false)
+        .get();
+      tabCounts.users = newUsers.size;
+
+      // Pending transcripts
+      const pendingTranscripts = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'transcript_pending')
+        .where('read', '==', false)
+        .get();
+      tabCounts.transcripts = pendingTranscripts.size;
+    }
+
+    // INSTITUTION TAB COUNTS
+    if (role === 'institution') {
+      const instId = uid;
+
+      // Pending applications
+      const pendingApps = await db.collection(collections.APPLICATIONS)
+        .where('institutionId', '==', instId)
+        .where('status', '==', 'pending')
+        .get();
+      tabCounts.applications = pendingApps.size;
+
+      // New faculties added
+      const newFaculties = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'faculty_added')
+        .where('read', '==', false)
+        .get();
+      tabCounts.faculties = newFaculties.size;
+
+      // New courses added
+      const newCourses = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'course_added')
+        .where('read', '==', false)
+        .get();
+      tabCounts.courses = newCourses.size;
+    }
+
+    // COMPANY TAB COUNTS
+    if (role === 'company') {
+      const companyId = uid;
+
+      // Pending job applicants (qualified)
+      const jobs = await db.collection(collections.JOBS)
+        .where('companyId', '==', companyId)
+        .get();
+      
+      let pendingQualified = 0;
+      const jobIds = jobs.docs.map(doc => doc.id);
+      
+      if (jobIds.length > 0) {
+        for (let i = 0; i < jobIds.length; i += 10) {
+          const batch = jobIds.slice(i, i + 10);
+          const applicants = await db.collection(collections.JOB_APPLICATIONS)
+            .where('jobId', 'in', batch)
+            .where('qualificationMatch', '>=', 70)
+            .where('status', '==', 'pending')
+            .get();
+          pendingQualified += applicants.size;
+        }
+      }
+      tabCounts.jobs = pendingQualified;
+    }
+
+    // STUDENT TAB COUNTS
+    if (role === 'student') {
+      // Admitted applications
+      const admitted = await db.collection(collections.APPLICATIONS)
+        .where('studentId', '==', uid)
+        .where('status', '==', 'accepted')
+        .get();
+      tabCounts.applications = admitted.size;
+
+      // Jobs matching student profile
+      const studentDoc = await db.collection(collections.USERS).doc(uid).get();
+      const student = studentDoc.data();
+      
+      if (student && student.field) {
+        const matchingJobs = await db.collection(collections.JOBS)
+          .where('status', '==', 'active')
+          .where('field', '==', student.field)
+          .get();
+        tabCounts.jobs = matchingJobs.size;
+      }
+    }
+
+    res.json(tabCounts);
+  } catch (error) {
+    console.error('Get tab notification counts error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear notifications for a specific tab
+router.post('/clear-tab', verifyToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { tab } = req.body;
+
+    if (!tab) {
+      return res.status(400).json({ error: 'Tab name required' });
+    }
+
+    // Map tab names to notification types for clearing
+    const tabToTypeMap = {
+      companies: 'company_pending',
+      users: 'user_registered',
+      transcripts: 'transcript_pending',
+      applications: 'application_pending',
+      faculties: 'faculty_added',
+      courses: 'course_added',
+      jobs: 'job_applicant_qualified',
+      notifications: 'all'
+    };
+
+    const type = tabToTypeMap[tab];
+    if (!type) {
+      return res.status(400).json({ error: 'Invalid tab name' });
+    }
+
+    // Mark notifications as read
+    let query = db.collection(collections.NOTIFICATIONS)
+      .where('userId', '==', uid)
+      .where('read', '==', false);
+
+    if (type !== 'all') {
+      query = query.where('type', '==', type);
+    }
+
+    const snapshot = await query.get();
+    
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { 
+        read: true,
+        readAt: new Date()
+      });
+    });
+
+    await batch.commit();
+
+    console.log(`✅ Cleared ${snapshot.size} notifications for tab: ${tab}`);
+    res.json({ 
+      success: true,
+      cleared: snapshot.size 
+    });
+  } catch (error) {
+    console.error('Clear tab notifications error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark a specific notification as read
+router.post('/mark-read/:notificationId', verifyToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { notificationId } = req.params;
+
+    const notifRef = db.collection(collections.NOTIFICATIONS).doc(notificationId);
+    const notifDoc = await notifRef.get();
+
+    if (!notifDoc.exists) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notifDoc.data().userId !== uid) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await notifRef.update({
+      read: true,
+      readAt: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

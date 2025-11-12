@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import TranscriptUploadModal from '../components/TranscriptUploadModal';
 import { studentAPI } from '../utils/api';
+import { useTabNotifications } from '../hooks/useTabNotifications';
+import NotificationBadge from '../components/NotificationBadge';
 import { 
   FaGraduationCap, 
   FaBriefcase, 
@@ -42,6 +44,16 @@ export default function StudentDashboard({ user }) {
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobInterest, setJobInterest] = useState('all');
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Tab notifications
+  const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'student', user?.uid);
+
+  // Clear tab notifications when tab is opened
+  useEffect(() => {
+    if (activeTab !== 'dashboard') {
+      clearTabNotification(activeTab);
+    }
+  }, [activeTab, clearTabNotification]);
 
   // Load data based on active tab
   const loadData = useCallback(async () => {
@@ -310,14 +322,17 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('institutions')}
         >
           <FaGraduationCap /> Browse Institutions
+          {tabNotifications?.institutions > 0 && (
+            <NotificationBadge count={tabNotifications.institutions} variant="info" />
+          )}
         </button>
         <button
           className={activeTab === 'my-applications' ? 'active' : ''}
           onClick={() => setActiveTab('my-applications')}
         >
           <FaEye /> My Applications
-          {applications.filter(app => app.status === 'admitted').length > 0 && (
-            <span className="badge">{applications.filter(app => app.status === 'admitted').length}</span>
+          {tabNotifications?.applications > 0 && (
+            <NotificationBadge count={tabNotifications.applications} variant="success" />
           )}
         </button>
         <button
@@ -325,6 +340,9 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('jobs')}
         >
           <FaBriefcase /> Browse Jobs
+          {tabNotifications?.jobs > 0 && (
+            <NotificationBadge count={tabNotifications.jobs} variant="info" />
+          )}
         </button>
         <button
           className={activeTab === 'my-jobs' ? 'active' : ''}
@@ -349,13 +367,8 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('notifications')}
         >
           <FaBell /> Notifications
-          {unreadCount > 0 && (
-            <span className="badge" style={{ 
-              background: '#ef4444',
-              animation: 'pulse 2s infinite'
-            }}>
-              {unreadCount}
-            </span>
+          {tabNotifications?.notifications > 0 && (
+            <NotificationBadge count={tabNotifications.notifications} variant="warning" />
           )}
         </button>
       </div>

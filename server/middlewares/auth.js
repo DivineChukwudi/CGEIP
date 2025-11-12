@@ -30,9 +30,19 @@ const verifyToken = async (req, res, next) => {
 // Check user role
 const checkRole = (allowedRoles) => {
   return (req, res, next) => {
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
+    console.log('🔐 checkRole middleware - user:', req.user?.uid, 'role:', req.user?.role, 'allowed:', allowedRoles);
+    
+    if (!req.user) {
+      console.error('❌ No user in request');
+      return res.status(401).json({ error: 'No user context' });
     }
+    
+    if (!allowedRoles.includes(req.user.role)) {
+      console.error(`❌ User role '${req.user.role}' not in allowed roles:`, allowedRoles);
+      return res.status(403).json({ error: 'Access denied', userRole: req.user.role });
+    }
+    
+    console.log('✅ Role check passed');
     next();
   };
 };

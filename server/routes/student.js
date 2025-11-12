@@ -222,17 +222,77 @@ router.put('/profile', async (req, res) => {
 
 router.get('/institutions', async (req, res) => {
   try {
-    const snapshot = await db.collection(collections.INSTITUTIONS)
+    console.log('🏫 Student fetching ALL institutions...');
+    
+    // Get admin-created institutions from INSTITUTIONS collection
+    const institutionsSnapshot = await db.collection(collections.INSTITUTIONS)
       .where('status', '==', 'active')
       .get();
     
-    const institutions = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    }));
+    // Get self-registered institutions from USERS collection
+    const institutionUsersSnapshot = await db.collection(collections.USERS)
+      .where('role', '==', 'institution')
+      .where('status', '==', 'active')
+      .get();
+    
+    const institutions = [];
+    const processedEmails = new Set();
+    
+    // Process admin-created institutions
+    institutionsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      institutions.push({
+        id: doc.id,
+        name: data.name,
+        description: data.description || '',
+        location: data.location || '',
+        contact: data.contact || '',
+        website: data.website || '',
+        email: data.email || '',
+        status: 'active',
+        source: 'admin-created',
+        createdAt: data.createdAt
+      });
+      
+      if (data.email) {
+        processedEmails.add(data.email.toLowerCase());
+      }
+    });
+    
+    console.log(`✅ Found ${institutionsSnapshot.size} admin-created institutions`);
+    
+    // Process self-registered institutions
+    institutionUsersSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const email = data.email.toLowerCase();
+      
+      // Skip if already in institutions
+      if (!processedEmails.has(email)) {
+        institutions.push({
+          id: doc.id,  // Use user UID as institution ID
+          name: data.name,
+          description: `${data.name} - Higher Learning Institution`,
+          location: 'Lesotho',
+          contact: data.email,
+          website: '',
+          email: data.email,
+          status: 'active',
+          source: 'self-registered',
+          createdAt: data.createdAt
+        });
+        
+        console.log(`✅ Added self-registered institution: ${data.name}`);
+      }
+    });
+    
+    // Sort alphabetically
+    institutions.sort((a, b) => a.name.localeCompare(b.name));
+    
+    console.log(`✅ Total ${institutions.length} institutions returned to student`);
     
     res.json(institutions);
   } catch (error) {
+    console.error('❌ Get institutions error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -241,12 +301,25 @@ router.get('/institutions', async (req, res) => {
 router.get('/institutions/:institutionId/courses', async (req, res) => {
   try {
     const { institutionId } = req.params;
+    console.log('📚 Fetching courses for institution:', institutionId);
     
-    const instDoc = await db.collection(collections.INSTITUTIONS)
+    // Check if it's an admin-created institution
+    let instDoc = await db.collection(collections.INSTITUTIONS)
       .doc(institutionId).get();
     
+    // If not found, check if it's a self-registered institution (user)
     if (!instDoc.exists) {
-      return res.status(404).json({ error: 'Institution not found' });
+      console.log('⚠️  Not found in INSTITUTIONS, checking USERS...');
+      const userDoc = await db.collection(collections.USERS).doc(institutionId).get();
+      
+      if (!userDoc.exists || userDoc.data().role !== 'institution') {
+        console.error('❌ Institution not found:', institutionId);
+        return res.status(404).json({ error: 'Institution not found' });
+      }
+      
+      console.log('✅ Found institution user:', userDoc.data().name);
+    } else {
+      console.log('✅ Found institution document:', instDoc.data().name);
     }
 
     // Get student profile for eligibility check
@@ -257,6 +330,8 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
       .where('institutionId', '==', institutionId)
       .where('status', '==', 'active')
       .get();
+    
+    console.log(`✅ Found ${snapshot.size} courses for institution`);
     
     const courses = await Promise.all(snapshot.docs.map(async doc => {
       const courseData = doc.data();
@@ -287,6 +362,7 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
 
     res.json(courses);
   } catch (error) {
+    console.error('❌ Get courses error:', error);
     res.status(500).json({ error: error.message });
   }
 });
