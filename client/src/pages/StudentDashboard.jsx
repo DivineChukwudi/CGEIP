@@ -130,6 +130,19 @@ export default function StudentDashboard({ user }) {
     }
   }, [activeTab, unreadCount]);
 
+  // Debug: Log whenever courses state changes
+  useEffect(() => {
+    console.log('🎓 COURSES STATE CHANGED');
+    console.log('  Total courses in state:', courses.length);
+    console.log('  Selected faculty:', selectedFaculty?.name || 'None');
+    console.log('  Modal type:', modalType);
+    console.log('  Search term:', searchTerm);
+    console.log('  Filter level:', filterLevel);
+    console.log('  Filtered courses:', filteredCourses.length);
+    console.log('  Full courses array:', courses);
+    console.log('  Filtered courses array:', filteredCourses);
+  }, [courses, selectedFaculty, modalType, searchTerm, filterLevel, filteredCourses]);
+
   const handleViewCourses = async (institution) => {
     setSelectedInstitution(institution);
     setSelectedFaculty(null);
@@ -146,18 +159,32 @@ export default function StudentDashboard({ user }) {
   };
 
   const handleSelectFaculty = async (faculty) => {
+    console.log('🔵 handleSelectFaculty called with:', faculty);
     setSelectedFaculty(faculty);
     setSearchTerm('');
     setFilterLevel('all');
     setCourses([]); // Reset courses while loading
     try {
-      console.log('Fetching courses for:', faculty.name, 'in institution:', selectedInstitution.id);
+      console.log('📡 Fetching courses from API...');
+      console.log('📍 Institution ID:', selectedInstitution.id);
+      console.log('📍 Faculty ID:', faculty.id);
+      
       const courseData = await studentAPI.getFacultyCourses(selectedInstitution.id, faculty.id);
-      console.log(`Fetched ${courseData.length} courses for faculty:`, faculty.name, courseData);
-      setCourses(courseData);
+      
+      console.log('✅ API Response received');
+      console.log('📊 Courses returned:', courseData.length);
+      console.log('📋 Course details:', courseData);
+      
+      if (!courseData || courseData.length === 0) {
+        console.warn('⚠️  WARNING: API returned empty or null');
+      }
+      
+      setCourses(courseData || []);
       setModalType('view-courses');
     } catch (err) {
-      console.error('Error fetching courses:', err);
+      console.error('❌ Error fetching courses:', err);
+      console.error('Error message:', err.message);
+      console.error('Full error object:', err);
       setError(err.message);
       setCourses([]);
     }
@@ -958,73 +985,90 @@ export default function StudentDashboard({ user }) {
         
         {/* VIEW FACULTIES MODAL */}
         {showModal && modalType === 'view-faculties' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Faculties at {selectedInstitution?.name}</h2>
-              <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Select a faculty to view available courses</p>
-              
-              <div className="faculties-list">
-                {faculties && faculties.length > 0 ? (
-                  faculties.map((faculty) => (
-                    <div key={faculty.id} className="faculty-card">
-                      <h3>{faculty.name}</h3>
-                      {faculty.description && <p>{faculty.description}</p>}
-                      <button 
-                        className="btn-primary" 
-                        onClick={() => handleSelectFaculty(faculty)}
-                      >
-                        View Courses
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ textAlign: 'center', color: '#9ca3af' }}>No faculties found</p>
-                )}
+          (() => {
+            console.log('🏫 RENDERING FACULTIES MODAL');
+            console.log('  Faculties count:', faculties.length);
+            console.log('  Faculties data:', faculties);
+            return (
+              <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+                  <h2>Faculties at {selectedInstitution?.name}</h2>
+                  <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Select a faculty to view available courses</p>
+                  
+                  <div className="faculties-list">
+                    {faculties && faculties.length > 0 ? (
+                      faculties.map((faculty) => (
+                        <div key={faculty.id} className="faculty-card">
+                          <h3>{faculty.name}</h3>
+                          {faculty.description && <p>{faculty.description}</p>}
+                          <button 
+                            className="btn-primary" 
+                            onClick={() => handleSelectFaculty(faculty)}
+                          >
+                            View Courses
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p style={{ textAlign: 'center', color: '#9ca3af' }}>No faculties found</p>
+                    )}
+                  </div>
+                  
+                  <button className="btn-secondary" onClick={() => setShowModal(false)}>
+                    Close
+                  </button>
+                </div>
               </div>
-              
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>
-                Close
-              </button>
-            </div>
-          </div>
+            );
+          })()
         )}
         
         {/* VIEW COURSES MODAL */}
         {showModal && modalType === 'view-courses' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h2 style={{ marginBottom: '0.5rem' }}>Courses in {selectedFaculty?.name}</h2>
-                <p style={{ color: '#6b7280', margin: 0 }}>
-                  {courses.length} available course{courses.length !== 1 ? 's' : ''} - Select a course to apply
-                </p>
-              </div>
-              
-              <div className="modal-filters">
-                <div className="search-bar">
-                  <FaSearch />
-                  <input
-                    type="text"
-                    placeholder="Search courses..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <select 
-                  value={filterLevel} 
-                  onChange={(e) => setFilterLevel(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="all">All Levels</option>
-                  <option value="Certificate">Certificate</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="Degree">Degree</option>
-                  <option value="Masters">Masters</option>
-                  <option value="PhD">PhD</option>
-                </select>
-              </div>
+          (() => {
+            console.log('📚 RENDERING COURSES MODAL');
+            console.log('  Selected faculty:', selectedFaculty?.name);
+            console.log('  Total courses in state:', courses.length);
+            console.log('  Courses array:', courses);
+            console.log('  Filter level:', filterLevel);
+            console.log('  Search term:', searchTerm);
+            console.log('  Filtered courses count:', filteredCourses.length);
+            console.log('  Filtered courses:', filteredCourses);
+            return (
+              <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ marginBottom: '0.5rem' }}>Courses in {selectedFaculty?.name}</h2>
+                    <p style={{ color: '#6b7280', margin: 0 }}>
+                      {courses.length} available course{courses.length !== 1 ? 's' : ''} - Select a course to apply
+                    </p>
+                  </div>
+                  
+                  <div className="modal-filters">
+                    <div className="search-bar">
+                      <FaSearch />
+                      <input
+                        type="text"
+                        placeholder="Search courses..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <select 
+                      value={filterLevel} 
+                      onChange={(e) => setFilterLevel(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="all">All Levels</option>
+                      <option value="Certificate">Certificate</option>
+                      <option value="Diploma">Diploma</option>
+                      <option value="Degree">Degree</option>
+                      <option value="Masters">Masters</option>
+                      <option value="PhD">PhD</option>
+                    </select>
+                  </div>
 
-              <div className="courses-list">
+                  <div className="courses-list">
                 {filteredCourses.length > 0 ? (
                   filteredCourses.map((course) => (
                     <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
@@ -1064,7 +1108,12 @@ export default function StudentDashboard({ user }) {
                   ))
                 ) : (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
-                    <p style={{ fontSize: '16px', marginBottom: '10px' }}>No courses found</p>
+                    <p style={{ fontSize: '16px', marginBottom: '10px' }}>
+                      {courses.length === 0 ? 'Loading courses...' : `No courses found matching filters`}
+                    </p>
+                    <small style={{ display: 'block', marginTop: '10px', fontSize: '12px' }}>
+                      (Total courses: {courses.length}, Filtered: {filteredCourses.length})
+                    </small>
                     <small>Try adjusting your search or filter to see more courses</small>
                   </div>
                 )}
@@ -1091,6 +1140,8 @@ export default function StudentDashboard({ user }) {
               </div>
             </div>
           </div>
+            );
+          })()
         )}
 
         {/* APPLY FOR JOB MODAL */}
