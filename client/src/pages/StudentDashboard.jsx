@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import TranscriptUploadModal from '../components/TranscriptUploadModal';
+import CVUploadModal from '../components/CVUploadModal';
 import { studentAPI } from '../utils/api';
 import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
@@ -37,6 +38,7 @@ export default function StudentDashboard({ user }) {
   const [notifications, setNotifications] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
+  const [uploadContext, setUploadContext] = useState('transcript'); // 'transcript' or 'cv'
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [profile, setProfile] = useState(null);
@@ -387,7 +389,10 @@ export default function StudentDashboard({ user }) {
       <div className="dashboard-sidebar">
         <button
           className={activeTab === 'institutions' ? 'active' : ''}
-          onClick={() => setActiveTab('institutions')}
+          onClick={() => {
+            setActiveTab('institutions');
+            setUploadContext('transcript');
+          }}
         >
           <FaGraduationCap /> Browse Institutions
           {tabNotifications?.institutions > 0 && (
@@ -405,7 +410,10 @@ export default function StudentDashboard({ user }) {
         </button>
         <button
           className={activeTab === 'jobs' ? 'active' : ''}
-          onClick={() => setActiveTab('jobs')}
+          onClick={() => {
+            setActiveTab('jobs');
+            setUploadContext('cv');
+          }}
         >
           <FaBriefcase /> Browse Jobs
           {tabNotifications?.jobs > 0 && (
@@ -685,16 +693,17 @@ export default function StudentDashboard({ user }) {
               <div className="info-banner">
                 <FaFile />
                 <div>
-                  <strong>Upload Your Transcript to Apply for Institutions</strong>
-                  <p>You need a transcript to apply for courses at institutions. For job applications, you only need a CV.</p>
+                  <strong>Upload Your CV to Apply for Jobs</strong>
+                  <p>You need a CV URL to apply for job positions. You can use Google Drive, Dropbox, or your portfolio.</p>
                   <button 
                     className="btn-secondary btn-sm"
                     onClick={() => {
-                      setModalType('upload-transcript');
+                      setUploadContext('cv');
+                      setModalType('upload-cv');
                       setShowModal(true);
                     }}
                   >
-                    Upload Transcript
+                    Upload CV
                   </button>
                 </div>
               </div>
@@ -1215,6 +1224,14 @@ export default function StudentDashboard({ user }) {
         {/* UPLOAD TRANSCRIPT MODAL */}
         {showModal && modalType === 'upload-transcript' && (
           <TranscriptUploadModal
+            onClose={() => setShowModal(false)}
+            onSubmit={handleTranscriptUpload}
+          />
+        )}
+
+        {/* UPLOAD CV MODAL */}
+        {showModal && modalType === 'upload-cv' && (
+          <CVUploadModal
             onClose={() => setShowModal(false)}
             onSubmit={handleTranscriptUpload}
           />
