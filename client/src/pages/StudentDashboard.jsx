@@ -210,7 +210,11 @@ export default function StudentDashboard({ user }) {
       loadData();
     } catch (err) {
       console.error('Application error:', err);
-      setError(err.message || 'Failed to submit application');
+      // Extract detailed error message from response if available
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to submit application';
+      const errorDetails = err.response?.data?.message || err.response?.data?.reason || '';
+      const fullError = errorDetails ? `${errorMessage}\n${errorDetails}` : errorMessage;
+      setError(fullError);
       setTimeout(() => setError(''), 5000);
     }
   };

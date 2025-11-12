@@ -1,4 +1,3 @@
-// client/src/pages/AdminDashboard.jsx - FIXED WITH SEARCH & SORT
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaCertificate } from 'react-icons/fa';
@@ -24,8 +23,9 @@ export default function AdminDashboard({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [transcripts, setTranscripts] = useState([]);
-const [selectedTranscript, setSelectedTranscript] = useState(null);
-const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedTranscript, setSelectedTranscript] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ==================== SEARCH & SORT STATE ====================
   const [searchTerms, setSearchTerms] = useState({
@@ -261,20 +261,27 @@ const [unreadCount, setUnreadCount] = useState(0);
 
   const handleSubmitFaculty = async (e) => {
     e.preventDefault();
+    // Prevent double submission on React StrictMode double-render
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     try {
       // Validate institutionId
       if (!formData.institutionId) {
         setError('Please select an institution');
+        setIsSubmitting(false);
         return;
       }
       
       if (!formData.name || !formData.name.trim()) {
         setError('Please enter a faculty name');
+        setIsSubmitting(false);
         return;
       }
       
       if (!formData.description || !formData.description.trim()) {
         setError('Please enter a description');
+        setIsSubmitting(false);
         return;
       }
       
@@ -290,6 +297,8 @@ const [unreadCount, setUnreadCount] = useState(0);
     } catch (err) {
       console.error('Faculty submission error:', err);
       setError(err.message || 'Failed to save faculty');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1575,11 +1584,11 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                   />
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)} disabled={isSubmitting}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    {editingItem ? 'Update' : 'Add'} Faculty
+                  <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : (editingItem ? 'Update' : 'Add')} Faculty
                   </button>
                 </div>
               </form>

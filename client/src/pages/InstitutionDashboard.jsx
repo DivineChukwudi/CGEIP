@@ -1,4 +1,3 @@
-// client/src/pages/InstitutionDashboard.jsx - COMPLETE WITH AUTO-CLEAR NOTIFICATIONS
 import React, { useState, useEffect, useCallback } from 'react';
 import { institutionAPI } from '../utils/api';
 import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell, FaEye, FaDownload, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaFileAlt } from 'react-icons/fa';
@@ -24,6 +23,7 @@ export default function InstitutionDashboard({ user }) {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [applicationDetails, setApplicationDetails] = useState(null);
   const [studentTranscripts, setStudentTranscripts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'institution', user?.uid);
@@ -95,6 +95,10 @@ export default function InstitutionDashboard({ user }) {
 
   const handleSubmitFaculty = async (e) => {
     e.preventDefault();
+    // Prevent double submission on React StrictMode double-render
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     try {
       if (editingItem) {
         await institutionAPI.updateFaculty(editingItem.id, formData);
@@ -107,6 +111,8 @@ export default function InstitutionDashboard({ user }) {
       loadData();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -760,11 +766,11 @@ export default function InstitutionDashboard({ user }) {
                   />
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)} disabled={isSubmitting}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    {editingItem ? 'Update' : 'Add'} Faculty
+                  <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : (editingItem ? 'Update' : 'Add')} Faculty
                   </button>
                 </div>
               </form>
