@@ -947,20 +947,36 @@ router.put('/notifications/read-all', async (req, res) => {
 
 router.get('/institutions', async (req, res) => {
   try {
-    // Get ALL institutions (don't filter by status since institutions might not have status field)
+    console.log('📚 Student requesting institutions list...');
+    
+    // Get ALL institutions - no status filter needed
     const snapshot = await db.collection(collections.INSTITUTIONS).get();
     
-    const institutions = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    }));
+    const institutions = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return { 
+        id: doc.id,
+        name: data.name || 'Unnamed Institution',
+        description: data.description || '',
+        location: data.location || '',
+        contact: data.contact || '',
+        website: data.website || '',
+        createdAt: data.createdAt
+      };
+    });
     
-    console.log(`📚 Found ${institutions.length} institutions for student`);
+    console.log(`✅ Found ${institutions.length} institutions for student`);
+    
+    // Sort alphabetically by name
+    institutions.sort((a, b) => a.name.localeCompare(b.name));
     
     res.json(institutions);
   } catch (error) {
-    console.error('Get institutions error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Get institutions error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      message: 'Failed to fetch institutions'
+    });
   }
 });
 
