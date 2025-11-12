@@ -521,7 +521,7 @@ export default function StudentDashboard({ user }) {
                         onClick={() => handleViewCourses(inst)}
                         disabled={appCount >= 2}
                       >
-                        {appCount >= 2 ? 'Max Applications Reached' : 'View Courses'}
+                        {appCount >= 2 ? 'Max Applications Reached' : 'View Faculties'}
                       </button>
                     </div>
                   </div>
@@ -970,7 +970,7 @@ export default function StudentDashboard({ user }) {
                         className="btn-primary" 
                         onClick={() => handleSelectFaculty(faculty)}
                       >
-                        View Faculties & Courses
+                        View Courses
                       </button>
                     </div>
                   ))
@@ -990,7 +990,12 @@ export default function StudentDashboard({ user }) {
         {showModal && modalType === 'view-courses' && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <h2>Courses in {selectedFaculty?.name}</h2>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h2 style={{ marginBottom: '0.5rem' }}>Courses in {selectedFaculty?.name}</h2>
+                <p style={{ color: '#6b7280', margin: 0 }}>
+                  {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} available - Click on any course to apply
+                </p>
+              </div>
               
               <div className="modal-filters">
                 <div className="search-bar">
@@ -1017,42 +1022,49 @@ export default function StudentDashboard({ user }) {
               </div>
 
               <div className="courses-list">
-                {filteredCourses.map((course) => (
-                  <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
-                    <h3>{course.name}</h3>
-                    <p><strong>Faculty:</strong> {course.faculty?.name}</p>
-                    <p><strong>Duration:</strong> {course.duration}</p>
-                    <p><strong>Level:</strong> {course.level}</p>
-                    <p>{course.description}</p>
-                    
-                    {!course.eligible && (
-                      <div className="eligibility-warning">
-                        <FaTimesCircle style={{ color: '#e74c3c' }} />
-                        <div>
-                          <strong>Not Eligible</strong>
-                          <p>{course.eligibilityReason}</p>
-                          <small>Required: {course.requiredQualification}</small>
-                          <small>Your qualifications: {course.yourQualifications || 'None listed'}</small>
+                {filteredCourses.length > 0 ? (
+                  filteredCourses.map((course) => (
+                    <div key={course.id} className={`course-item ${!course.eligible ? 'not-eligible' : ''}`}>
+                      <h3>{course.name}</h3>
+                      <p><strong>Faculty:</strong> {course.faculty?.name}</p>
+                      <p><strong>Duration:</strong> {course.duration}</p>
+                      <p><strong>Level:</strong> {course.level}</p>
+                      <p>{course.description}</p>
+                      
+                      {!course.eligible && (
+                        <div className="eligibility-warning">
+                          <FaTimesCircle style={{ color: '#e74c3c' }} />
+                          <div>
+                            <strong>Not Eligible</strong>
+                            <p>{course.eligibilityReason}</p>
+                            <small>Required: {course.requiredQualification}</small>
+                            <small>Your qualifications: {course.yourQualifications || 'None listed'}</small>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    
-                    {course.eligible && (
-                      <div className="eligibility-success">
-                        <FaCheckCircle style={{ color: '#27ae60' }} />
-                        <span>{course.eligibilityReason}</span>
-                      </div>
-                    )}
-                    
-                    <button 
-                      className="btn-primary" 
-                      onClick={() => handleApplyCourse(course)}
-                      disabled={!course.eligible}
-                    >
-                      {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
-                    </button>
+                      )}
+                      
+                      {course.eligible && (
+                        <div className="eligibility-success">
+                          <FaCheckCircle style={{ color: '#27ae60' }} />
+                          <span>{course.eligibilityReason}</span>
+                        </div>
+                      )}
+                      
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => handleApplyCourse(course)}
+                        disabled={!course.eligible}
+                      >
+                        {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
+                    <p style={{ fontSize: '16px', marginBottom: '10px' }}>No courses found</p>
+                    <small>Try adjusting your search or filter to see more courses</small>
                   </div>
-                ))}
+                )}
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                 <button className="btn-secondary" onClick={() => {

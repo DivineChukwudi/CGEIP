@@ -1673,7 +1673,20 @@ tr.selected-row {
 }
 
 .course-item button {
-  margin-top: 1rem;
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.course-item button:not(:disabled):hover {
+  transform: scale(1.02);
+}
+
+.course-item button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .applicant-actions {
@@ -3678,10 +3691,18 @@ button:disabled {
 /* Course Item in Modal */
 .course-item {
   background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 15px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.course-item:hover {
+  border-color: #2563eb;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.15);
+  transform: translateY(-2px);
 }
 
 .course-item.not-eligible {
@@ -3689,16 +3710,24 @@ button:disabled {
   border-color: #fecaca;
 }
 
+.course-item.not-eligible:hover {
+  border-color: #fecaca;
+  box-shadow: 0 2px 8px rgba(254, 202, 202, 0.2);
+  transform: none;
+}
+
 .course-item h3 {
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   color: #1f2937;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .course-item p {
   color: #6b7280;
   font-size: 14px;
-  margin: 5px 0;
+  margin: 8px 0;
+  line-height: 1.5;
 }
 
 .eligibility-warning {
