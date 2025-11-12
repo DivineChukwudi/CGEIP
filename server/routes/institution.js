@@ -1,4 +1,3 @@
-// server/routes/institution.js - COMPLETE WITH STATISTICS
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -239,6 +238,7 @@ router.post('/courses', async (req, res) => {
       level: level || 'Diploma',
       capacity: capacity || 50,
       enrolledCount: 0,
+      status: 'active',
       institutionId: req.user.institutionId || req.user.uid,
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid

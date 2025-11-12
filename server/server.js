@@ -1,4 +1,3 @@
-// server/server.js - FIREBASE HOSTING VERSION
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -341,6 +340,7 @@ if (require.main === module) {
     console.log(`   • Health: http://localhost:${PORT}/`); 
     console.log(`   • Status: http://localhost:${PORT}/api/status`);
     console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
+    console.log(`\n💡 REMINDER: All new courses MUST have status: 'active' in Firebase`);
     console.log('');
   });
 }

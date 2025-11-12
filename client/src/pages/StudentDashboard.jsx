@@ -132,16 +132,21 @@ export default function StudentDashboard({ user }) {
 
   // Debug: Log whenever courses state changes
   useEffect(() => {
+    const filtered = courses.filter(course => 
+      (filterLevel === 'all' || course.level === filterLevel) &&
+      (searchTerm === '' || course.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    
     console.log('🎓 COURSES STATE CHANGED');
     console.log('  Total courses in state:', courses.length);
     console.log('  Selected faculty:', selectedFaculty?.name || 'None');
     console.log('  Modal type:', modalType);
     console.log('  Search term:', searchTerm);
     console.log('  Filter level:', filterLevel);
-    console.log('  Filtered courses:', filteredCourses.length);
+    console.log('  Filtered courses:', filtered.length);
     console.log('  Full courses array:', courses);
-    console.log('  Filtered courses array:', filteredCourses);
-  }, [courses, selectedFaculty, modalType, searchTerm, filterLevel, filteredCourses]);
+    console.log('  Filtered courses array:', filtered);
+  }, [courses, selectedFaculty, modalType, searchTerm, filterLevel]);
 
   const handleViewCourses = async (institution) => {
     setSelectedInstitution(institution);

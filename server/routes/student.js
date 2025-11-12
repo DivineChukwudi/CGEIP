@@ -336,21 +336,32 @@ router.get('/institutions/:institutionId/faculties', async (req, res) => {
 router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (req, res) => {
   try {
     const { institutionId, facultyId } = req.params;
-    console.log('Fetching courses for faculty:', facultyId, 'in institution:', institutionId);
+    console.log('🔍 Fetching courses for faculty:', facultyId, 'in institution:', institutionId);
     
     // Get student profile for eligibility check
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const student = studentDoc.data();
     
-    const snapshot = await db.collection(collections.COURSES)
+    // Get ALL courses for this faculty (don't filter by status yet)
+    const allCoursesSnapshot = await db.collection(collections.COURSES)
       .where('institutionId', '==', institutionId)
       .where('facultyId', '==', facultyId)
-      .where('status', '==', 'active')
       .get();
     
-    console.log(`Found ${snapshot.size} courses for faculty`);
+    console.log(`📋 Total courses found for this faculty: ${allCoursesSnapshot.size}`);
     
-    const courses = await Promise.all(snapshot.docs.map(async doc => {
+    // Filter to only active courses (treat missing status as active)
+    const activeCourses = allCoursesSnapshot.docs.filter(doc => {
+      const status = doc.data().status;
+      const isActive = status === 'active' || status === undefined;
+      const courseName = doc.data().name;
+      console.log(`  - ${courseName} (status: ${status || 'undefined → treating as active'})`);
+      return isActive;
+    });
+    
+    console.log(`✅ Found ${activeCourses.length} ACTIVE courses for faculty`);
+    
+    const courses = await Promise.all(activeCourses.map(async doc => {
       const courseData = doc.data();
       
       const facultyDoc = await db.collection(collections.FACULTIES)
