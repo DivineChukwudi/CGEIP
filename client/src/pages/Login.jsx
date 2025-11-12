@@ -1,4 +1,3 @@
-// client/src/pages/Login.jsx - COMPLETE VERSION WITH EMAIL VERIFICATION
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -113,6 +112,27 @@ export default function Login({ setUser }) {
     setError('');
     setShowResendButton(false);
     setResendSuccess('');
+
+    // ✅ Validate form fields
+    if (!formData.email || !formData.email.trim()) {
+      setError('Please enter your email address');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.password || !formData.password.trim()) {
+      setError('Please enter your password');
+      setLoading(false);
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await authAPI.login(formData);
@@ -401,7 +421,11 @@ export default function Login({ setUser }) {
             </div>
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading}>
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            disabled={loading || !formData.email.trim() || !formData.password.trim()}
+          >
             {loading ? (
               <>
                 <FaSpinner className="spinner" /> Logging in...

@@ -1,4 +1,3 @@
-// client/src/pages/Register.jsx - COMPLETE FIXED VERSION WITH GOOGLE FLOW
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
@@ -130,6 +129,45 @@ export default function Register() {
     setSuccess('');
 
     console.log('Submitting registration form');
+
+    // ✅ Validate all required fields
+    if (!formData.name || !formData.name.trim()) {
+      setError('Please enter your full name');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.email || !formData.email.trim()) {
+      setError('Please enter your email address');
+      setLoading(false);
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.password || !formData.password.trim()) {
+      setError('Please enter a password');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.confirmPassword || !formData.confirmPassword.trim()) {
+      setError('Please confirm your password');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.role || !formData.role.trim()) {
+      setError('Please select an account type');
+      setLoading(false);
+      return;
+    }
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -451,7 +489,11 @@ export default function Register() {
             </div>
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading || googleLoading}>
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            disabled={loading || googleLoading || !formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.confirmPassword.trim() || !formData.role.trim()}
+          >
             {loading ? (
               <>
                 <FaSpinner className="spinner" /> Registering...
