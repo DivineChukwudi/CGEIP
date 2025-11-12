@@ -63,23 +63,196 @@ function checkCourseEligibility(student, course) {
 
   const requiredLevelValue = qualificationHierarchy[requiredLevel] || 0;
 
-  // SIMPLIFIED: Check if student's highest qualification >= required qualification
-  // This means: Bachelor (3) can apply for Diploma (2) or lower requirement
-  // But: Diploma (2) cannot apply for Degree (3) programs
+  // DESCENDING ELIGIBILITY: Higher qualifications can apply for equal or LOWER level courses
   if (studentHighestLevel >= requiredLevelValue) {
-    return { 
-      eligible: true,
-      message: 'You meet the qualification requirements'
-    };
+    // Level requirement met, now check subject prerequisites
+    const eligibilityStatus = checkSubjectPrerequisites(student, course);
+    return eligibilityStatus;
   }
 
   // If not eligible, provide detailed feedback
   return {
     eligible: false,
-    reason: `At least a ${requiredLevel} is required for this program`,
+    reason: `You do not meet the minimum qualification for this program. A ${requiredLevel} is required.`,
     requiredQualification: requiredLevel,
     yourQualifications: studentQualifications.join(', ') || 'None',
     message: `Your highest qualification is ${studentQualifications[studentQualifications.length - 1] || 'not listed'}, but this program requires ${requiredLevel}`
+  };
+}
+
+// NEW: Check if student has required subjects for the course
+function checkSubjectPrerequisites(student, course) {
+  const studentSubjects = student.subjects || [];
+  const studentTranscript = student.transcriptId ? student.transcript : null;
+  const courseRequiredSubjects = course.requiredSubjects || [];
+  const coursePreferredSubjects = course.preferredSubjects || [];
+  const isGeneralCourse = course.isGeneralCourse !== false; // Default to general if not specified
+  
+  // Extract subject names and grades from different sources
+  let studentSubjectData = [];
+  
+  // From transcript uploaded subjects
+  if (Array.isArray(studentSubjects)) {
+    studentSubjectData = studentSubjects.map(s => {
+      if (typeof s === 'string') {
+        return { name: s.toLowerCase(), grade: null, gradeValue: 0 };
+      }
+      if (s.subject) {
+        return { 
+          name: s.subject.toLowerCase(), 
+          grade: s.grade || null,
+          gradeValue: s.gradeValue || 0
+        };
+      }
+      return null;
+    }).filter(s => s);
+  }
+
+  console.log(`🎓 DETAILED Subject Check for "${course.name}":`);
+  console.log(`   ═══════════════════════════════════════════`);
+  console.log(`   📚 Student Subjects (${studentSubjectData.length}):`);
+  studentSubjectData.forEach(s => {
+    console.log(`      • ${s.name} ${s.gradeValue ? `(${s.grade})` : ''}`);
+  });
+  
+  console.log(`   ✋ Required Subjects (${courseRequiredSubjects.length}):`);
+  courseRequiredSubjects.forEach(s => {
+    console.log(`      • ${s.toLowerCase()}`);
+  });
+  
+  console.log(`   💡 Preferred Subjects (${coursePreferredSubjects.length}):`);
+  coursePreferredSubjects.forEach(s => {
+    console.log(`      • ${s.toLowerCase()}`);
+  });
+  console.log(`   ═══════════════════════════════════════════`);
+
+  // If no required subjects, it's a general course
+  if (!courseRequiredSubjects || courseRequiredSubjects.length === 0) {
+    console.log(`   ✅ No specific subjects required (General Course)`);
+    return {
+      eligible: true,
+      message: 'This is a general course - no specific subjects required',
+      visible: true,
+      subjectPrerequisites: null
+    };
+  }
+
+  // Detailed subject matching with fuzzy matching
+  const findSubjectMatch = (requiredSubject, studentSubjects) => {
+    const required = requiredSubject.toLowerCase().trim();
+    
+    return studentSubjects.find(studentSubj => {
+      const student = studentSubj.name.toLowerCase();
+      
+      // Exact match
+      if (student === required) return true;
+      
+      // Partial word matches (e.g., "Maths" matches "Mathematics")
+      const requiredWords = required.split(/[\s-_]/);
+      const studentWords = student.split(/[\s-_]/);
+      
+      // Check if any student word contains the required word
+      return requiredWords.some(reqWord => 
+        studentWords.some(studWord => 
+          studWord.includes(reqWord) || reqWord.includes(studWord)
+        )
+      );
+    });
+  };
+
+  // Check required subjects (STRICT)
+  const requiredMatches = courseRequiredSubjects.map(required => {
+    const match = findSubjectMatch(required, studentSubjectData);
+    return {
+      subject: required,
+      found: !!match,
+      studentHas: match || null
+    };
+  });
+
+  const allRequiredMet = requiredMatches.every(r => r.found);
+  const missingRequired = requiredMatches.filter(r => !r.found);
+
+  console.log(`   🔍 Required Subject Analysis:`);
+  requiredMatches.forEach(r => {
+    console.log(`      ${r.found ? '✅' : '❌'} ${r.subject} ${r.found ? `(student has: ${r.studentHas.name})` : '(MISSING)'}`);
+  });
+
+  // Check preferred subjects (FLEXIBLE - bonus points)
+  let preferredScore = 0;
+  if (coursePreferredSubjects.length > 0) {
+    const preferredMatches = coursePreferredSubjects.map(preferred => {
+      const match = findSubjectMatch(preferred, studentSubjectData);
+      if (match) preferredScore += 20; // 20 points per preferred subject
+      return {
+        subject: preferred,
+        found: !!match
+      };
+    });
+
+    console.log(`   💫 Preferred Subject Analysis (Bonus):`);
+    preferredMatches.forEach(p => {
+      console.log(`      ${p.found ? '✅' : '⏭️'} ${p.subject} ${p.found ? '(+20 bonus points)' : '(optional)'}`);
+    });
+  }
+
+  // Calculate eligibility score
+  let eligibilityScore = 0;
+  let eligibilityReason = [];
+
+  if (allRequiredMet) {
+    eligibilityScore = 100; // Base score for meeting all requirements
+    eligibilityReason.push('Has all required subjects');
+    
+    if (preferredScore > 0) {
+      eligibilityReason.push(`+${preferredScore} bonus for preferred subjects`);
+    }
+
+    console.log(`   🎯 VERDICT: ✅ ELIGIBLE (Score: ${eligibilityScore + preferredScore}%)`);
+    console.log(`      Reason: ${eligibilityReason.join(', ')}`);
+
+    return {
+      eligible: true,
+      message: `You have all required subjects. ${preferredScore > 0 ? `Bonus: You also have ${preferredScore / 20} preferred subject(s)!` : ''}`,
+      visible: true,
+      eligibilityScore: eligibilityScore + preferredScore,
+      subjectPrerequisites: {
+        allRequiredMet: true,
+        requiredSubjects: requiredMatches,
+        preferredSubjects: coursePreferredSubjects.map(p => ({
+          subject: p,
+          found: coursePreferredSubjects.some(pref => 
+            findSubjectMatch(pref, studentSubjectData)
+          )
+        })),
+        totalScore: eligibilityScore + preferredScore
+      }
+    };
+  }
+
+  // If missing required subjects
+  const missingCount = missingRequired.length;
+  const percentageMissing = Math.round((missingCount / courseRequiredSubjects.length) * 100);
+
+  console.log(`   🎯 VERDICT: ❌ NOT ELIGIBLE`);
+  console.log(`      Missing: ${missingRequired.map(m => m.subject).join(', ')}`);
+  console.log(`      ${percentageMissing}% of required subjects missing`);
+  console.log(`      Course Visibility: ${isGeneralCourse ? 'HIDDEN (General course allows admin review)' : 'HIDDEN (Specific requirements not met)'}`);
+
+  // Return NOT eligible - course will be hidden
+  return {
+    eligible: false,
+    message: `You're missing required subjects: ${missingRequired.map(m => m.subject).join(', ')}. You need these subjects to apply for this course.`,
+    visible: false, // IMPORTANT: Hide from course list
+    reason: `This course requires: ${courseRequiredSubjects.join(', ')}`,
+    missingSubjects: missingRequired.map(m => m.subject),
+    subjectPrerequisites: {
+      allRequiredMet: false,
+      requiredSubjects: requiredMatches,
+      missingCount: missingCount,
+      percentageMissing: percentageMissing,
+      totalScore: 0
+    }
   };
 }
 
@@ -332,7 +505,7 @@ router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (r
       // REQUIREMENT #2: Check eligibility for this course
       const eligibility = checkCourseEligibility(student, courseData);
       
-      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}`);
+      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}, Visible: ${eligibility.visible}`);
       
       return {
         id: doc.id,
@@ -342,14 +515,19 @@ router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (r
         availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null,
         // Add eligibility info
         eligible: eligibility.eligible,
+        visible: eligibility.visible !== false, // IMPORTANT: Filter based on visibility
         eligibilityReason: eligibility.reason || eligibility.message,
         requiredQualification: eligibility.requiredQualification,
         yourQualifications: eligibility.yourQualifications
       };
     }));
 
-    console.log(`📤 Returning ${courses.length} courses to student`);
-    res.json(courses);
+    // FILTER: Only return visible/eligible courses (automatic filtering)
+    const visibleCourses = courses.filter(course => course.visible);
+    const hiddenCount = courses.length - visibleCourses.length;
+
+    console.log(`📤 Returning ${visibleCourses.length} visible courses to student (${hiddenCount} hidden due to eligibility)`);
+    res.json(visibleCourses);
   } catch (error) {
     console.error('❌ Get courses error:', error);
     res.status(500).json({ error: error.message });
@@ -405,7 +583,7 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
       // REQUIREMENT #2: Check eligibility for this course
       const eligibility = checkCourseEligibility(student, courseData);
       
-      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}`);
+      console.log(`  ✓ Course: ${courseData.name} (ID: ${doc.id}), Eligible: ${eligibility.eligible}, Visible: ${eligibility.visible}`);
       
       return {
         id: doc.id,
@@ -415,14 +593,19 @@ router.get('/institutions/:institutionId/courses', async (req, res) => {
         availableSpots: courseData.capacity ? courseData.capacity - appCount.size : null,
         // Add eligibility info
         eligible: eligibility.eligible,
+        visible: eligibility.visible !== false, // IMPORTANT: Filter based on visibility
         eligibilityReason: eligibility.reason || eligibility.message,
         requiredQualification: eligibility.requiredQualification,
         yourQualifications: eligibility.yourQualifications
       };
     }));
 
-    console.log(`📤 Returning ${courses.length} courses to student`);
-    res.json(courses);
+    // FILTER: Only return visible/eligible courses (automatic filtering)
+    const visibleCourses = courses.filter(course => course.visible);
+    const hiddenCount = courses.length - visibleCourses.length;
+
+    console.log(`📤 Returning ${visibleCourses.length} visible courses to student (${hiddenCount} hidden due to eligibility)`);
+    res.json(visibleCourses);
   } catch (error) {
     console.error('❌ Get courses error:', error);
     res.status(500).json({ error: error.message });
@@ -721,11 +904,17 @@ router.post('/transcripts', upload.fields([
   { name: 'certificates', maxCount: 5 }
 ]), async (req, res) => {
   try {
-    const { graduationYear, gpa, extraCurricularActivities, subjects, overallPercentage } = req.body;
+    const { graduationYear, gpa, extraCurricularActivities, subjects, overallPercentage, qualificationLevel } = req.body;
 
     if (!req.files?.transcript || !graduationYear) {
       return res.status(400).json({
         error: 'Transcript file and graduation year are required'
+      });
+    }
+
+    if (!qualificationLevel) {
+      return res.status(400).json({
+        error: 'Please select your qualification level'
       });
     }
 
@@ -767,6 +956,7 @@ router.post('/transcripts', upload.fields([
       transcriptUrl,
       certificates: certificateUrls,
       graduationYear: year,
+      qualificationLevel, // ADDED: Store qualification level
       gpa: gpa ? parseFloat(gpa) : null,
       extraCurricularActivities: extraCurricularActivities
         ? JSON.parse(extraCurricularActivities)
@@ -784,6 +974,7 @@ router.post('/transcripts', upload.fields([
       isGraduate: true,
       transcriptId: docRef.id,
       transcriptVerified: false,
+      qualifications: [qualificationLevel], // ADDED: Store as array with the selected level
       // Store overall percentage in user profile for quick access
       overallPercentage: transcriptData.overallPercentage,
       updatedAt: new Date().toISOString()

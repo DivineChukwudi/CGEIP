@@ -1,4 +1,3 @@
-// client/src/components/TranscriptUploadModal.jsx - FIXED VERSION WITH FALLBACK
 import React, { useState } from 'react';
 import { FaFileUpload, FaSpinner, FaCheckCircle, FaTrash, FaPlus, FaExclamationTriangle } from 'react-icons/fa';
 
@@ -8,6 +7,16 @@ const COMMON_SUBJECTS = [
   'Geography', 'Computer Science', 'Business Studies', 'Economics',
   'Accounting', 'French', 'Sesotho', 'Physical Education', 'Art',
   'Music', 'Agricultural Science', 'Religious Studies'
+];
+
+// Qualification levels
+const QUALIFICATION_LEVELS = [
+  { value: 'High School', label: 'High School' },
+  { value: 'Certificate', label: 'Certificate' },
+  { value: 'Diploma', label: 'Diploma' },
+  { value: 'Degree', label: 'Degree (Bachelor)' },
+  { value: 'Masters', label: 'Masters' },
+  { value: 'PhD', label: 'PhD' }
 ];
 
 export default function TranscriptUploadModal({ onClose, onSubmit }) {
@@ -30,6 +39,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
   const [graduationYear, setGraduationYear] = useState('');
   const [gpa, setGpa] = useState('');
   const [activities, setActivities] = useState('');
+  const [qualificationLevel, setQualificationLevel] = useState('Degree');
 
   const handlePDFUpload = async (e) => {
     const file = e.target.files[0];
@@ -152,6 +162,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     const formData = new FormData();
     formData.append('transcript', pdfFile);
     formData.append('graduationYear', graduationYear);
+    formData.append('qualificationLevel', qualificationLevel);
     
     if (gpa) formData.append('gpa', gpa);
     if (activities) formData.append('extraCurricularActivities', JSON.stringify(activities.split(',').map(a => a.trim())));
@@ -358,6 +369,23 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
               <h3>📅 Additional Information</h3>
 
               <div className="form-group">
+                <label>Your Qualification Level *</label>
+                <select
+                  value={qualificationLevel}
+                  onChange={(e) => setQualificationLevel(e.target.value)}
+                  required
+                  disabled={submitting}
+                  className="qualification-select"
+                >
+                  <option value="">Select Your Qualification</option>
+                  {QUALIFICATION_LEVELS.map(qual => (
+                    <option key={qual.value} value={qual.value}>{qual.label}</option>
+                  ))}
+                </select>
+                <small>This is the highest qualification you currently hold</small>
+              </div>
+
+              <div className="form-group">
                 <label>Graduation Year *</label>
                 <input
                   type="number"
@@ -429,6 +457,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
 
               <div className="summary-box">
                 <h4>📊 Summary</h4>
+                <p><strong>Qualification:</strong> {QUALIFICATION_LEVELS.find(q => q.value === qualificationLevel)?.label}</p>
                 <p><strong>Subjects:</strong> {subjects.filter(s => s.subject && s.grade).length}</p>
                 <p><strong>Overall:</strong> {overallPercentage || calculateAverage()}%</p>
                 <p><strong>Certificates:</strong> {certificateFiles.length}</p>
