@@ -85,8 +85,8 @@
 
 .btn-primary {
   padding: 10px 24px;
-  background: #2563eb !important;
-  color: white !important;
+  background: #2563eb;
+  color: white;
   border: none;
   border-radius: 6px;
   font-weight: 600;
@@ -99,19 +99,8 @@
 }
 
 .btn-primary:hover {
-  background: #1e40af !important;
+  background: #1e40af;
   box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
-}
-
-.hero-buttons .btn-primary {
-  padding: 16px 32px !important;
-  font-size: 16px !important;
-  background: #2563eb !important;
-  color: white !important;
-}
-
-.hero-buttons .btn-primary:hover {
-  background: #1e40af !important;
 }
 
 .btn-secondary {
@@ -137,6 +126,32 @@
 .btn-large {
   padding: 16px 32px;
   font-size: 16px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-buttons .btn-primary {
+  background: #2563eb !important;
+  color: white !important;
+  border: none !important;
+}
+
+.hero-buttons .btn-primary:hover {
+  background: #1e40af !important;
+}
+
+.hero-buttons .btn-secondary {
+  background: #0ea5e9 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.hero-buttons .btn-secondary:hover {
+  background: #06b6d4 !important;
 }
 
 .btn-white {
