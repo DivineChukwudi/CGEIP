@@ -63,65 +63,23 @@ function checkCourseEligibility(student, course) {
 
   const requiredLevelValue = qualificationHierarchy[requiredLevel] || 0;
 
-  // Check specific requirements for each level
-  if (requiredLevel === 'PhD') {
-    if (studentHighestLevel < qualificationHierarchy['Masters']) {
-      return {
-        eligible: false,
-        reason: 'A Master\'s Degree is required for PhD programs',
-        requiredQualification: 'Masters',
-        yourQualifications: studentQualifications.join(', ') || 'None'
-      };
-    }
+  // SIMPLIFIED: Check if student's highest qualification >= required qualification
+  // This means: Bachelor (3) can apply for Diploma (2) or lower requirement
+  // But: Diploma (2) cannot apply for Degree (3) programs
+  if (studentHighestLevel >= requiredLevelValue) {
+    return { 
+      eligible: true,
+      message: 'You meet the qualification requirements'
+    };
   }
 
-  if (requiredLevel === 'Masters') {
-    if (studentHighestLevel < qualificationHierarchy['Degree']) {
-      return {
-        eligible: false,
-        reason: 'A Bachelor\'s Degree is required for Masters programs',
-        requiredQualification: 'Degree',
-        yourQualifications: studentQualifications.join(', ') || 'None'
-      };
-    }
-  }
-
-  if (requiredLevel === 'Degree') {
-    if (studentHighestLevel < qualificationHierarchy['Diploma']) {
-      return {
-        eligible: false,
-        reason: 'At least a Diploma or High School Certificate is required for Degree programs',
-        requiredQualification: 'Diploma or High School',
-        yourQualifications: studentQualifications.join(', ') || 'None'
-      };
-    }
-  }
-
-  if (requiredLevel === 'Diploma') {
-    if (studentHighestLevel < qualificationHierarchy['Certificate']) {
-      return {
-        eligible: false,
-        reason: 'At least a Certificate or High School is required for Diploma programs',
-        requiredQualification: 'Certificate or High School',
-        yourQualifications: studentQualifications.join(', ') || 'None'
-      };
-    }
-  }
-
-  if (requiredLevel === 'Certificate') {
-    if (studentHighestLevel < qualificationHierarchy['High School']) {
-      return {
-        eligible: false,
-        reason: 'High School education is required for Certificate programs',
-        requiredQualification: 'High School',
-        yourQualifications: studentQualifications.join(', ') || 'None'
-      };
-    }
-  }
-
-  return { 
-    eligible: true,
-    message: 'You meet the qualification requirements'
+  // If not eligible, provide detailed feedback
+  return {
+    eligible: false,
+    reason: `At least a ${requiredLevel} is required for this program`,
+    requiredQualification: requiredLevel,
+    yourQualifications: studentQualifications.join(', ') || 'None',
+    message: `Your highest qualification is ${studentQualifications[studentQualifications.length - 1] || 'not listed'}, but this program requires ${requiredLevel}`
   };
 }
 
