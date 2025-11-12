@@ -233,8 +233,37 @@ export default function StudentDashboard({ user }) {
 
   const handleApplyJob = async (job) => {
     setSelectedJob(job);
-    setModalType('apply-job');
+    setModalType('upload-cv');
+    setUploadContext('cv');
     setShowModal(true);
+  };
+
+  // Handle CV upload for job applications
+  const handleJobCVUpload = async (formData) => {
+    try {
+      setIsUploading(true);
+      setError('');
+      setSuccess('');
+      
+      // Extract metadata from formData to pass to applyForJob
+      const cvMethod = formData.get('cvMethod');
+      const coverLetter = formData.get('coverLetter');
+      const supportingDocsCount = parseInt(formData.get('supportingDocsCount')) || 0;
+
+      // Call the job application endpoint
+      const result = await studentAPI.applyForJob(selectedJob.id, formData);
+      
+      setSuccess('Job application submitted successfully!');
+      setShowModal(false);
+      setIsUploading(false);
+
+      setTimeout(() => {
+        loadData();
+      }, 1500);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      setIsUploading(false);
+    }
   };
 
   const handleSubmitJobApplication = async (e) => {
@@ -1172,54 +1201,8 @@ export default function StudentDashboard({ user }) {
         )}
 
         {/* APPLY FOR JOB MODAL */}
-        {showModal && modalType === 'apply-job' && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h2>Apply for {selectedJob?.title}</h2>
-              <div className="job-details">
-                <p><strong>Company:</strong> {selectedJob?.company}</p>
-                <p><strong>Location:</strong> {selectedJob?.location}</p>
-                <p><strong>Salary:</strong> {selectedJob?.salary}</p>
-              </div>
-              <form onSubmit={handleSubmitJobApplication}>
-                <div className="form-group">
-                  <label>CV URL * <span style={{ fontSize: '12px', color: '#666' }}>(Required)</span></label>
-                  <input
-                    type="url"
-                    name="cvUrl"
-                    placeholder="https://example.com/your-cv.pdf"
-                    required
-                  />
-                  <small>Provide a link to your CV (PDF, Google Drive, Dropbox, etc.)</small>
-                </div>
-                
-                <div className="form-group">
-                  <label>Cover Letter <span style={{ fontSize: '12px', color: '#999' }}>(Optional)</span></label>
-                  <textarea
-                    name="coverLetter"
-                    rows="6"
-                    placeholder="Tell the employer why you're a great fit for this position (optional)..."
-                  />
-                  <small>Share your motivation and relevant experience</small>
-                </div>
-
-                <div className="form-group">
-                  <label style={{ fontSize: '12px', color: '#666' }}>Additional Documents</label>
-                  <small>You can provide links to portfolio, certificates, LinkedIn profile, etc. in the cover letter above</small>
-                </div>
-
-                <div className="modal-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Submit Application
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* OLD APPLY JOB MODAL - NOW REPLACED BY CVUploadModal */}
+        {/* Job applications now use CVUploadModal when uploadContext='cv' */}
 
         {/* UPLOAD TRANSCRIPT MODAL */}
         {showModal && modalType === 'upload-transcript' && (
@@ -1233,7 +1216,7 @@ export default function StudentDashboard({ user }) {
         {showModal && modalType === 'upload-cv' && (
           <CVUploadModal
             onClose={() => setShowModal(false)}
-            onSubmit={handleTranscriptUpload}
+            onSubmit={uploadContext === 'cv' ? handleJobCVUpload : handleTranscriptUpload}
           />
         )}
 

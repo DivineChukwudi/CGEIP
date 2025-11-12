@@ -1088,15 +1088,35 @@ router.get('/jobs', async (req, res) => {
 router.post('/jobs/:jobId/apply', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { coverLetter, cvUrl, documents } = req.body;
+    const { coverLetter, cvUrl, cvMethod } = req.body;
+    let finalCvUrl = cvUrl;
 
-    // CV is required, cover letter and documents are optional
-    if (!cvUrl) {
+    // Determine which CV submission method is being used
+    const hasFile = req.file && req.file.buffer;
+    const hasUrl = cvUrl && cvUrl.trim();
+    const submissionMethod = cvMethod || (hasFile ? 'file' : 'url');
+
+    // CV is required - either file or URL
+    if (!hasFile && !hasUrl) {
       return res.status(400).json({ 
-        error: 'CV is required to apply for jobs' 
+        error: 'CV is required. Please either upload a file or provide a URL.' 
       });
     }
 
+    // If using file upload method, upload to Cloudinary first
+    if (hasFile) {
+      try {
+        console.log(`📁 Uploading CV file for student ${req.user.uid}...`);
+        finalCvUrl = await uploadToCloudinary(req.file, req.user.uid, 'cv');
+        console.log(`✅ CV uploaded successfully: ${finalCvUrl}`);
+      } catch (uploadError) {
+        return res.status(500).json({ 
+          error: 'Failed to upload CV file: ' + uploadError.message 
+        });
+      }
+    }
+
+    // Check for duplicate application
     const existingApp = await db.collection(collections.JOB_APPLICATIONS)
       .where('studentId', '==', req.user.uid)
       .where('jobId', '==', jobId)
@@ -1125,12 +1145,30 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
     // Companies can review candidates who might not be perfect fits
     const match = calculateJobMatchAndEligibility(studentData, job);
 
+    // Handle supporting documents if provided
+    let supportingDocUrls = [];
+    if (req.files && Array.isArray(req.files)) {
+      try {
+        for (const docFile of req.files) {
+          const docUrl = await uploadToCloudinary(docFile, req.user.uid, 'cv/supporting');
+          supportingDocUrls.push({
+            name: docFile.originalname,
+            url: docUrl
+          });
+        }
+      } catch (docError) {
+        console.error('Warning: Failed to upload supporting document:', docError.message);
+        // Don't block application if supporting docs fail
+      }
+    }
+
     const applicationData = {
       studentId: req.user.uid,
       jobId,
       coverLetter: coverLetter?.trim() || '',
-      cvUrl,
-      documents: documents || [],
+      cvUrl: finalCvUrl,
+      cvSubmissionMethod: submissionMethod, // 'file' or 'url' for tracking
+      supportingDocuments: supportingDocUrls,
       status: 'pending',
       appliedAt: new Date().toISOString(),
       qualificationMatch: match.score,

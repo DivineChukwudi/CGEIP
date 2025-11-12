@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { FaFileUpload, FaSpinner, FaTimes, FaCheckCircle, FaTrash } from 'react-icons/fa';
+import { FaFileUpload, FaSpinner, FaTimes, FaCheckCircle, FaTrash, FaLink } from 'react-icons/fa';
 
 export default function CVUploadModal({ onClose, onSubmit }) {
+  const [cvMethod, setCvMethod] = useState('file'); // 'file' or 'url'
   const [cvFile, setCvFile] = useState(null);
+  const [cvUrl, setCvUrl] = useState('');
   const [supportingDocs, setSupportingDocs] = useState([]);
   const [coverLetter, setCoverLetter] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -71,9 +73,24 @@ export default function CVUploadModal({ onClose, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!cvFile) {
-      setError('Please upload your CV');
+    // Validate CV - either file OR url must be provided
+    if (cvMethod === 'file' && !cvFile) {
+      setError('Please upload your CV file');
       return;
+    }
+
+    if (cvMethod === 'url') {
+      if (!cvUrl.trim()) {
+        setError('Please provide a CV URL');
+        return;
+      }
+      // Basic URL validation
+      try {
+        new URL(cvUrl);
+      } catch {
+        setError('Please enter a valid URL');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -81,7 +98,14 @@ export default function CVUploadModal({ onClose, onSubmit }) {
 
     try {
       const formData = new FormData();
-      formData.append('cvFile', cvFile);
+      formData.append('cvMethod', cvMethod);
+      
+      if (cvMethod === 'file') {
+        formData.append('cvFile', cvFile);
+      } else {
+        formData.append('cvUrl', cvUrl);
+      }
+      
       formData.append('coverLetter', coverLetter);
       
       // Append supporting documents
@@ -136,7 +160,7 @@ export default function CVUploadModal({ onClose, onSubmit }) {
         <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f0fdf4', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
           <strong style={{ color: '#047857' }}>📋 Job Application Requirements</strong>
           <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#4b5563' }}>
-            CV file is required (PDF, Word, or other document format). Cover letter and supporting documents are optional but recommended.
+            CV is required (choose file upload or URL). Cover letter and supporting documents are optional but recommended.
           </p>
         </div>
 
@@ -147,47 +171,146 @@ export default function CVUploadModal({ onClose, onSubmit }) {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Step 1: CV File Upload */}
-          <div className="form-group">
-            <label htmlFor="cvFile">CV File * <span style={{ fontSize: '12px', color: '#666' }}>(Required)</span></label>
-            <div style={{
-              border: '2px dashed #d1d5db',
-              borderRadius: '8px',
-              padding: '30px',
-              textAlign: 'center',
-              cursor: 'pointer',
-              backgroundColor: '#f9fafb',
-              transition: 'all 0.3s ease'
-            }}>
-              <input
-                id="cvFile"
-                type="file"
-                accept=".pdf,.doc,.docx,.odt,.txt"
-                onChange={handleCVUpload}
-                style={{ display: 'none' }}
-              />
-              {cvFile ? (
-                <div style={{ color: '#10b981' }}>
-                  <FaCheckCircle size={32} style={{ marginBottom: '10px' }} />
-                  <p style={{ margin: '10px 0 0 0', fontWeight: '600' }}>{cvFile.name}</p>
-                  <small>{(cvFile.size / 1024 / 1024).toFixed(2)} MB</small>
-                </div>
-              ) : (
-                <div
-                  onClick={() => document.getElementById('cvFile').click()}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <FaFileUpload size={32} style={{ color: '#10b981', marginBottom: '10px' }} />
-                  <p style={{ margin: '10px 0', fontWeight: '600', color: '#374151' }}>
-                    Click to upload or drag and drop
-                  </p>
-                  <small style={{ color: '#6b7280' }}>PDF, Word (.doc, .docx), ODF (.odt) or Text (.txt) - Max 5MB</small>
-                </div>
-              )}
+          {/* CV METHOD SELECTOR */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '10px', display: 'block' }}>
+              How would you like to submit your CV? *
+            </label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCvMethod('file');
+                  setCvUrl('');
+                  setError('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: cvMethod === 'file' ? '2px solid #10b981' : '2px solid #d1d5db',
+                  backgroundColor: cvMethod === 'file' ? '#f0fdf4' : '#f9fafb',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: cvMethod === 'file' ? '#047857' : '#374151',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FaFileUpload /> Upload File
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCvMethod('url');
+                  setCvFile(null);
+                  setError('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: cvMethod === 'url' ? '2px solid #667eea' : '2px solid #d1d5db',
+                  backgroundColor: cvMethod === 'url' ? '#f0f9ff' : '#f9fafb',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: cvMethod === 'url' ? '#1e40af' : '#374151',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FaLink /> Provide URL
+              </button>
             </div>
           </div>
 
-          {/* Step 2: Cover Letter (Optional) */}
+          {/* FILE UPLOAD METHOD */}
+          {cvMethod === 'file' && (
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label htmlFor="cvFile">CV File * <span style={{ fontSize: '12px', color: '#666' }}>(Required)</span></label>
+              <div style={{
+                border: '2px dashed #d1d5db',
+                borderRadius: '8px',
+                padding: '30px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                backgroundColor: '#f9fafb',
+                transition: 'all 0.3s ease'
+              }}>
+                <input
+                  id="cvFile"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.odt,.txt"
+                  onChange={handleCVUpload}
+                  style={{ display: 'none' }}
+                />
+                {cvFile ? (
+                  <div style={{ color: '#10b981' }}>
+                    <FaCheckCircle size={32} style={{ marginBottom: '10px' }} />
+                    <p style={{ margin: '10px 0 0 0', fontWeight: '600' }}>{cvFile.name}</p>
+                    <small>{(cvFile.size / 1024 / 1024).toFixed(2)} MB</small>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => document.getElementById('cvFile').click()}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <FaFileUpload size={32} style={{ color: '#10b981', marginBottom: '10px' }} />
+                    <p style={{ margin: '10px 0', fontWeight: '600', color: '#374151' }}>
+                      Click to upload or drag and drop
+                    </p>
+                    <small style={{ color: '#6b7280' }}>PDF, Word (.doc, .docx), ODF (.odt) or Text (.txt) - Max 5MB</small>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* URL METHOD */}
+          {cvMethod === 'url' && (
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label htmlFor="cvUrl">CV URL * <span style={{ fontSize: '12px', color: '#666' }}>(Required)</span></label>
+              <input
+                id="cvUrl"
+                type="url"
+                placeholder="https://drive.google.com/file/d/... or https://example.com/cv.pdf"
+                value={cvUrl}
+                onChange={(e) => {
+                  setCvUrl(e.target.value);
+                  setError('');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <small style={{ color: '#6b7280', marginTop: '5px', display: 'block' }}>
+                📎 You can use:
+                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                  <li>Google Drive (share link)</li>
+                  <li>Dropbox (share link)</li>
+                  <li>OneDrive (share link)</li>
+                  <li>Your personal portfolio/website</li>
+                  <li>PDF hosting service</li>
+                </ul>
+              </small>
+            </div>
+          )}
+
+          {/* Cover Letter (Optional) */}
           <div className="form-group" style={{ marginTop: '20px' }}>
             <label htmlFor="coverLetter">Cover Letter <span style={{ fontSize: '12px', color: '#999' }}>(Optional)</span></label>
             <textarea
@@ -203,7 +326,8 @@ export default function CVUploadModal({ onClose, onSubmit }) {
                 borderRadius: '6px',
                 fontSize: '14px',
                 fontFamily: 'inherit',
-                resize: 'vertical'
+                resize: 'vertical',
+                boxSizing: 'border-box'
               }}
             />
             <small style={{ color: '#6b7280', marginTop: '5px', display: 'block' }}>
@@ -211,7 +335,7 @@ export default function CVUploadModal({ onClose, onSubmit }) {
             </small>
           </div>
 
-          {/* Step 3: Supporting Documents (Optional) */}
+          {/* Supporting Documents (Optional) */}
           <div className="form-group" style={{ marginTop: '20px' }}>
             <label htmlFor="supportingDocs">Supporting Documents <span style={{ fontSize: '12px', color: '#999' }}>(Optional - Max 3 files)</span></label>
             <div style={{
@@ -309,14 +433,14 @@ export default function CVUploadModal({ onClose, onSubmit }) {
             </button>
             <button 
               type="submit"
-              disabled={submitting || !cvFile}
+              disabled={submitting || (cvMethod === 'file' && !cvFile) || (cvMethod === 'url' && !cvUrl.trim())}
               style={{
                 padding: '10px 20px',
-                backgroundColor: submitting || !cvFile ? '#ccc' : '#10b981',
+                backgroundColor: submitting || (cvMethod === 'file' && !cvFile) || (cvMethod === 'url' && !cvUrl.trim()) ? '#ccc' : '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: submitting || !cvFile ? 'not-allowed' : 'pointer',
+                cursor: (submitting || (cvMethod === 'file' && !cvFile) || (cvMethod === 'url' && !cvUrl.trim())) ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
                 display: 'flex',
