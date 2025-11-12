@@ -1,4 +1,3 @@
-// server/routes/admin.js - FIXED ROUTE ORDER FOR USER DELETE
 const express = require('express');
 const { db, auth, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');
@@ -215,6 +214,111 @@ router.delete('/courses/:id', async (req, res) => {
   }
 });
 
+// ==================== TRANSCRIPTS ====================
+// Get all transcripts for verification
+router.get('/transcripts', async (req, res) => {
+  try {
+    const snapshot = await db.collection(collections.TRANSCRIPTS).get();
+    
+    const transcripts = await Promise.all(snapshot.docs.map(async doc => {
+      const transcriptData = doc.data();
+      
+      // Get student info
+      const studentDoc = await db.collection(collections.USERS)
+        .doc(transcriptData.studentId).get();
+      
+      return {
+        id: doc.id,
+        ...transcriptData,
+        studentInfo: studentDoc.exists ? {
+          name: studentDoc.data().name,
+          email: studentDoc.data().email
+        } : null
+      };
+    }));
+    
+    // Sort by upload date (newest first)
+    transcripts.sort((a, b) => {
+      const dateA = new Date(a.uploadedAt);
+      const dateB = new Date(b.uploadedAt);
+      return dateB - dateA;
+    });
+    
+    res.json(transcripts);
+  } catch (error) {
+    console.error('Get transcripts error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verify a transcript
+router.post('/transcripts/:id/verify', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transcriptDoc = await db.collection(collections.TRANSCRIPTS).doc(id).get();
+    
+    if (!transcriptDoc.exists) {
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+    
+    const transcriptData = transcriptDoc.data();
+    
+    // Update transcript as verified
+    await db.collection(collections.TRANSCRIPTS).doc(id).update({
+      verified: true,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: req.user.uid
+    });
+    
+    // Update student's profile
+    await db.collection(collections.USERS).doc(transcriptData.studentId).update({
+      transcriptVerified: true,
+      transcriptVerifiedAt: new Date().toISOString()
+    });
+    
+    console.log(`✅ Transcript ${id} verified for student ${transcriptData.studentId}`);
+    
+    res.json({ 
+      message: 'Transcript verified successfully',
+      transcriptId: id,
+      studentId: transcriptData.studentId
+    });
+  } catch (error) {
+    console.error('Verify transcript error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Notify student about transcript verification
+router.post('/notify-student', async (req, res) => {
+  try {
+    const { studentId, title, message, type } = req.body;
+    
+    if (!studentId || !title || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const notificationData = {
+      userId: studentId,
+      type: type || 'general',
+      title,
+      message,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    
+    await db.collection(collections.NOTIFICATIONS).add(notificationData);
+    
+    console.log(`📧 Notification sent to student ${studentId}`);
+    
+    res.json({ message: 'Notification sent successfully' });
+  } catch (error) {
+    console.error('Send notification error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== COMPANIES ====================
 router.get('/companies', async (req, res) => {
   try {
@@ -321,9 +425,7 @@ router.post('/admissions/publish', async (req, res) => {
 });
 
 // ==================== USER MANAGEMENT ====================
-// IMPORTANT: Define collection routes BEFORE specific ID routes
-
-// Get all users - This must come FIRST
+// Get all users
 router.get('/users', async (req, res) => {
   try {
     const snapshot = await db.collection(collections.USERS).get();
@@ -339,7 +441,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Update user status - Must come BEFORE /users/:id DELETE
+// Update user status
 router.put('/users/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -361,7 +463,7 @@ router.put('/users/:id/status', async (req, res) => {
   }
 });
 
-// Get single user details - Must come BEFORE DELETE
+// Get single user details
 router.get('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
