@@ -1088,11 +1088,12 @@ router.get('/jobs', async (req, res) => {
 router.post('/jobs/:jobId/apply', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { coverLetter } = req.body;
+    const { coverLetter, cvUrl, documents } = req.body;
 
-    if (!coverLetter || coverLetter.trim().length < 50) {
+    // CV is required, cover letter and documents are optional
+    if (!cvUrl) {
       return res.status(400).json({ 
-        error: 'Cover letter must be at least 50 characters long' 
+        error: 'CV is required to apply for jobs' 
       });
     }
 
@@ -1110,12 +1111,6 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
     const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
     const studentData = studentDoc.data();
 
-    if (!studentData.isGraduate || !studentData.transcriptId) {
-      return res.status(400).json({ 
-        error: 'You must upload your academic transcript before applying for jobs' 
-      });
-    }
-
     const jobDoc = await db.collection(collections.JOBS).doc(jobId).get();
     if (!jobDoc.exists) {
       return res.status(404).json({ error: 'Job not found' });
@@ -1126,28 +1121,23 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
       return res.status(400).json({ error: 'This job is no longer accepting applications' });
     }
 
-    // REQUIREMENT #4: Verify student is qualified
+    // Calculate match but don't block application based on qualifications
+    // Companies can review candidates who might not be perfect fits
     const match = calculateJobMatchAndEligibility(studentData, job);
-    if (!match.eligible) {
-      return res.status(403).json({
-        error: 'You do not meet the minimum qualifications for this job',
-        reason: match.reason,
-        message: 'Please ensure your profile is complete and matches the job requirements.'
-      });
-    }
 
     const applicationData = {
       studentId: req.user.uid,
       jobId,
-      coverLetter: coverLetter.trim(),
+      coverLetter: coverLetter?.trim() || '',
+      cvUrl,
+      documents: documents || [],
       status: 'pending',
       appliedAt: new Date().toISOString(),
       qualificationMatch: match.score,
       studentInfo: {
         name: studentData.name,
         email: studentData.email,
-        phone: studentData.phone,
-        transcriptId: studentData.transcriptId
+        phone: studentData.phone
       }
     };
 

@@ -237,9 +237,22 @@ export default function StudentDashboard({ user }) {
 
   const handleSubmitJobApplication = async (e) => {
     e.preventDefault();
-    const coverLetter = e.target.coverLetter.value;
+    const formData = new FormData(e.target);
+    
     try {
-      await studentAPI.applyForJob(selectedJob.id, { coverLetter });
+      const applicationData = {
+        coverLetter: formData.get('coverLetter') || '',
+        cvUrl: formData.get('cvUrl') || '',
+        documents: []
+      };
+
+      // Validate CV URL
+      if (!applicationData.cvUrl.trim()) {
+        setError('Please provide a CV URL or upload your CV');
+        return;
+      }
+
+      await studentAPI.applyForJob(selectedJob.id, applicationData);
       setSuccess('Job application submitted successfully!');
       setShowModal(false);
       loadData();
@@ -1161,14 +1174,31 @@ export default function StudentDashboard({ user }) {
               </div>
               <form onSubmit={handleSubmitJobApplication}>
                 <div className="form-group">
-                  <label>Cover Letter *</label>
-                  <textarea
-                    name="coverLetter"
-                    rows="8"
-                    placeholder="Explain why you're a great fit for this position..."
+                  <label>CV URL * <span style={{ fontSize: '12px', color: '#666' }}>(Required)</span></label>
+                  <input
+                    type="url"
+                    name="cvUrl"
+                    placeholder="https://example.com/your-cv.pdf"
                     required
                   />
+                  <small>Provide a link to your CV (PDF, Google Drive, Dropbox, etc.)</small>
                 </div>
+                
+                <div className="form-group">
+                  <label>Cover Letter <span style={{ fontSize: '12px', color: '#999' }}>(Optional)</span></label>
+                  <textarea
+                    name="coverLetter"
+                    rows="6"
+                    placeholder="Tell the employer why you're a great fit for this position (optional)..."
+                  />
+                  <small>Share your motivation and relevant experience</small>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', color: '#666' }}>Additional Documents</label>
+                  <small>You can provide links to portfolio, certificates, LinkedIn profile, etc. in the cover letter above</small>
+                </div>
+
                 <div className="modal-actions">
                   <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                     Cancel
