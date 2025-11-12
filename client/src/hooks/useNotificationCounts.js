@@ -41,15 +41,18 @@ export function useNotificationCounts(userRole, userId) {
         {
           headers: {
             Authorization: `Bearer ${token}`
-          }
+          },
+          timeout: 5000 // 5 second timeout
         }
       );
 
       setCounts(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching notification counts:', error);
+      // Silent fail for notification counts - this shouldn't break the dashboard
+      console.warn('Warning: Could not fetch notification counts:', error.message);
       setLoading(false);
+      // Keep existing counts instead of crashing
     }
   };
 
