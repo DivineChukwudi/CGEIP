@@ -144,7 +144,10 @@ export default function InstitutionDashboard({ user }) {
       duration: '',
       requirements: '',
       level: 'Diploma',
-      capacity: 50
+      capacity: 50,
+      minimumOverallPercentage: 0,
+      requiredSubjects: [],
+      additionalSubjects: []
     });
     setShowModal(true);
     setError('');
@@ -160,7 +163,10 @@ export default function InstitutionDashboard({ user }) {
       duration: course.duration,
       requirements: course.requirements,
       level: course.level,
-      capacity: course.capacity
+      capacity: course.capacity,
+      minimumOverallPercentage: course.minimumOverallPercentage || 0,
+      requiredSubjects: course.requiredSubjects || [],
+      additionalSubjects: course.additionalSubjects || []
     });
     setShowModal(true);
     setError('');
@@ -173,8 +179,35 @@ export default function InstitutionDashboard({ user }) {
         await institutionAPI.updateCourse(editingItem.id, formData);
         showSuccess('Course updated successfully!');
       } else {
-        await institutionAPI.addCourse(formData);
+        const result = await institutionAPI.addCourse(formData);
         showSuccess('Course added successfully!');
+        
+        // Save course requirements if specified
+        if ((formData.requiredSubjects && formData.requiredSubjects.length > 0) || 
+            (formData.additionalSubjects && formData.additionalSubjects.length > 0) ||
+            formData.minimumOverallPercentage > 0) {
+          try {
+            const courseId = result?.id || editingItem?.id;
+            if (courseId) {
+              await axios.post(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/course-requirements/${courseId}`,
+                {
+                  requiredSubjects: formData.requiredSubjects || [],
+                  additionalSubjects: formData.additionalSubjects || [],
+                  minimumOverallPercentage: formData.minimumOverallPercentage || 0,
+                  minimumRequiredSubjectsNeeded: formData.requiredSubjects?.length || 0
+                },
+                {
+                  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }
+              );
+              console.log('Course requirements saved successfully');
+            }
+          } catch (requirementsErr) {
+            console.error('Note: Could not save course requirements:', requirementsErr);
+            // Don't fail the entire operation if requirements save fails
+          }
+        }
       }
       setShowModal(false);
       loadData();
@@ -912,85 +945,288 @@ export default function InstitutionDashboard({ user }) {
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
               <h2>{editingItem ? 'Edit' : 'Add'} Course</h2>
               <form onSubmit={handleSubmitCourse}>
-                <div className="form-group">
-                  <label>Faculty *</label>
-                  <select
-                    value={formData.facultyId}
-                    onChange={(e) => setFormData({ ...formData, facultyId: e.target.value })}
-                    required
-                  >
-                    <option value="">Select Faculty</option>
-                    {faculties.map((faculty) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name}
-                      </option>
-                    ))}
-                  </select>
+                {/* Basic Course Information */}
+                <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+                  <h3 style={{ marginTop: 0 }}>Basic Information</h3>
+                  
+                  <div className="form-group">
+                    <label>Faculty *</label>
+                    <select
+                      value={formData.facultyId}
+                      onChange={(e) => setFormData({ ...formData, facultyId: e.target.value })}
+                      required
+                    >
+                      <option value="">Select Faculty</option>
+                      {faculties.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Course Name *</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Bachelor of Science in Computer Science"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Description *</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows="3"
+                      placeholder="Course description..."
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label>Duration *</label>
+                      <input
+                        type="text"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                        placeholder="e.g., 3 years"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Level *</label>
+                      <select
+                        value={formData.level}
+                        onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                        required
+                      >
+                        <option value="Certificate">Certificate</option>
+                        <option value="Diploma">Diploma</option>
+                        <option value="Degree">Degree</option>
+                        <option value="Masters">Masters</option>
+                        <option value="PhD">PhD</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label>Requirements *</label>
+                      <textarea
+                        value={formData.requirements}
+                        onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                        placeholder="e.g., LGCSE with 5 credits"
+                        rows="2"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Student Capacity *</label>
+                      <input
+                        type="number"
+                        value={formData.capacity}
+                        onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
+                        min="1"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Course Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., Bachelor of Science in Computer Science"
-                    required
-                  />
+
+                {/* Admission Requirements - Subject-Based Matching */}
+                <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+                  <h3 style={{ marginTop: 0 }}>Admission Requirements (Subject Matching)</h3>
+                  <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '1rem' }}>
+                    Set specific subject requirements that students must have to be eligible for this course.
+                    Students will only see this course if they meet these requirements.
+                  </p>
+
+                  {/* Minimum Overall Percentage */}
+                  <div className="form-group">
+                    <label>Minimum Overall Percentage (0-100)</label>
+                    <input
+                      type="number"
+                      value={formData.minimumOverallPercentage}
+                      onChange={(e) => setFormData({ ...formData, minimumOverallPercentage: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })}
+                      min="0"
+                      max="100"
+                      placeholder="e.g., 70"
+                    />
+                    <small style={{ color: '#9ca3af', display: 'block', marginTop: '0.25rem' }}>
+                      Student's overall average must be at least this percentage
+                    </small>
+                  </div>
+
+                  {/* Required Subjects */}
+                  <div className="form-group">
+                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                      Required Subjects (Students MUST have all of these)
+                    </label>
+                    <div style={{ 
+                      background: '#f9fafb', 
+                      padding: '1rem', 
+                      borderRadius: '0.5rem',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      {(formData.requiredSubjects || []).map((subject, idx) => (
+                        <div key={idx} style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr auto',
+                          gap: '0.75rem',
+                          marginBottom: idx < (formData.requiredSubjects || []).length - 1 ? '0.75rem' : 0,
+                          alignItems: 'end',
+                          paddingBottom: idx < (formData.requiredSubjects || []).length - 1 ? '0.75rem' : 0,
+                          borderBottom: idx < (formData.requiredSubjects || []).length - 1 ? '1px solid #e5e7eb' : 'none'
+                        }}>
+                          <input
+                            type="text"
+                            value={subject.subjectName}
+                            onChange={(e) => {
+                              const updated = [...(formData.requiredSubjects || [])];
+                              updated[idx].subjectName = e.target.value;
+                              setFormData({ ...formData, requiredSubjects: updated });
+                            }}
+                            placeholder="e.g., Mathematics"
+                          />
+                          <input
+                            type="number"
+                            value={subject.minimumMark}
+                            onChange={(e) => {
+                              const updated = [...(formData.requiredSubjects || [])];
+                              updated[idx].minimumMark = parseInt(e.target.value) || 0;
+                              setFormData({ ...formData, requiredSubjects: updated });
+                            }}
+                            min="0"
+                            max="100"
+                            placeholder="Min %"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (formData.requiredSubjects || []).filter((_, i) => i !== idx);
+                              setFormData({ ...formData, requiredSubjects: updated });
+                            }}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '0.375rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...(formData.requiredSubjects || []), { subjectName: '', minimumMark: 0 }];
+                          setFormData({ ...formData, requiredSubjects: updated });
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#2563eb',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                          marginTop: (formData.requiredSubjects || []).length > 0 ? '0.75rem' : 0
+                        }}
+                      >
+                        + Add Required Subject
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Optional Additional Subjects */}
+                  <div className="form-group">
+                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                      Optional Additional Subjects (Nice to have - increases match score)
+                    </label>
+                    <div style={{ 
+                      background: '#f9fafb', 
+                      padding: '1rem', 
+                      borderRadius: '0.5rem',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      {(formData.additionalSubjects || []).map((subject, idx) => (
+                        <div key={idx} style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr auto',
+                          gap: '0.75rem',
+                          marginBottom: idx < (formData.additionalSubjects || []).length - 1 ? '0.75rem' : 0,
+                          alignItems: 'end',
+                          paddingBottom: idx < (formData.additionalSubjects || []).length - 1 ? '0.75rem' : 0,
+                          borderBottom: idx < (formData.additionalSubjects || []).length - 1 ? '1px solid #e5e7eb' : 'none'
+                        }}>
+                          <input
+                            type="text"
+                            value={subject.subjectName}
+                            onChange={(e) => {
+                              const updated = [...(formData.additionalSubjects || [])];
+                              updated[idx].subjectName = e.target.value;
+                              setFormData({ ...formData, additionalSubjects: updated });
+                            }}
+                            placeholder="e.g., Physics"
+                          />
+                          <input
+                            type="number"
+                            value={subject.preferredMinimumMark}
+                            onChange={(e) => {
+                              const updated = [...(formData.additionalSubjects || [])];
+                              updated[idx].preferredMinimumMark = parseInt(e.target.value) || 0;
+                              setFormData({ ...formData, additionalSubjects: updated });
+                            }}
+                            min="0"
+                            max="100"
+                            placeholder="Preferred %"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (formData.additionalSubjects || []).filter((_, i) => i !== idx);
+                              setFormData({ ...formData, additionalSubjects: updated });
+                            }}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '0.375rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...(formData.additionalSubjects || []), { subjectName: '', preferredMinimumMark: 0 }];
+                          setFormData({ ...formData, additionalSubjects: updated });
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                          marginTop: (formData.additionalSubjects || []).length > 0 ? '0.75rem' : 0
+                        }}
+                      >
+                        + Add Optional Subject
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Description *</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows="3"
-                    placeholder="Course description..."
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Duration *</label>
-                  <input
-                    type="text"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    placeholder="e.g., 3 years"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Level *</label>
-                  <select
-                    value={formData.level}
-                    onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                    required
-                  >
-                    <option value="Certificate">Certificate</option>
-                    <option value="Diploma">Diploma</option>
-                    <option value="Degree">Degree</option>
-                    <option value="Masters">Masters</option>
-                    <option value="PhD">PhD</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Requirements *</label>
-                  <textarea
-                    value={formData.requirements}
-                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    placeholder="e.g., LGCSE with 5 credits"
-                    rows="2"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Student Capacity *</label>
-                  <input
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
-                    min="1"
-                    required
-                  />
-                </div>
+
                 <div className="modal-actions">
                   <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                     Cancel
