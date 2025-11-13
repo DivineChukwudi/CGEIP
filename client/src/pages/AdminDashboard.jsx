@@ -1828,12 +1828,12 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Website *</label>
+                  <label>Website</label>
                   <input
                     type="url"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    required
+                    placeholder="e.g., https://www.institution.edu"
                   />
                 </div>
                 <div className="modal-actions">

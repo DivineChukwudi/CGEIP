@@ -324,6 +324,9 @@ router.get('/profile', async (req, res) => {
     const userData = userDoc.data();
     delete userData.password;
     
+    // Add hasTranscript flag for easy frontend checking
+    userData.hasTranscript = !!userData.transcriptId;
+    
     if (userData.transcriptId) {
       const transcriptDoc = await db.collection(collections.TRANSCRIPTS)
         .doc(userData.transcriptId).get();
@@ -1125,6 +1128,7 @@ router.post('/transcripts', upload.fields([
 
     await db.collection(collections.USERS).doc(req.user.uid).update({
       isGraduate: true,
+      hasTranscript: true,
       transcriptId: docRef.id,
       transcriptVerified: false,
       qualifications: [qualificationLevel], // ADDED: Store as array with the selected level
