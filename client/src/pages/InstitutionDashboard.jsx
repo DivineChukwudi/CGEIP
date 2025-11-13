@@ -193,6 +193,10 @@ export default function InstitutionDashboard({ user }) {
 
   const handleSubmitCourse = async (e) => {
     e.preventDefault();
+    // Prevent double submission on React StrictMode double-render
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     try {
       if (editingItem) {
         await institutionAPI.updateCourse(editingItem.id, formData);
@@ -229,9 +233,11 @@ export default function InstitutionDashboard({ user }) {
         }
       }
       setShowModal(false);
-      loadData();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+      loadData();
     }
   };
 
@@ -485,7 +491,6 @@ export default function InstitutionDashboard({ user }) {
                     <th>Course Name</th>
                     <th>Faculty</th>
                     <th>Duration</th>
-                    <th>Level</th>
                     <th>Enrollment</th>
                     <th>Actions</th>
                   </tr>
@@ -496,7 +501,6 @@ export default function InstitutionDashboard({ user }) {
                       <td>{course.name}</td>
                       <td>{course.faculty?.name || 'N/A'}</td>
                       <td>{course.duration}</td>
-                      <td>{course.level}</td>
                       <td>{course.enrolledCount || 0} / {course.capacity || 50}</td>
                       <td>
                         <button className="btn-icon" onClick={() => handleEditCourse(course)}>

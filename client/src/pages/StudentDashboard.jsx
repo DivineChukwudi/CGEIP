@@ -1561,9 +1561,10 @@ export default function StudentDashboard({ user }) {
                       <button 
                         className="btn-primary" 
                         onClick={() => handleApplyCourse(course)}
-                        disabled={!course.eligible}
+                        disabled={!course.eligible || !profile?.hasTranscript}
+                        title={!profile?.hasTranscript ? 'Upload your transcript first' : !course.eligible ? 'You do not meet the requirements' : 'Apply for this course'}
                       >
-                        {course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply'}
+                        {!profile?.hasTranscript ? '📄 Upload Transcript First' : (course.eligible ? 'Apply for this Course' : 'Not Eligible to Apply')}
                       </button>
                     </div>
                   ))

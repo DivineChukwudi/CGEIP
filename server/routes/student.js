@@ -765,6 +765,22 @@ router.post('/applications', async (req, res) => {
   try {
     const { institutionId, courseId, documents } = req.body;
 
+    // Get student info first to check transcript
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    const student = studentDoc.data();
+
+    // REQUIREMENT: Student must have uploaded transcripts to apply
+    const transcriptDoc = await db.collection(collections.TRANSCRIPTS)
+      .where('studentId', '==', req.user.uid)
+      .get();
+    
+    if (transcriptDoc.empty) {
+      return res.status(403).json({ 
+        error: 'Transcript required',
+        message: 'You must upload your academic transcript before applying for courses. Please upload your transcript in your profile and try again.'
+      });
+    }
+
     // Check if student already SELECTED an institution
     const selectedAdmission = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
@@ -806,10 +822,6 @@ router.post('/applications', async (req, res) => {
     if (course.status !== 'active') {
       return res.status(400).json({ error: 'This course is not accepting applications' });
     }
-
-    // Get student info
-    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
-    const student = studentDoc.data();
 
     // REQUIREMENT #2: Strict eligibility check
     const eligibility = checkCourseEligibility(student, course);
