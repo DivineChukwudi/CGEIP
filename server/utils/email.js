@@ -782,7 +782,7 @@ const sendJobPreferenceReminderEmail = async (email, studentName) => {
   };
 
   try {
-    console.log(\`📧 Sending job preference reminder to: \${email}\`);
+    console.log(`📧 Sending job preference reminder to: ${email}`);
     const response = await sgMail.send(msg);
     console.log('   ✅ Email sent successfully (Message ID: ' + response[0].headers['x-message-id'] + ')');
     return { success: true };
