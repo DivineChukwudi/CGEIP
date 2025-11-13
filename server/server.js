@@ -285,6 +285,7 @@ const teamRoutes = require('./routes/team');
 const publicRoutes = require('./routes/public');
 const contactRoutes = require('./routes/contact');
 const notificationRoutes = require('./routes/notifications');
+const courseRequirementsRoutes = require('./routes/courseRequirements');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -295,6 +296,7 @@ app.use('/api', teamRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api', contactRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/course-requirements', courseRequirementsRoutes);
 
 // ===================================
 // JOB MATCHER SERVICE
