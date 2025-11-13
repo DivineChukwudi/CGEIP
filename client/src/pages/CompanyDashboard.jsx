@@ -1,4 +1,3 @@
-// client/src/pages/CompanyDashboard.jsx - COMPLETE WITH AUTO-CLEAR NOTIFICATIONS
 import React, { useState, useEffect } from 'react';
 import { companyAPI } from '../utils/api';
 import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle, FaBell } from 'react-icons/fa';

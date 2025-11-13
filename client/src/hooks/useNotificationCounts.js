@@ -1,4 +1,3 @@
-// client/src/hooks/useNotificationCounts.js - UPDATED
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 

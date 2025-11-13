@@ -1,4 +1,3 @@
-// server/routes/notifications.js - FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const { db, collections } = require('../config/firebase');

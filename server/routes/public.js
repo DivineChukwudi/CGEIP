@@ -1,4 +1,3 @@
-// server/routes/public.js - PUBLIC ACCESS (NO AUTH REQUIRED)
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 

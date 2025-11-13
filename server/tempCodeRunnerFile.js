@@ -1,6 +1,3 @@
-// server/test-email.js - Run this script to test email configuration
-// Usage: node test-email.js
-
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 

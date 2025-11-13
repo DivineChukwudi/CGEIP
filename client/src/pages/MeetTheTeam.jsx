@@ -1,4 +1,3 @@
-// client/src/pages/MeetTheTeam.jsx - FIXED WITH BETTER ERROR HANDLING
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaLinkedin, FaGithub, FaEnvelope, FaUser, FaArrowLeft } from 'react-icons/fa';

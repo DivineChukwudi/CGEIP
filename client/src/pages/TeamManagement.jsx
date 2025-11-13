@@ -1,4 +1,3 @@
-// client/src/pages/TeamManagement.jsx - FIXED
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaLinkedin, FaGithub, FaEnvelope, FaUser } from 'react-icons/fa';
 import '../styles/TeamManagement.css';

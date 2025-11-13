@@ -1,4 +1,3 @@
-// server/utils/fileUpload.js
 const multer = require('multer');
 
 // Configure multer for memory storage

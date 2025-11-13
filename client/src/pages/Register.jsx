@@ -36,7 +36,29 @@ export default function Register() {
     }
   }, []);
 
+  useEffect(() => {
+    const handlePopState = (e) => {
+      // Prevent default back behavior and trigger fade animation instead
+      e.preventDefault();
+      setIsFading(true);
+      setTimeout(() => {
+        window.history.back();
+      }, 800);
+    };
+
+    // Add popstate listener for browser back button
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   const navigate = useNavigate();
+  
+  // Animation state
+  const [isFading, setIsFading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -276,11 +298,23 @@ export default function Register() {
     }
   };
 
+  const handleBackToHome = (e) => {
+    e.preventDefault();
+    setIsFading(true);
+    setTimeout(() => {
+      navigate('/');
+    }, 800); // Match the animation duration (800ms)
+  };
+
   return (
-    <div className="auth-container">
-      <Link to="/" className="auth-back-btn">
+    <div className={`auth-container ${isFading ? 'fade-out' : 'page-fade-in'}`}>
+      <a 
+        href="/"
+        className="auth-back-btn"
+        onClick={handleBackToHome}
+      >
         <FaArrowLeft /> Back to Home
-      </Link>
+      </a>
       
       <div className="auth-card">
         <div className="auth-header">

@@ -1,4 +1,3 @@
-// server/routes/company.js - ENHANCED WITH REQUIREMENT #4
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');

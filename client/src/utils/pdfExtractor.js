@@ -1,4 +1,3 @@
-// client/src/utils/pdfExtractor.js - FIXED WITH ERROR HANDLING
 import * as pdfjsLib from 'pdfjs-dist';
 
 // ✅ FIXED: Use matching worker version

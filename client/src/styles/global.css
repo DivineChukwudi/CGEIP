@@ -34,6 +34,14 @@ body {
   animation-fill-mode: both;
 }
 
+.fade-out {
+  animation: pageOut 0.8s ease-out forwards !important;
+}
+
+.fade-out.page-fade-in {
+  animation: pageOut 0.8s ease-out forwards !important;
+}
+
 @keyframes pageIn {
   from {
     opacity: 0;
@@ -42,6 +50,17 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes pageOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
   }
 }
 

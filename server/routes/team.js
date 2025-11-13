@@ -1,4 +1,3 @@
-// server/routes/team.js
 const express = require('express');
 const { db, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');

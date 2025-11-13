@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
 import { 
@@ -41,6 +41,9 @@ try {
 export default function Login({ setUser }) {
   const navigate = useNavigate();
   
+  // Animation state
+  const [isFading, setIsFading] = useState(false);
+  
   // Form state
   const [formData, setFormData] = useState({
     email: '',
@@ -65,6 +68,27 @@ export default function Login({ setUser }) {
   // Google auth states
   const [pendingGoogleToken, setPendingGoogleToken] = useState(null);
   const [selectedRole, setSelectedRole] = useState('student');
+
+  // ==================== BROWSER BACK BUTTON HANDLER ====================
+  
+  useEffect(() => {
+    const handlePopState = (e) => {
+      // Prevent default back behavior and trigger fade animation instead
+      e.preventDefault();
+      setIsFading(true);
+      setTimeout(() => {
+        window.history.back();
+      }, 800);
+    };
+
+    // Add popstate listener for browser back button
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   // ==================== HANDLERS ====================
   
@@ -323,11 +347,23 @@ export default function Login({ setUser }) {
 
   // ==================== RENDER ====================
 
+  const handleBackToHome = (e) => {
+    e.preventDefault();
+    setIsFading(true);
+    setTimeout(() => {
+      navigate('/');
+    }, 800); // Match the animation duration (800ms)
+  };
+
   return (
-    <div className="auth-container">
-      <Link to="/" className="auth-back-btn">
+    <div className={`auth-container ${isFading ? 'fade-out' : 'page-fade-in'}`}>
+      <a 
+        href="/"
+        className="auth-back-btn"
+        onClick={handleBackToHome}
+      >
         <FaArrowLeft /> Back to Home
-      </Link>
+      </a>
       
       <div className="auth-card">
         <div className="auth-header">

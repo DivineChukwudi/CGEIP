@@ -1,4 +1,3 @@
-// server/routes/admin.js - FIXED WITH AUTO USER ACCOUNT CREATION
 const express = require('express');
 const { db, auth, collections } = require('../config/firebase');
 const { verifyToken, checkRole } = require('../middlewares/auth');

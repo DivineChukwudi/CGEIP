@@ -1,4 +1,3 @@
-// client/src/pages/LandingPage.jsx - WITH ABOUT US & CONTACT US SECTIONS
 import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight, FaSearch, FaTimes, FaBook, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGlobe, FaEye, FaBullseye, FaHeart, FaHistory, FaPaperPlane } from 'react-icons/fa';

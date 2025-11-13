@@ -1,4 +1,3 @@
-// server/utils/cloudinaryUpload.js - FIXED VERSION
 const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
 

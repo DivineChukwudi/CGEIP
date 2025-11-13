@@ -1,4 +1,3 @@
-// Replace the entire file with:
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
