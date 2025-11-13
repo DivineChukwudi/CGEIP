@@ -4077,83 +4077,144 @@ button:disabled {
   font-size: 0.95rem;
 }
 
-.subjects-grid {
+.subjects-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
   margin-bottom: 24px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
-.subject-row {
-  display: grid;
-  grid-template-columns: 40px 1fr 1fr 40px;
+/* Vertical scrollbar styling for subjects container */
+.subjects-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.subjects-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.subjects-container::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.subjects-container::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.subject-card {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-end;
   padding: 16px;
-  background: #f8f9fa;
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.subject-row:hover {
-  background: #f0f2f5;
-  border-color: #d0d5dd;
+.subject-card:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
 }
 
-.subject-number {
+.subject-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.subject-number-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: #e8eaed;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
   font-weight: 700;
-  color: #5f6368;
-  font-size: 0.95rem;
+  color: white;
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
-.subject-input-group,
-.grade-input-group {
+.subject-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2d3748;
+  flex: 1;
+}
+
+.subject-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.subject-input-group label,
-.grade-input-group label {
+.form-group label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #5f6368;
+  color: #4a5568;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
 .subject-select,
-.grade-input {
+.grade-input,
+.custom-subject-input {
   padding: 10px 12px;
-  border: 1px solid #dadce0;
+  border: 1px solid #cbd5e0;
   border-radius: 6px;
   font-size: 0.95rem;
-  color: #202124;
+  color: #2d3748;
   background: white;
   transition: all 0.2s;
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .subject-select:hover,
-.grade-input:hover {
-  border-color: #bcc0c4;
-  background: #f8f9fa;
+.grade-input:hover,
+.custom-subject-input:hover {
+  border-color: #a0aec0;
+  background: #f7fafc;
 }
 
 .subject-select:focus,
-.grade-input:focus {
+.grade-input:focus,
+.custom-subject-input:focus {
   outline: none;
-  border-color: #4285f4;
-  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   background: white;
+}
+
+.form-group small {
+  font-size: 0.8rem;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.add-subject-btn {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn-icon {

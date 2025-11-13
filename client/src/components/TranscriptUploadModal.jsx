@@ -263,59 +263,64 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
 
               <div className="section-header">
                 <h3>📝 Your Subjects & Grades</h3>
-                <p className="subtitle">Enter or edit your academic information</p>
+                <p className="subtitle">Enter or edit your academic information - {subjects.filter(s => s.subject && s.grade).length}/{subjects.length} completed</p>
               </div>
 
-              <div className="subjects-grid">
+              <div className="subjects-container">
                 {subjects.map((subject, index) => (
-                  <div key={index} className="subject-row">
-                    <div className="subject-number">{index + 1}</div>
-                    
-                    <div className="subject-input-group">
-                      <label>Subject Name</label>
-                      <select
-                        value={subject.subject}
-                        onChange={(e) => updateSubject(index, 'subject', e.target.value)}
-                        className="subject-select"
-                      >
-                        <option value="">Select Subject</option>
-                        {COMMON_SUBJECTS.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                        <option value="custom">Type Custom...</option>
-                      </select>
-                      
-                      {subject.subject === 'custom' && (
-                        <input
-                          type="text"
-                          placeholder="Enter custom subject name"
-                          onChange={(e) => updateSubject(index, 'subject', e.target.value)}
-                          style={{ marginTop: '8px' }}
-                        />
+                  <div key={index} className="subject-card">
+                    <div className="subject-card-header">
+                      <div className="subject-number-badge">{index + 1}</div>
+                      <div className="subject-card-title">Subject {index + 1}</div>
+                      {subjects.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-icon danger"
+                          onClick={() => removeSubject(index)}
+                          title="Remove this subject"
+                        >
+                          <FaTrash size={14} />
+                        </button>
                       )}
                     </div>
 
-                    <div className="grade-input-group">
-                      <label>Grade / Percentage</label>
-                      <input
-                        type="text"
-                        value={subject.grade}
-                        onChange={(e) => updateSubject(index, 'grade', e.target.value)}
-                        placeholder="e.g., 85%, A, 3.5"
-                        className="grade-input"
-                      />
-                    </div>
+                    <div className="subject-card-body">
+                      <div className="form-group">
+                        <label>Subject Name</label>
+                        <select
+                          value={subject.subject}
+                          onChange={(e) => updateSubject(index, 'subject', e.target.value)}
+                          className="subject-select"
+                        >
+                          <option value="">Select Subject</option>
+                          {COMMON_SUBJECTS.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                          <option value="custom">Type Custom...</option>
+                        </select>
+                        
+                        {subject.subject === 'custom' && (
+                          <input
+                            type="text"
+                            placeholder="Enter custom subject name"
+                            onChange={(e) => updateSubject(index, 'subject', e.target.value)}
+                            className="custom-subject-input"
+                          />
+                        )}
+                      </div>
 
-                    {subjects.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon danger"
-                        onClick={() => removeSubject(index)}
-                        title="Remove this subject"
-                      >
-                        <FaTrash />
-                      </button>
-                    )}
+                      <div className="form-group">
+                        <label>Your Grade/Mark</label>
+                        <input
+                          type="text"
+                          value={subject.grade}
+                          onChange={(e) => updateSubject(index, 'grade', e.target.value)}
+                          placeholder="e.g., 85%, A, 3.5, or 85/100"
+                          className="grade-input"
+                        />
+                        <small>Enter as percentage (85%), letter grade (A), or score (85/100)</small>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -323,9 +328,8 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
               {subjects.length < 15 && (
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-secondary add-subject-btn"
                   onClick={addSubject}
-                  style={{ marginTop: '16px' }}
                 >
                   <FaPlus /> Add Another Subject
                 </button>
