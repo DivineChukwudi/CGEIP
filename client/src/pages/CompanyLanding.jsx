@@ -9,7 +9,7 @@ export default function CompanyLanding({ user, onNavigate }) {
       <div className="landing-hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            Welcome, <span className="highlight">{user?.displayName || 'Company'}</span>! 🚀
+            Welcome, <span className="highlight">{user?.displayName || 'Company'}</span>!
           </h1>
           <p className="hero-subtitle">
             Find talented candidates and manage your hiring pipeline efficiently
