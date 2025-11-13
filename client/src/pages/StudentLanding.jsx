@@ -9,7 +9,7 @@ export default function StudentLanding({ user, onNavigate }) {
       <div className="landing-hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            Welcome back, <span className="highlight">{user?.displayName?.split(' ')[0] || 'Student'}</span>! 👋
+            Welcome back, <span className="highlight">{user?.displayName?.split(' ')[0] || 'Student'}</span>!
           </h1>
           <p className="hero-subtitle">
             Your gateway to amazing career opportunities and academic excellence
@@ -87,7 +87,7 @@ export default function StudentLanding({ user, onNavigate }) {
       {/* CTA Section */}
       <div className="landing-cta">
         <div className="cta-content">
-          <h2>⚡ Pro Tip</h2>
+          <h2>Pro Tip</h2>
           <p>
             <strong>Set your job preferences</strong> to unlock smart matching! Our AI algorithm analyzes job postings every 10 minutes and finds matches for you. You'll get notifications every 3 hours if you haven't completed your preferences.
           </p>
