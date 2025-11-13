@@ -1,58 +1,54 @@
 const express = require('express');
-const router = express.Router();
-const Course = require('../models/Course');
-const CourseRequirement = require('../models/CourseRequirement');
+const { db, collections } = require('../config/firebase');
+const { verifyToken, checkRole } = require('../middlewares/auth');
 const { checkCourseEligibility } = require('../utils/eligibilityChecker');
-const auth = require('../middlewares/auth');
+
+const router = express.Router();
 
 /**
  * POST /api/course-requirements/:courseId
- * Create course requirements for a specific course
+ * Create/update course requirements for a specific course
  * Only institution can create requirements for their courses
  */
-router.post('/:courseId', auth, async (req, res) => {
+router.post('/:courseId', verifyToken, checkRole(['institution', 'admin']), async (req, res) => {
   try {
     const { courseId } = req.params;
     const { requiredSubjects, additionalSubjects, minimumOverallPercentage, minimumRequiredSubjectsNeeded } = req.body;
 
-    // Verify course exists
-    const course = await Course.findById(courseId);
-    if (!course) {
+    // Verify course exists and user owns it
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    // Verify user is the institution owner of this course
-    if (course.institutionId.toString() !== req.user.id && req.user.role !== 'admin') {
+    const course = courseDoc.data();
+    if (course.institutionId !== req.user.uid && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to set requirements for this course' });
     }
 
-    // Check if requirements already exist
-    let requirements = await CourseRequirement.findOne({ courseId });
-    
-    if (requirements) {
-      // Update existing requirements
-      requirements.requiredSubjects = requiredSubjects || requirements.requiredSubjects;
-      requirements.additionalSubjects = additionalSubjects || requirements.additionalSubjects;
-      requirements.minimumOverallPercentage = minimumOverallPercentage ?? requirements.minimumOverallPercentage;
-      requirements.minimumRequiredSubjectsNeeded = minimumRequiredSubjectsNeeded || requiredSubjects.length;
-      requirements.updatedAt = new Date();
-      await requirements.save();
-    } else {
-      // Create new requirements
-      requirements = new CourseRequirement({
-        courseId,
-        institutionId: course.institutionId,
-        requiredSubjects: requiredSubjects || [],
-        additionalSubjects: additionalSubjects || [],
-        minimumOverallPercentage: minimumOverallPercentage || 0,
-        minimumRequiredSubjectsNeeded: minimumRequiredSubjectsNeeded || (requiredSubjects ? requiredSubjects.length : 0)
-      });
-      await requirements.save();
-    }
+    // Create or update requirements in COURSES collection
+    const requirementsData = {
+      courseId,
+      institutionId: course.institutionId,
+      requiredSubjects: requiredSubjects || [],
+      additionalSubjects: additionalSubjects || [],
+      minimumOverallPercentage: minimumOverallPercentage || 0,
+      minimumRequiredSubjectsNeeded: minimumRequiredSubjectsNeeded || (requiredSubjects ? requiredSubjects.length : 0),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Update the course document with requirements
+    await db.collection(collections.COURSES).doc(courseId).update({
+      requiredSubjects: requiredSubjects || [],
+      additionalSubjects: additionalSubjects || [],
+      minimumOverallPercentage: minimumOverallPercentage || 0,
+      minimumRequiredSubjectsNeeded: minimumRequiredSubjectsNeeded || (requiredSubjects ? requiredSubjects.length : 0),
+      requirementsUpdatedAt: new Date().toISOString()
+    });
 
     res.status(201).json({
       message: 'Course requirements saved successfully',
-      requirements
+      requirements: requirementsData
     });
   } catch (error) {
     console.error('Error creating course requirements:', error);
@@ -68,11 +64,23 @@ router.get('/:courseId', async (req, res) => {
   try {
     const { courseId } = req.params;
 
-    const requirements = await CourseRequirement.findOne({ courseId })
-      .populate('courseId', 'courseName duration description')
-      .populate('institutionId', 'institutionName');
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
 
-    if (!requirements) {
+    const course = courseDoc.data();
+    const requirements = {
+      courseId,
+      courseName: course.courseName,
+      institutionId: course.institutionId,
+      requiredSubjects: course.requiredSubjects || [],
+      additionalSubjects: course.additionalSubjects || [],
+      minimumOverallPercentage: course.minimumOverallPercentage || 0,
+      minimumRequiredSubjectsNeeded: course.minimumRequiredSubjectsNeeded || 0
+    };
+
+    if (!requirements.requiredSubjects.length && !requirements.additionalSubjects.length) {
       return res.status(404).json({ message: 'No requirements set for this course' });
     }
 
@@ -87,36 +95,34 @@ router.get('/:courseId', async (req, res) => {
  * PUT /api/course-requirements/:courseId
  * Update course requirements
  */
-router.put('/:courseId', auth, async (req, res) => {
+router.put('/:courseId', verifyToken, checkRole(['institution', 'admin']), async (req, res) => {
   try {
     const { courseId } = req.params;
     const { requiredSubjects, additionalSubjects, minimumOverallPercentage, minimumRequiredSubjectsNeeded } = req.body;
 
     // Verify course exists and user owns it
-    const course = await Course.findById(courseId);
-    if (!course) {
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    if (course.institutionId.toString() !== req.user.id && req.user.role !== 'admin') {
+    const course = courseDoc.data();
+    if (course.institutionId !== req.user.uid && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to update requirements for this course' });
     }
 
-    const requirements = await CourseRequirement.findOneAndUpdate(
-      { courseId },
-      {
-        requiredSubjects: requiredSubjects || undefined,
-        additionalSubjects: additionalSubjects || undefined,
-        minimumOverallPercentage: minimumOverallPercentage !== undefined ? minimumOverallPercentage : undefined,
-        minimumRequiredSubjectsNeeded: minimumRequiredSubjectsNeeded || undefined,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    );
+    // Update requirements
+    const updateData = {};
+    if (requiredSubjects !== undefined) updateData.requiredSubjects = requiredSubjects;
+    if (additionalSubjects !== undefined) updateData.additionalSubjects = additionalSubjects;
+    if (minimumOverallPercentage !== undefined) updateData.minimumOverallPercentage = minimumOverallPercentage;
+    if (minimumRequiredSubjectsNeeded !== undefined) updateData.minimumRequiredSubjectsNeeded = minimumRequiredSubjectsNeeded;
+    updateData.requirementsUpdatedAt = new Date().toISOString();
 
-    if (!requirements) {
-      return res.status(404).json({ message: 'Course requirements not found' });
-    }
+    await db.collection(collections.COURSES).doc(courseId).update(updateData);
+
+    const updatedDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    const requirements = updatedDoc.data();
 
     res.json({
       message: 'Course requirements updated successfully',
@@ -132,25 +138,29 @@ router.put('/:courseId', auth, async (req, res) => {
  * DELETE /api/course-requirements/:courseId
  * Delete course requirements
  */
-router.delete('/:courseId', auth, async (req, res) => {
+router.delete('/:courseId', verifyToken, checkRole(['institution', 'admin']), async (req, res) => {
   try {
     const { courseId } = req.params;
 
     // Verify course exists and user owns it
-    const course = await Course.findById(courseId);
-    if (!course) {
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
-    if (course.institutionId.toString() !== req.user.id && req.user.role !== 'admin') {
+    const course = courseDoc.data();
+    if (course.institutionId !== req.user.uid && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to delete requirements for this course' });
     }
 
-    const result = await CourseRequirement.findOneAndDelete({ courseId });
-
-    if (!result) {
-      return res.status(404).json({ message: 'Course requirements not found' });
-    }
+    // Remove requirements fields
+    await db.collection(collections.COURSES).doc(courseId).update({
+      requiredSubjects: [],
+      additionalSubjects: [],
+      minimumOverallPercentage: 0,
+      minimumRequiredSubjectsNeeded: 0,
+      requirementsUpdatedAt: new Date().toISOString()
+    });
 
     res.json({ message: 'Course requirements deleted successfully' });
   } catch (error) {
@@ -162,9 +172,9 @@ router.delete('/:courseId', auth, async (req, res) => {
 /**
  * POST /api/course-requirements/:courseId/check-eligibility
  * Check if a student is eligible for a course
- * Requires student ID and their transcript
+ * Requires student transcript
  */
-router.post('/:courseId/check-eligibility', auth, async (req, res) => {
+router.post('/:courseId/check-eligibility', verifyToken, async (req, res) => {
   try {
     const { courseId } = req.params;
     const { studentTranscript } = req.body;
@@ -173,11 +183,17 @@ router.post('/:courseId/check-eligibility', auth, async (req, res) => {
       return res.status(400).json({ message: 'Student transcript is required' });
     }
 
-    // Get course requirements
-    const requirements = await CourseRequirement.findOne({ courseId });
+    // Get course
+    const courseDoc = await db.collection(collections.COURSES).doc(courseId).get();
+    if (!courseDoc.exists) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    const course = courseDoc.data();
     
-    if (!requirements) {
-      return res.status(404).json({ 
+    // If no requirements set, all students can apply
+    if (!course.requiredSubjects || course.requiredSubjects.length === 0) {
+      return res.json({ 
         message: 'No specific requirements for this course. All students can apply.',
         isEligible: true,
         matchPercentage: 100,
@@ -186,7 +202,7 @@ router.post('/:courseId/check-eligibility', auth, async (req, res) => {
     }
 
     // Check eligibility
-    const eligibilityResult = await checkCourseEligibility(studentTranscript, requirements);
+    const eligibilityResult = checkCourseEligibility(studentTranscript, course);
 
     res.json(eligibilityResult);
   } catch (error) {
@@ -196,16 +212,35 @@ router.post('/:courseId/check-eligibility', auth, async (req, res) => {
 });
 
 /**
- * GET /api/institution/:institutionId/course-requirements
+ * GET /api/course-requirements/institution/:institutionId
  * Get all course requirements for an institution
  */
 router.get('/institution/:institutionId', async (req, res) => {
   try {
     const { institutionId } = req.params;
 
-    const requirements = await CourseRequirement.find({ institutionId })
-      .populate('courseId', 'courseName duration')
-      .sort({ createdAt: -1 });
+    const snapshot = await db.collection(collections.COURSES)
+      .where('institutionId', '==', institutionId)
+      .where('requiredSubjects', '!=', [])
+      .orderBy('requiredSubjects')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const requirements = [];
+    snapshot.forEach(doc => {
+      const course = doc.data();
+      if (course.requiredSubjects && course.requiredSubjects.length > 0) {
+        requirements.push({
+          courseId: doc.id,
+          courseName: course.courseName,
+          institutionId: course.institutionId,
+          requiredSubjects: course.requiredSubjects || [],
+          additionalSubjects: course.additionalSubjects || [],
+          minimumOverallPercentage: course.minimumOverallPercentage || 0,
+          minimumRequiredSubjectsNeeded: course.minimumRequiredSubjectsNeeded || 0
+        });
+      }
+    });
 
     res.json(requirements);
   } catch (error) {
