@@ -444,6 +444,144 @@ router.get('/institutions', async (req, res) => {
   }
 });
 
+// Get QUALIFIED institutions for student (based on their transcript/qualifications)
+router.get('/qualified-institutions', async (req, res) => {
+  try {
+    console.log(`📚 Fetching qualified institutions for student: ${req.user.uid}`);
+    
+    // Get student profile
+    const studentDoc = await db.collection(collections.USERS).doc(req.user.uid).get();
+    if (!studentDoc.exists) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+    const student = studentDoc.data();
+
+    // Get all institutions
+    const institutionsSnapshot = await db.collection(collections.INSTITUTIONS)
+      .where('status', '==', 'active')
+      .get();
+    
+    const institutionUsersSnapshot = await db.collection(collections.USERS)
+      .where('role', '==', 'institution')
+      .where('status', '==', 'active')
+      .get();
+
+    const qualifiedInstitutions = [];
+    const processedEmails = new Set();
+
+    // Check admin-created institutions
+    for (const instDoc of institutionsSnapshot.docs) {
+      const instData = instDoc.data();
+      
+      if (instData.email) {
+        processedEmails.add(instData.email.toLowerCase());
+      }
+
+      // Check if student qualifies for any courses at this institution
+      const coursesSnapshot = await db.collection(collections.COURSES)
+        .where('institutionId', '==', instDoc.id)
+        .where('status', '==', 'active')
+        .get();
+
+      let qualifyingCourses = 0;
+      for (const courseDoc of coursesSnapshot.docs) {
+        const courseData = courseDoc.data();
+        const eligibility = checkCourseEligibility(student, courseData);
+        if (eligibility.visible !== false) {
+          qualifyingCourses++;
+        }
+      }
+
+      // Only include if student qualifies for at least one course
+      if (qualifyingCourses > 0) {
+        // Count faculties
+        const facultiesSnapshot = await db.collection(collections.FACULTIES)
+          .where('institutionId', '==', instDoc.id)
+          .get();
+
+        qualifiedInstitutions.push({
+          id: instDoc.id,
+          name: instData.name,
+          description: instData.description || '',
+          location: instData.location || '',
+          contact: instData.contact || '',
+          website: instData.website || '',
+          email: instData.email || '',
+          status: 'active',
+          source: 'admin-created',
+          createdAt: instData.createdAt,
+          facultyCount: facultiesSnapshot.size,
+          courseCount: coursesSnapshot.size,
+          qualifyingCourseCount: qualifyingCourses
+        });
+
+        console.log(`  ✓ ${instData.name}: ${qualifyingCourses} qualifying courses`);
+      }
+    }
+
+    // Check self-registered institutions
+    for (const instDoc of institutionUsersSnapshot.docs) {
+      const instData = instDoc.data();
+      const email = instData.email.toLowerCase();
+
+      // Skip if already processed
+      if (processedEmails.has(email)) {
+        continue;
+      }
+
+      // Check if student qualifies for any courses at this institution
+      const coursesSnapshot = await db.collection(collections.COURSES)
+        .where('institutionId', '==', instDoc.id)
+        .where('status', '==', 'active')
+        .get();
+
+      let qualifyingCourses = 0;
+      for (const courseDoc of coursesSnapshot.docs) {
+        const courseData = courseDoc.data();
+        const eligibility = checkCourseEligibility(student, courseData);
+        if (eligibility.visible !== false) {
+          qualifyingCourses++;
+        }
+      }
+
+      // Only include if student qualifies for at least one course
+      if (qualifyingCourses > 0) {
+        // Count faculties
+        const facultiesSnapshot = await db.collection(collections.FACULTIES)
+          .where('institutionId', '==', instDoc.id)
+          .get();
+
+        qualifiedInstitutions.push({
+          id: instDoc.id,
+          name: instData.name,
+          description: `${instData.name} - Higher Learning Institution`,
+          location: 'Lesotho',
+          contact: instData.email,
+          website: '',
+          email: instData.email,
+          status: 'active',
+          source: 'self-registered',
+          createdAt: instData.createdAt,
+          facultyCount: facultiesSnapshot.size,
+          courseCount: coursesSnapshot.size,
+          qualifyingCourseCount: qualifyingCourses
+        });
+
+        console.log(`  ✓ ${instData.name}: ${qualifyingCourses} qualifying courses`);
+      }
+    }
+
+    // Sort alphabetically
+    qualifiedInstitutions.sort((a, b) => a.name.localeCompare(b.name));
+
+    console.log(`✅ Found ${qualifiedInstitutions.length} qualified institutions for student`);
+    res.json(qualifiedInstitutions);
+  } catch (error) {
+    console.error('❌ Get qualified institutions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get faculties for an institution
 router.get('/institutions/:institutionId/faculties', async (req, res) => {
   try {
@@ -544,7 +682,7 @@ router.get('/institutions/:institutionId/faculties/:facultyId/courses', async (r
 router.get('/institutions/:institutionId/courses', async (req, res) => {
   try {
     const { institutionId } = req.params;
-    console.log('📚 Fetching courses for institution:', institutionId);
+    console.log('Fetching courses for institution:', institutionId);
     
     // Check if it's an admin-created institution
     let instDoc = await db.collection(collections.INSTITUTIONS)
@@ -1076,7 +1214,7 @@ router.get('/jobs', async (req, res) => {
 
     // Show all active jobs - students can see them even if not fully qualified
     // The eligibility flag is still calculated for UI/UX purposes
-    console.log(`📁 Returning ${jobs.length} active jobs to student`);
+    console.log(`Returning ${jobs.length} active jobs to student`);
     
     res.json(jobs);
   } catch (error) {
@@ -1105,9 +1243,9 @@ router.post('/jobs/:jobId/apply', async (req, res) => {
     // If using file upload method, upload to Cloudinary first
     if (hasFile) {
       try {
-        console.log(`📁 Uploading CV file for student ${req.user.uid}...`);
+        console.log(`Uploading CV file for student ${req.user.uid}...`);
         finalCvUrl = await uploadToCloudinary(req.file, req.user.uid, 'cv');
-        console.log(`✅ CV uploaded successfully: ${finalCvUrl}`);
+        console.log(`CV uploaded successfully: ${finalCvUrl}`);
       } catch (uploadError) {
         return res.status(500).json({ 
           error: 'Failed to upload CV file: ' + uploadError.message 
@@ -1317,7 +1455,7 @@ router.put('/notifications/read-all', async (req, res) => {
 
 router.get('/institutions', async (req, res) => {
   try {
-    console.log('📚 Student requesting institutions list...');
+    console.log('Student requesting institutions list...');
     
     // Get ALL institutions - no status filter needed
     const snapshot = await db.collection(collections.INSTITUTIONS).get();
@@ -1335,14 +1473,14 @@ router.get('/institutions', async (req, res) => {
       };
     });
     
-    console.log(`✅ Found ${institutions.length} institutions for student`);
+    console.log(`Found ${institutions.length} institutions for student`);
     
     // Sort alphabetically by name
     institutions.sort((a, b) => a.name.localeCompare(b.name));
     
     res.json(institutions);
   } catch (error) {
-    console.error('❌ Get institutions error:', error);
+    console.error('Get institutions error:', error);
     res.status(500).json({ 
       error: error.message,
       message: 'Failed to fetch institutions'

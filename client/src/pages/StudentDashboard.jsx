@@ -58,6 +58,8 @@ export default function StudentDashboard({ user }) {
     location: ''
   });
   const [isEditingPreferences, setIsEditingPreferences] = useState(false);
+  const [institutionsSubTab, setInstitutionsSubTab] = useState('all-institutions'); // 'all-institutions' or 'qualified-institutions'
+  const [qualifiedInstitutions, setQualifiedInstitutions] = useState([]);
 
   // Tab notifications
   const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'student', user?.uid);
@@ -178,6 +180,23 @@ export default function StudentDashboard({ user }) {
     } catch (err) {
       console.error('Error fetching faculties:', err);
       setError(err.message);
+    }
+  };
+
+  const loadQualifiedInstitutions = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/student/qualified-institutions`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      // Sort alphabetically
+      const sorted = response.data.sort((a, b) => a.name.localeCompare(b.name));
+      setQualifiedInstitutions(sorted);
+    } catch (err) {
+      console.error('Error loading qualified institutions:', err);
+      setError('Failed to load qualified institutions');
     }
   };
 
@@ -551,119 +570,207 @@ export default function StudentDashboard({ user }) {
         {/* BROWSE INSTITUTIONS TAB */}
         {activeTab === 'institutions' && (
           <>
-            <div className="section-header">
-              <h2>Higher Learning Institutions in Lesotho</h2>
-              <div className="search-bar">
-                <FaSearch />
-                <input
-                  type="text"
-                  placeholder="Search institutions by name or location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            {filteredInstitutions.length === 0 && searchTerm && (
-              <div className="empty-state">
-                <FaSearch size={48} />
-                <h3>No institutions found</h3>
-                <p>Try a different search term</p>
-                <button className="btn-secondary" onClick={() => setSearchTerm('')}>
-                  Clear Search
-                </button>
-              </div>
-            )}
-            <div className="cards-grid">
-              {filteredJobs.map((job) => (
-                <div key={job.id} className={`job-card ${!job.eligible ? 'not-eligible' : ''}`}>
-                  <div className="job-header">
-                    <h3>{job.title}</h3>
-                    {job.qualificationMatch !== undefined && (
-                      <span 
-                        className={`match-badge ${job.eligible ? 'qualified' : 'not-qualified'}`}
-                        style={{
-                          backgroundColor: job.eligible ? '#10b981' : '#ef4444',
-                          color: 'white'
-                        }}
-                      >
-                        {job.qualificationMatch}% Match
-                      </span>
-                    )}
-                  </div>
-                  <p><strong>Company:</strong> {job.company}</p>
-                  <p><strong>Location:</strong> {job.location}</p>
-                  <p><strong>Salary:</strong> {job.salary}</p>
-                  <p><strong>Requirements:</strong> {job.qualifications}</p>
-                  <p className="job-description">{job.description}</p>
-                  
-                  {!job.eligible && (
-                    <div className="eligibility-warning" style={{
-                      background: '#fee2e2',
-                      border: '1px solid #fca5a5',
-                      borderRadius: '6px',
-                      padding: '12px',
-                      marginTop: '10px',
-                      display: 'flex',
-                      gap: '8px',
-                      alignItems: 'start'
-                    }}>
-                      <FaTimesCircle style={{ color: '#dc2626', marginTop: '2px', flexShrink: 0 }} />
-                      <div>
-                        <strong style={{ color: '#991b1b', display: 'block', marginBottom: '4px' }}>
-                          Not Currently Qualified
-                        </strong>
-                        <p style={{ color: '#7f1d1d', fontSize: '14px', margin: 0 }}>
-                          {job.eligibilityReason}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => handleApplyJob(job)}
-                    disabled={!profile?.isGraduate || !job.eligible}
-                    style={{
-                      marginTop: '12px',
-                      opacity: (!profile?.isGraduate || !job.eligible) ? 0.5 : 1,
-                      cursor: (!profile?.isGraduate || !job.eligible) ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {!profile?.isGraduate 
-                      ? 'Upload Transcript First' 
-                      : !job.eligible 
-                        ? 'Not Qualified' 
-                        : 'Apply Now'}
-                  </button>
-                </div>
-              ))}
+            {/* Sub-tabs for Institutions Section */}
+            <div className="institutions-subtabs" style={{
+              display: 'flex',
+              gap: '1rem',
+              borderBottom: '2px solid #e5e7eb',
+              marginBottom: '2rem',
+              paddingBottom: '0'
+            }}>
+              <button
+                onClick={() => setInstitutionsSubTab('all-institutions')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderBottom: institutionsSubTab === 'all-institutions' ? '3px solid #2563eb' : 'none',
+                  color: institutionsSubTab === 'all-institutions' ? '#2563eb' : '#6b7280',
+                  fontWeight: institutionsSubTab === 'all-institutions' ? '600' : '500',
+                  fontSize: '15px'
+                }}
+              >
+                <FaGraduationCap style={{ marginRight: '0.5rem' }} /> All Institutions
+              </button>
+              <button
+                onClick={() => {
+                  setInstitutionsSubTab('qualified-institutions');
+                  loadQualifiedInstitutions();
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderBottom: institutionsSubTab === 'qualified-institutions' ? '3px solid #2563eb' : 'none',
+                  color: institutionsSubTab === 'qualified-institutions' ? '#2563eb' : '#6b7280',
+                  fontWeight: institutionsSubTab === 'qualified-institutions' ? '600' : '500',
+                  fontSize: '15px'
+                }}
+              >
+                <FaCheckCircle style={{ marginRight: '0.5rem' }} /> Institutions I Qualify For
+              </button>
             </div>
 
-           <div className="cards-grid">
-              {filteredInstitutions.map((inst) => {
-                const appCount = getApplicationCount(inst.id);
-                return (
-                  <div key={inst.id} className="institution-card">
-                    <h3>{inst.name}</h3>
-                    <p><strong>Location:</strong> {inst.location}</p>
-                    <p>{inst.description}</p>
-                    <div className="card-footer">
-                      <span className="app-count">
-                        {appCount}/2 applications used
-                      </span>
-                      <button 
-                        className="btn-primary" 
-                        onClick={() => handleViewCourses(inst)}
-                        disabled={appCount >= 2}
-                      >
-                        {appCount >= 2 ? 'Max Applications Reached' : 'View Faculties'}
-                      </button>
-                    </div>
+            {/* ALL INSTITUTIONS TAB */}
+            {institutionsSubTab === 'all-institutions' && (
+              <>
+                <div className="section-header">
+                  <h2>All Higher Learning Institutions</h2>
+                  <div className="search-bar">
+                    <FaSearch />
+                    <input
+                      type="text"
+                      placeholder="Search institutions by name or location..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                );
-              })}
-            </div>
+                </div>
+                
+                {filteredInstitutions.length === 0 && searchTerm && (
+                  <div className="empty-state">
+                    <FaSearch size={48} />
+                    <h3>No institutions found</h3>
+                    <p>Try a different search term</p>
+                    <button className="btn-secondary" onClick={() => setSearchTerm('')}>
+                      Clear Search
+                    </button>
+                  </div>
+                )}
+
+                {filteredInstitutions.length === 0 && !searchTerm ? (
+                  <div className="empty-state">
+                    <FaGraduationCap size={48} />
+                    <h3>No institutions available</h3>
+                    <p>No institutions are currently listed in the system</p>
+                  </div>
+                ) : (
+                  <div className="cards-grid">
+                    {filteredInstitutions.map((inst) => {
+                      const appCount = getApplicationCount(inst.id);
+                      return (
+                        <div key={inst.id} className="institution-card">
+                          <h3>{inst.name}</h3>
+                          <p><strong>Location:</strong> {inst.location}</p>
+                          <p>{inst.description}</p>
+                          <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '1rem', marginBottom: '1rem' }}>
+                            <p style={{ margin: '0.5rem 0' }}>
+                              <strong>Faculties:</strong> {inst.facultyCount || 0}
+                            </p>
+                            <p style={{ margin: '0.5rem 0' }}>
+                              <strong>Programs:</strong> {inst.courseCount || 0}
+                            </p>
+                          </div>
+                          <div className="card-footer">
+                            <span className="app-count">
+                              {appCount}/2 applications used
+                            </span>
+                            <button 
+                              className="btn-primary" 
+                              onClick={() => handleViewCourses(inst)}
+                              disabled={appCount >= 2}
+                            >
+                              {appCount >= 2 ? 'Max Applications Reached' : 'View Faculties'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* QUALIFIED INSTITUTIONS TAB */}
+            {institutionsSubTab === 'qualified-institutions' && (
+              <>
+                <div className="section-header">
+                  <h2>Institutions I Qualify For</h2>
+                  <p style={{ color: '#6b7280', marginTop: '0.5rem' }}>
+                    These are institutions where your qualifications match their course requirements
+                  </p>
+                </div>
+
+                {qualifiedInstitutions.length === 0 ? (
+                  <div className="empty-state">
+                    <FaGraduationCap size={48} />
+                    <h3>No Matching Institutions</h3>
+                    <p>You currently don't qualify for any institutions based on your transcript and qualifications.</p>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => setInstitutionsSubTab('all-institutions')}
+                    >
+                      Browse All Institutions
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{
+                      background: '#d1fae5',
+                      border: '1px solid #6ee7b7',
+                      borderRadius: '0.5rem',
+                      padding: '1rem',
+                      marginBottom: '2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}>
+                      <FaCheckCircle style={{ color: '#059669', fontSize: '18px' }} />
+                      <span style={{ color: '#047857', fontWeight: '500' }}>
+                        ✓ Showing {qualifiedInstitutions.length} institution(s) you qualify for
+                      </span>
+                    </div>
+
+                    <div className="cards-grid">
+                      {qualifiedInstitutions.map((inst) => {
+                        const appCount = getApplicationCount(inst.id);
+                        return (
+                          <div key={inst.id} className="institution-card">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                              <h3 style={{ margin: 0 }}>{inst.name}</h3>
+                              <span style={{
+                                background: '#d1fae5',
+                                color: '#047857',
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '0.375rem',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                ✓ Qualified
+                              </span>
+                            </div>
+                            <p><strong>Location:</strong> {inst.location}</p>
+                            <p>{inst.description}</p>
+                            <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '1rem', marginBottom: '1rem' }}>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>Faculties:</strong> {inst.facultyCount || 0}
+                              </p>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>Matching Programs:</strong> {inst.qualifyingCourseCount || 0}
+                              </p>
+                            </div>
+                            <div className="card-footer">
+                              <span className="app-count">
+                                {appCount}/2 applications used
+                              </span>
+                              <button 
+                                className="btn-primary" 
+                                onClick={() => handleViewCourses(inst)}
+                                disabled={appCount >= 2}
+                              >
+                                {appCount >= 2 ? 'Max Applications Reached' : 'View Faculties'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
 
