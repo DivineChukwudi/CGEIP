@@ -713,4 +713,108 @@ router.put('/notifications/:id/read', async (req, res) => {
   }
 });
 
+// ============================================
+// NEW ENDPOINTS: ALL JOBS & STUDENT MATCHES
+// ============================================
+
+/**
+ * GET /api/company/all-jobs
+ * Get all jobs posted in the system by any company
+ */
+router.get('/all-jobs', async (req, res) => {
+  try {
+    console.log('📋 Fetching all jobs in system');
+
+    const jobsSnapshot = await db.collection(collections.JOBS)
+      .where('status', '==', 'active')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const allJobs = [];
+    
+    for (const jobDoc of jobsSnapshot.docs) {
+      const jobData = jobDoc.data();
+      
+      // Get company name
+      const companyDoc = await db.collection(collections.USERS)
+        .doc(jobData.companyId)
+        .get();
+
+      // Count applications
+      const appCount = await db.collection(collections.JOB_APPLICATIONS)
+        .where('jobId', '==', jobDoc.id)
+        .get();
+
+      allJobs.push({
+        id: jobDoc.id,
+        ...jobData,
+        companyName: companyDoc.exists ? companyDoc.data().name : 'Unknown Company',
+        applicationCount: appCount.size
+      });
+    }
+
+    console.log(`✅ Found ${allJobs.length} active jobs in system`);
+    res.json(allJobs);
+  } catch (error) {
+    console.error('❌ Error fetching all jobs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/company/jobs/:jobId/matched-students
+ * Get all students matching a specific job based on qualifications
+ */
+router.get('/jobs/:jobId/matched-students', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    console.log(`🎯 Finding students matched to job: ${jobId}`);
+
+    // Get the job details
+    const jobDoc = await db.collection(collections.JOBS).doc(jobId).get();
+    if (!jobDoc.exists) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    const job = jobDoc.data();
+
+    // Get all students
+    const studentsSnapshot = await db.collection(collections.USERS)
+      .where('role', '==', 'student')
+      .get();
+
+    const matchedStudents = [];
+
+    for (const studentDoc of studentsSnapshot.docs) {
+      const student = studentDoc.data();
+
+      // Calculate match score
+      const matchScore = calculateJobMatchAndEligibility(student, job);
+
+      // Only include students with at least 50% match
+      if (matchScore.eligible) {
+        matchedStudents.push({
+          id: studentDoc.id,
+          name: student.name || 'Student',
+          email: student.email,
+          qualifications: student.qualifications || [],
+          workExperience: student.workExperience || [],
+          hasTranscript: !!student.transcriptId,
+          hasCV: !!student.cvId,
+          matchScore: matchScore.score,
+          matchEligible: matchScore.eligible
+        });
+      }
+    }
+
+    // Sort by match score (highest first)
+    matchedStudents.sort((a, b) => b.matchScore - a.matchScore);
+
+    console.log(`✅ Found ${matchedStudents.length} matched students for job: ${job.title}`);
+    res.json(matchedStudents);
+  } catch (error) {
+    console.error('❌ Error fetching matched students:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

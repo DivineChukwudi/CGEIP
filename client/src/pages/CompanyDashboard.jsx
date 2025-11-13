@@ -19,6 +19,10 @@ export default function CompanyDashboard({ user }) {
   const [formData, setFormData] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [jobsSubTab, setJobsSubTab] = useState('my-jobs'); // 'my-jobs' or 'all-jobs' or 'student-matches'
+  const [allSystemJobs, setAllSystemJobs] = useState([]);
+  const [matchedStudents, setMatchedStudents] = useState([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
 
   // NOTIFICATION INTEGRATION
   const { counts, refreshCounts } = useNotificationCounts(user?.role || 'company', user?.uid);
@@ -42,6 +46,44 @@ export default function CompanyDashboard({ user }) {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const loadAllSystemJobs = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/company/all-jobs`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      setAllSystemJobs(response.data);
+    } catch (err) {
+      console.error('Error loading all system jobs:', err);
+      setError('Failed to load system jobs');
+    }
+  };
+
+  const loadMatchedStudents = async (jobId) => {
+    try {
+      setIsLoadingMatches(true);
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/company/jobs/${jobId}/matched-students`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      setMatchedStudents(response.data);
+      setIsLoadingMatches(false);
+    } catch (err) {
+      console.error('Error loading matched students:', err);
+      setError('Failed to load matched students');
+      setIsLoadingMatches(false);
+    }
+  };
+
+  const handleSelectJobForMatching = (job) => {
+    setSelectedJob(job);
+    loadMatchedStudents(job.id);
   };
 
   const loadNotifications = async () => {
@@ -198,62 +240,385 @@ export default function CompanyDashboard({ user }) {
         {/* ==================== JOBS TAB ==================== */}
         {activeTab === 'jobs' && user.status === 'active' && (
           <>
-            <div className="section-header">
-              <h2>Manage Job Postings</h2>
-              <button className="btn-primary" onClick={handleAddJob}>
-                <FaPlus /> Post New Job
+            {/* Sub-tabs for Jobs Section */}
+            <div className="jobs-subtabs" style={{
+              display: 'flex',
+              gap: '1rem',
+              borderBottom: '2px solid #e5e7eb',
+              marginBottom: '2rem',
+              paddingBottom: '0'
+            }}>
+              <button
+                onClick={() => setJobsSubTab('my-jobs')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderBottom: jobsSubTab === 'my-jobs' ? '3px solid #2563eb' : 'none',
+                  color: jobsSubTab === 'my-jobs' ? '#2563eb' : '#6b7280',
+                  fontWeight: jobsSubTab === 'my-jobs' ? '600' : '500',
+                  fontSize: '15px'
+                }}
+              >
+                <FaBriefcase style={{ marginRight: '0.5rem' }} /> My Posted Jobs
+              </button>
+              <button
+                onClick={() => {
+                  setJobsSubTab('all-jobs');
+                  loadAllSystemJobs();
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderBottom: jobsSubTab === 'all-jobs' ? '3px solid #2563eb' : 'none',
+                  color: jobsSubTab === 'all-jobs' ? '#2563eb' : '#6b7280',
+                  fontWeight: jobsSubTab === 'all-jobs' ? '600' : '500',
+                  fontSize: '15px'
+                }}
+              >
+                <FaBriefcase style={{ marginRight: '0.5rem' }} /> All Jobs in System
+              </button>
+              <button
+                onClick={() => setJobsSubTab('student-matches')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderBottom: jobsSubTab === 'student-matches' ? '3px solid #2563eb' : 'none',
+                  color: jobsSubTab === 'student-matches' ? '#2563eb' : '#6b7280',
+                  fontWeight: jobsSubTab === 'student-matches' ? '600' : '500',
+                  fontSize: '15px'
+                }}
+              >
+                <FaGraduationCap style={{ marginRight: '0.5rem' }} /> Student Matches
               </button>
             </div>
 
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Job Title</th>
-                    <th>Location</th>
-                    <th>Salary</th>
-                    <th>Deadline</th>
-                    <th>Qualified Applicants</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((job) => (
-                    <tr key={job.id}>
-                      <td>{job.title}</td>
-                      <td>{job.location}</td>
-                      <td>{job.salary}</td>
-                      <td>{new Date(job.deadline).toLocaleDateString()}</td>
-                      <td>
-                        <span className="badge" style={{ background: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '4px' }}>
-                          {job.qualifiedApplicants || 0} qualified
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status-badge status-${job.status}`}>
-                          {job.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn-info btn-sm"
-                          onClick={() => handleViewApplicants(job)}
-                        >
-                          <FaEye /> View Qualified
-                        </button>
-                        <button
-                          className="btn-icon danger"
-                          onClick={() => handleDeleteJob(job.id)}
-                        >
-                          <FaTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* MY POSTED JOBS TAB */}
+            {jobsSubTab === 'my-jobs' && (
+              <>
+                <div className="section-header">
+                  <h2>My Job Postings</h2>
+                  <button className="btn-primary" onClick={handleAddJob}>
+                    <FaPlus /> Post New Job
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  {jobs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                      <FaBriefcase size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                      <h3>No job postings yet</h3>
+                      <p>Post a new job to get started</p>
+                    </div>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Job Title</th>
+                          <th>Location</th>
+                          <th>Salary</th>
+                          <th>Deadline</th>
+                          <th>Qualified Applicants</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobs.map((job) => (
+                          <tr key={job.id}>
+                            <td>{job.title}</td>
+                            <td>{job.location}</td>
+                            <td>{job.salary}</td>
+                            <td>{new Date(job.deadline).toLocaleDateString()}</td>
+                            <td>
+                              <span className="badge" style={{ background: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '4px' }}>
+                                {job.qualifiedApplicants || 0} qualified
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-badge status-${job.status}`}>
+                                {job.status}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                className="btn-info btn-sm"
+                                onClick={() => handleViewApplicants(job)}
+                              >
+                                <FaEye /> View Qualified
+                              </button>
+                              <button
+                                className="btn-icon danger"
+                                onClick={() => handleDeleteJob(job.id)}
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ALL JOBS IN SYSTEM TAB */}
+            {jobsSubTab === 'all-jobs' && (
+              <>
+                <div className="section-header">
+                  <h2>All Jobs Posted in System</h2>
+                  <p style={{ color: '#6b7280', marginTop: '0.5rem' }}>
+                    View all job postings from all companies in the system
+                  </p>
+                </div>
+
+                <div className="table-container">
+                  {allSystemJobs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                      <FaBriefcase size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                      <h3>No jobs in system</h3>
+                      <p>No jobs have been posted yet</p>
+                    </div>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Job Title</th>
+                          <th>Company</th>
+                          <th>Location</th>
+                          <th>Salary</th>
+                          <th>Deadline</th>
+                          <th>Applications</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allSystemJobs.map((job) => (
+                          <tr key={job.id}>
+                            <td>{job.title}</td>
+                            <td>{job.companyName || 'N/A'}</td>
+                            <td>{job.location}</td>
+                            <td>{job.salary}</td>
+                            <td>{new Date(job.deadline).toLocaleDateString()}</td>
+                            <td>
+                              <span className="badge" style={{ background: '#3b82f6', color: 'white', padding: '4px 8px', borderRadius: '4px' }}>
+                                {job.applicationCount || 0} applications
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-badge status-${job.status}`}>
+                                {job.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* STUDENT MATCHES TAB */}
+            {jobsSubTab === 'student-matches' && (
+              <>
+                <div className="section-header">
+                  <h2>Student Matches</h2>
+                  <p style={{ color: '#6b7280', marginTop: '0.5rem' }}>
+                    {selectedJob
+                      ? `Showing students matched to: ${selectedJob.title}`
+                      : 'Select a job from your postings to see matching students'}
+                  </p>
+                </div>
+
+                {!selectedJob ? (
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                      gap: '1.5rem',
+                      marginTop: '2rem'
+                    }}>
+                      {jobs.length === 0 ? (
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                          <FaBriefcase size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                          <h3>No jobs posted</h3>
+                          <p>Post a job first to see matching students</p>
+                        </div>
+                      ) : (
+                        jobs.map((job) => (
+                          <div
+                            key={job.id}
+                            onClick={() => handleSelectJobForMatching(job)}
+                            style={{
+                              padding: '1.5rem',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '0.5rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              background: '#fff'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#2563eb';
+                              e.currentTarget.style.boxShadow = '0 4px 6px rgba(37, 99, 235, 0.1)';
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#e5e7eb';
+                              e.currentTarget.style.boxShadow = 'none';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            <h3 style={{ margin: '0 0 0.5rem 0', color: '#111827' }}>{job.title}</h3>
+                            <p style={{ margin: '0.5rem 0', color: '#6b7280', fontSize: '14px' }}>
+                              <strong>Location:</strong> {job.location}
+                            </p>
+                            <p style={{ margin: '0.5rem 0', color: '#6b7280', fontSize: '14px' }}>
+                              <strong>Salary:</strong> {job.salary}
+                            </p>
+                            <p style={{ margin: '0.5rem 0', color: '#6b7280', fontSize: '14px' }}>
+                              <strong>Qualified:</strong> {job.qualifiedApplicants || 0} students
+                            </p>
+                            <button
+                              style={{
+                                marginTop: '1rem',
+                                width: '100%',
+                                padding: '0.75rem',
+                                background: '#2563eb',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '0.375rem',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              View Matches
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setSelectedJob(null)}
+                      style={{
+                        marginBottom: '1.5rem',
+                        padding: '0.5rem 1rem',
+                        background: '#f3f4f6',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        color: '#374151'
+                      }}
+                    >
+                      ← Back to Job Selection
+                    </button>
+
+                    {isLoadingMatches ? (
+                      <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                        <div style={{ marginBottom: '1rem' }}>Loading matched students...</div>
+                      </div>
+                    ) : matchedStudents.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                        <FaGraduationCap size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <h3>No matching students</h3>
+                        <p>No students currently match the requirements for this job</p>
+                      </div>
+                    ) : (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                        gap: '1.5rem'
+                      }}>
+                        {matchedStudents.map((student, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: '1.5rem',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '0.5rem',
+                              background: '#fff'
+                            }}
+                          >
+                            <div style={{ marginBottom: '1rem' }}>
+                              <h3 style={{ margin: '0 0 0.25rem 0', color: '#111827' }}>
+                                {student.name || 'Student'}
+                              </h3>
+                              <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
+                                {student.email}
+                              </p>
+                            </div>
+
+                            {/* Match Score */}
+                            <div style={{
+                              padding: '0.75rem',
+                              background: '#f3f4f6',
+                              borderRadius: '0.375rem',
+                              marginBottom: '1rem'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '14px', color: '#6b7280' }}>Match Score</span>
+                                <span style={{
+                                  fontSize: '18px',
+                                  fontWeight: 'bold',
+                                  color: getScoreColor(student.matchScore)
+                                }}>
+                                  {student.matchScore}%
+                                </span>
+                              </div>
+                              <small style={{ color: '#9ca3af', display: 'block', marginTop: '0.25rem' }}>
+                                {getScoreLabel(student.matchScore)}
+                              </small>
+                            </div>
+
+                            {/* Student Info */}
+                            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '1rem' }}>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>Qualifications:</strong> {student.qualifications?.join(', ') || 'Not listed'}
+                              </p>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>Experience:</strong> {student.workExperience?.length || 0} years
+                              </p>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>Transcript:</strong> {student.hasTranscript ? '✓ Verified' : '✗ Missing'}
+                              </p>
+                              <p style={{ margin: '0.5rem 0' }}>
+                                <strong>CV:</strong> {student.hasCV ? '✓ Uploaded' : '✗ Missing'}
+                              </p>
+                            </div>
+
+                            <button
+                              style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                background: '#2563eb',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '0.375rem',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              View Profile
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
 
