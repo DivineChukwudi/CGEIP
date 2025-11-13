@@ -32,10 +32,12 @@ const collections = {
   COMPANIES: 'companies',
   JOBS: 'jobs',
   JOB_APPLICATIONS: 'job_applications',
+  JOB_PREFERENCES: 'job_preferences',
   ADMISSIONS: 'admissions',
   TRANSCRIPTS: 'transcripts',
   NOTIFICATIONS: 'notifications',
-  TEAM: 'team'
+  TEAM: 'team',
+  REPORTS: 'system_reports'
 };
 
 module.exports = { admin, db, auth, collections };

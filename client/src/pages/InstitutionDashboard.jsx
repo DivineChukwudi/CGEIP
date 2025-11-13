@@ -14,6 +14,7 @@ export default function InstitutionDashboard({ user }) {
   const [applications, setApplications] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
@@ -58,6 +59,9 @@ export default function InstitutionDashboard({ user }) {
       } else if (activeTab === 'notifications') {
         const data = await institutionAPI.getNotifications?.() || [];
         setNotifications(data);
+      } else if (activeTab === 'profile') {
+        const profileData = await institutionAPI.getProfile();
+        setProfile(profileData);
       }
     } catch (err) {
       setError(err.message);
@@ -249,6 +253,44 @@ export default function InstitutionDashboard({ user }) {
     }
   };
 
+  // ==================== PROFILE MANAGEMENT ====================
+  const handleEditProfile = () => {
+    if (profile) {
+      setFormData({
+        name: profile.name || '',
+        email: profile.email || '',
+        location: profile.location || '',
+        phone: profile.phone || '',
+        website: profile.website || '',
+        description: profile.description || ''
+      });
+    }
+    setModalType('edit-profile');
+    setShowModal(true);
+    setError('');
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email) {
+      setError('Name and email are required');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await institutionAPI.updateProfile(formData);
+      showSuccess('Profile updated successfully!');
+      setShowModal(false);
+      setFormData({});
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-sidebar">
@@ -294,6 +336,13 @@ export default function InstitutionDashboard({ user }) {
           onClick={() => setActiveTab('admissions')}
         >
           <FaBullhorn /> Publish Admissions
+        </button>
+
+        <button
+          className={activeTab === 'profile' ? 'active' : ''}
+          onClick={() => setActiveTab('profile')}
+        >
+          <FaUser /> Update Profile
         </button>
 
         <button
@@ -514,6 +563,55 @@ export default function InstitutionDashboard({ user }) {
             <div className="info-card">
               <p>Use this feature to publish admission announcements to notify prospective students about new intake periods, requirements, and deadlines.</p>
             </div>
+          </>
+        )}
+
+        {/* ==================== PROFILE TAB ==================== */}
+        {activeTab === 'profile' && (
+          <>
+            <div className="section-header">
+              <h2>Update Institution Profile</h2>
+              <button className="btn-primary" onClick={handleEditProfile}>
+                <FaEdit /> Edit Profile
+              </button>
+            </div>
+            
+            {profile ? (
+              <div className="profile-card">
+                <div className="profile-section">
+                  <div className="info-row">
+                    <label>Institution Name:</label>
+                    <span>{profile.name}</span>
+                  </div>
+                  <div className="info-row">
+                    <label>Email:</label>
+                    <span>{profile.email}</span>
+                  </div>
+                  <div className="info-row">
+                    <label>Location:</label>
+                    <span>{profile.location || 'Not provided'}</span>
+                  </div>
+                  <div className="info-row">
+                    <label>Phone:</label>
+                    <span>{profile.phone || 'Not provided'}</span>
+                  </div>
+                  <div className="info-row">
+                    <label>Website:</label>
+                    <span>{profile.website ? <a href={profile.website} target="_blank" rel="noopener noreferrer">{profile.website}</a> : 'Not provided'}</span>
+                  </div>
+                  <div className="info-row">
+                    <label>Description:</label>
+                    <span>{profile.description || 'Not provided'}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <FaUser size={48} />
+                <h3>No Profile Found</h3>
+                <p>Could not load your institution profile</p>
+              </div>
+            )}
           </>
         )}
 
@@ -869,6 +967,82 @@ export default function InstitutionDashboard({ user }) {
                   </button>
                   <button type="submit" className="btn-primary">
                     {editingItem ? 'Update' : 'Add'} Course
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Profile Modal */}
+        {showModal && modalType === 'edit-profile' && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+              <h2>Edit Institution Profile</h2>
+              {error && <div className="error-message">{error}</div>}
+              <form onSubmit={handleSaveProfile}>
+                <div className="form-group">
+                  <label>Institution Name *</label>
+                  <input
+                    type="text"
+                    value={formData.name || ''}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Institution name"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="contact@institution.edu"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Location</label>
+                  <input
+                    type="text"
+                    value={formData.location || ''}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="City, Country"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.phone || ''}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Website</label>
+                  <input
+                    type="url"
+                    value={formData.website || ''}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    placeholder="https://www.institution.edu"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows="4"
+                    placeholder="Brief description about your institution..."
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)} disabled={isSubmitting}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>

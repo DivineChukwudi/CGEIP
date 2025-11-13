@@ -436,12 +436,17 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
       users: 0,
       transcripts: 0,
       applications: 0,
+      'my-applications': 0,
       jobs: 0,
+      'my-jobs': 0,
+      'job-interests': 0,
       profile: 0,
-      notifications: 0
+      notifications: 0,
+      'my-transcript': 0,
+      dashboard: 0
     };
 
-    // Count unread notifications for the user
+    // Count unread notifications for the user (ALL tabs)
     const unreadNotifs = await db.collection(collections.NOTIFICATIONS)
       .where('userId', '==', uid)
       .where('read', '==', false)
@@ -450,14 +455,14 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
 
     // ADMIN TAB COUNTS
     if (role === 'admin') {
-      // Pending companies
+      // Pending companies - count from USERS collection
       const pendingCompanies = await db.collection(collections.USERS)
         .where('role', '==', 'company')
         .where('status', '==', 'pending')
         .get();
       tabCounts.companies = pendingCompanies.size;
 
-      // New user registrations
+      // New user registrations - count unread user_registered notifications
       const newUsers = await db.collection(collections.NOTIFICATIONS)
         .where('userId', '==', uid)
         .where('type', '==', 'user_registered')
@@ -465,27 +470,27 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
         .get();
       tabCounts.users = newUsers.size;
 
-      // Pending transcripts
-      const pendingTranscripts = await db.collection(collections.NOTIFICATIONS)
-        .where('userId', '==', uid)
-        .where('type', '==', 'transcript_pending')
-        .where('read', '==', false)
+      // Pending transcripts - count from TRANSCRIPTS collection
+      const pendingTranscripts = await db.collection(collections.TRANSCRIPTS)
+        .where('verified', '==', false)
         .get();
       tabCounts.transcripts = pendingTranscripts.size;
+
+      console.log(`📊 Admin Tab Counts - Companies: ${tabCounts.companies}, Users: ${tabCounts.users}, Transcripts: ${tabCounts.transcripts}`);
     }
 
     // INSTITUTION TAB COUNTS
     if (role === 'institution') {
       const instId = uid;
 
-      // Pending applications
+      // Pending applications - count from APPLICATIONS collection
       const pendingApps = await db.collection(collections.APPLICATIONS)
         .where('institutionId', '==', instId)
         .where('status', '==', 'pending')
         .get();
       tabCounts.applications = pendingApps.size;
 
-      // New faculties added
+      // New faculties - count from NOTIFICATIONS
       const newFaculties = await db.collection(collections.NOTIFICATIONS)
         .where('userId', '==', uid)
         .where('type', '==', 'faculty_added')
@@ -493,20 +498,22 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
         .get();
       tabCounts.faculties = newFaculties.size;
 
-      // New courses added
+      // New courses - count from NOTIFICATIONS
       const newCourses = await db.collection(collections.NOTIFICATIONS)
         .where('userId', '==', uid)
         .where('type', '==', 'course_added')
         .where('read', '==', false)
         .get();
       tabCounts.courses = newCourses.size;
+
+      console.log(`📊 Institution Tab Counts - Applications: ${tabCounts.applications}, Faculties: ${tabCounts.faculties}, Courses: ${tabCounts.courses}`);
     }
 
     // COMPANY TAB COUNTS
     if (role === 'company') {
       const companyId = uid;
 
-      // Pending job applicants (qualified)
+      // Pending job applicants (qualified) - count from JOB_APPLICATIONS
       const jobs = await db.collection(collections.JOBS)
         .where('companyId', '==', companyId)
         .get();
@@ -519,35 +526,51 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
           const batch = jobIds.slice(i, i + 10);
           const applicants = await db.collection(collections.JOB_APPLICATIONS)
             .where('jobId', 'in', batch)
-            .where('qualificationMatch', '>=', 70)
             .where('status', '==', 'pending')
             .get();
-          pendingQualified += applicants.size;
+          // Count only qualified applicants (score >= 70)
+          const qualified = applicants.docs.filter(doc => 
+            (doc.data().qualificationScore || 0) >= 70
+          ).length;
+          pendingQualified += qualified;
         }
       }
       tabCounts.jobs = pendingQualified;
+
+      console.log(`📊 Company Tab Counts - Jobs: ${tabCounts.jobs}`);
     }
 
     // STUDENT TAB COUNTS
     if (role === 'student') {
-      // Admitted applications
-      const admitted = await db.collection(collections.APPLICATIONS)
-        .where('studentId', '==', uid)
-        .where('status', '==', 'accepted')
+      // My Applications - Count admission notifications (when student is admitted)
+      const admissionNotifs = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'admission')
+        .where('read', '==', false)
         .get();
-      tabCounts.applications = admitted.size;
+      tabCounts['my-applications'] = admissionNotifs.size;
 
-      // Jobs matching student profile
-      const studentDoc = await db.collection(collections.USERS).doc(uid).get();
-      const student = studentDoc.data();
-      
-      if (student && student.field) {
-        const matchingJobs = await db.collection(collections.JOBS)
-          .where('status', '==', 'active')
-          .where('field', '==', student.field)
-          .get();
-        tabCounts.jobs = matchingJobs.size;
-      }
+      // Jobs tab - NO NOTIFICATION BADGE - this is just a browse tab
+      // Job notifications are in 'job-interests' tab instead
+      tabCounts.jobs = 0;
+
+      // Job Interests - Count job_match notifications (unread matches from JobMatcher)
+      const jobMatches = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'job_match')
+        .where('read', '==', false)
+        .get();
+      tabCounts['job-interests'] = jobMatches.size;
+
+      // Add preference reminder count to job-interests if there are any
+      const preferenceReminders = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('type', '==', 'job_preference_reminder')
+        .where('read', '==', false)
+        .get();
+      tabCounts['job-interests'] = Math.max(tabCounts['job-interests'], preferenceReminders.size);
+
+      console.log(`📊 Student Tab Counts - My Applications: ${tabCounts['my-applications']}, Job Interests: ${tabCounts['job-interests']}`);
     }
 
     res.json(tabCounts);
@@ -560,55 +583,80 @@ router.get('/tab-counts', verifyToken, async (req, res) => {
 // Clear notifications for a specific tab
 router.post('/clear-tab', verifyToken, async (req, res) => {
   try {
-    const { uid } = req.user;
+    const { uid, role } = req.user;
     const { tab } = req.body;
 
     if (!tab) {
       return res.status(400).json({ error: 'Tab name required' });
     }
 
+    console.log(`🧹 Clearing notifications for tab: ${tab} (Role: ${role})`);
+
     // Map tab names to notification types for clearing
     const tabToTypeMap = {
-      companies: 'company_pending',
+      // Admin tabs
+      companies: 'company_registered',
       users: 'user_registered',
       transcripts: 'transcript_pending',
+      
+      // Institution tabs
       applications: 'application_pending',
       faculties: 'faculty_added',
       courses: 'course_added',
-      jobs: 'job_applicant_qualified',
+      
+      // Student tabs
+      'my-applications': 'admission',
+      'job-interests': ['job_match', 'job_preference_reminder'], // Multiple types for this tab
+      jobs: 'job_posted',
+      
+      // Company tabs - not implemented yet
+      
+      // Universal
       notifications: 'all'
     };
 
     const type = tabToTypeMap[tab];
     if (!type) {
+      console.warn(`⚠️ No notification type mapping for tab: ${tab}`);
       return res.status(400).json({ error: 'Invalid tab name' });
     }
 
-    // Mark notifications as read
-    let query = db.collection(collections.NOTIFICATIONS)
-      .where('userId', '==', uid)
-      .where('read', '==', false);
+    // Mark notifications as read for this tab
+    let batch = db.batch();
+    let totalCleared = 0;
 
-    if (type !== 'all') {
-      query = query.where('type', '==', type);
-    }
+    // Handle both single type and multiple types
+    const types = Array.isArray(type) ? type : [type];
 
-    const snapshot = await query.get();
-    
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { 
-        read: true,
-        readAt: new Date()
+    for (const notificationType of types) {
+      let query = db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', uid)
+        .where('read', '==', false);
+
+      if (notificationType !== 'all') {
+        query = query.where('type', '==', notificationType);
+      }
+
+      const snapshot = await query.get();
+      
+      snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { 
+          read: true,
+          readAt: new Date().toISOString()
+        });
       });
-    });
+
+      totalCleared += snapshot.size;
+      console.log(`✅ Cleared ${snapshot.size} ${notificationType} notifications for tab: ${tab}`);
+    }
 
     await batch.commit();
 
-    console.log(`✅ Cleared ${snapshot.size} notifications for tab: ${tab}`);
     res.json({ 
       success: true,
-      cleared: snapshot.size 
+      tab,
+      cleared: totalCleared,
+      types: types
     });
   } catch (error) {
     console.error('Clear tab notifications error:', error);

@@ -297,6 +297,18 @@ app.use('/api', contactRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // ===================================
+// JOB MATCHER SERVICE
+// ===================================
+const JobMatcher = require('./services/jobMatcher');
+const jobMatcher = new JobMatcher(10 * 60 * 1000); // 10 minutes interval
+
+// ===================================
+// JOB PREFERENCES REMINDER SERVICE
+// ===================================
+const JobPreferencesReminder = require('./services/jobPreferencesReminder');
+const jobPreferencesReminder = new JobPreferencesReminder(3 * 60 * 60 * 1000); // 3 hours interval
+
+// ===================================
 // ERROR HANDLERS
 // ===================================
 // 404 handler
@@ -342,6 +354,22 @@ if (require.main === module) {
     console.log(`   • Email Test: http://localhost:${PORT}/test-email`);
     console.log(`\n💡 REMINDER: All new courses MUST have status: 'active' in Firebase`);
     console.log('');
+
+    // Start the job matcher service
+    if (firebaseInitialized) {
+      jobMatcher.start();
+      console.log(`\n✅ Job Matcher Service Started`);
+      console.log(`   Interval: ${jobMatcher.interval / 1000 / 60} minutes`);
+      console.log(`   Status: Running`);
+      console.log('');
+
+      // Start the job preferences reminder service
+      jobPreferencesReminder.start();
+      console.log(`✅ Job Preferences Reminder Service Started`);
+      console.log(`   Interval: ${jobPreferencesReminder.interval / 1000 / 60 / 60} hours`);
+      console.log(`   Status: Running`);
+      console.log('');
+    }
   });
 }
 

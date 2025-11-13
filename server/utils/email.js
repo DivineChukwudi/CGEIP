@@ -581,6 +581,221 @@ const sendApplicationStatusEmail = async (email, name, institutionName, courseNa
   );
 };
 
+// Send job preference reminder email
+const sendJobPreferenceReminderEmail = async (email, studentName) => {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('❌ SendGrid API key not configured');
+    throw new Error('Email service not configured');
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const preferencesLink = `${frontendUrl}/dashboard/job-interests`;
+
+  const msg = {
+    to: email,
+    from: {
+      email: SENDER_EMAIL,
+      name: 'Career Portal'
+    },
+    replyTo: SENDER_EMAIL,
+    subject: '⚙️ Complete Your Job Preferences - Career Portal',
+    headers: {
+      'X-Priority': '3',
+      'X-Mailer': 'SendGrid API'
+    },
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .container {
+            background: white;
+            border-radius: 10px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+          }
+          .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.95;
+            font-size: 14px;
+          }
+          .content {
+            padding: 40px;
+          }
+          .highlight-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+          }
+          .highlight-box strong {
+            color: #667eea;
+          }
+          .benefits {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+          }
+          .benefits h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+          }
+          .benefit-item {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+          }
+          .benefit-item:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+          }
+          .cta-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 25px 0;
+            font-size: 16px;
+            text-align: center;
+          }
+          .cta-button:hover {
+            opacity: 0.9;
+          }
+          .link-text {
+            color: #666;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+          }
+          .footer {
+            background: #f9fafb;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+          }
+          .footer p {
+            margin: 5px 0;
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚙️ Complete Your Job Preferences</h1>
+            <p>Help us match you with perfect career opportunities</p>
+          </div>
+          
+          <div class="content">
+            <h2 style="color: #333; margin-top: 0;">Hi ${studentName}! 👋</h2>
+            
+            <p style="font-size: 16px; color: #666;">
+              We've noticed that you haven't filled in your job preferences yet. To help us provide you with the best job recommendations tailored to your goals, we need your input!
+            </p>
+            
+            <div class="highlight-box">
+              <strong>Why fill in your preferences?</strong>
+              <p style="margin: 10px 0 0 0; font-size: 14px;">
+                Your job preferences help our intelligent matching system recommend opportunities that align with your career goals, interests, and skills.
+              </p>
+            </div>
+            
+            <div class="benefits">
+              <h3>What you get:</h3>
+              <div class="benefit-item">Personalized job recommendations based on your interests</div>
+              <div class="benefit-item">Better matches for your skills and experience level</div>
+              <div class="benefit-item">Opportunities in industries you're passionate about</div>
+              <div class="benefit-item">Automatic notifications for new relevant positions</div>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; text-align: center; margin: 30px 0;">
+              <strong>Take 2 minutes now to fill in your preferences!</strong>
+            </p>
+            
+            <div style="text-align: center;">
+              <a href="${preferencesLink}" class="cta-button">
+                Open Job Preferences Form
+              </a>
+            </div>
+            
+            <div class="link-text">
+              Or copy and paste this link into your browser:<br>
+              ${preferencesLink}
+            </div>
+            
+            <p style="font-size: 14px; color: #999; margin-top: 30px;">
+              <strong>Need help?</strong><br>
+              If you have any questions about filling in your preferences, feel free to contact our support team. We're here to help!
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p>
+              <strong>Career Guidance and Employment Integration Platform (CGEIP)</strong><br>
+              Limkokwing University of Creative Technology
+            </p>
+            <p style="margin-top: 15px;">
+              This is an automated email from our job matching system.<br>
+              You'll receive this reminder every 3 hours until you fill in your preferences.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    console.log(\`📧 Sending job preference reminder to: \${email}\`);
+    const response = await sgMail.send(msg);
+    console.log('   ✅ Email sent successfully (Message ID: ' + response[0].headers['x-message-id'] + ')');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ SendGrid job preference email error:', error.message);
+    if (error.response) {
+      console.error('   Status Code:', error.response.statusCode);
+      console.error('   Body:', JSON.stringify(error.response.body, null, 2));
+    }
+    throw error;
+  }
+};
+
 // Test email configuration
 const testEmailConfig = async () => {
   console.log('\n╔═══════════════════════════════════════════╗');
@@ -618,6 +833,7 @@ module.exports = {
   sendVerificationEmail,
   sendNotificationEmail,
   sendApplicationStatusEmail,
-  sendContactFormEmail, 
+  sendContactFormEmail,
+  sendJobPreferenceReminderEmail,
   testEmailConfig
 };

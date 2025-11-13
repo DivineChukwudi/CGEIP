@@ -81,10 +81,9 @@ async function notifyQualifiedStudents(job, jobId) {
   try {
     console.log(`\n🔔 Notifying qualified students about job: ${job.title}`);
     
-    // Get all students who are graduates with transcripts
+    // Get all students
     const studentsSnapshot = await db.collection(collections.USERS)
       .where('role', '==', 'student')
-      .where('isGraduate', '==', true)
       .get();
 
     let notifiedCount = 0;
@@ -93,19 +92,34 @@ async function notifyQualifiedStudents(job, jobId) {
     for (const studentDoc of studentsSnapshot.docs) {
       const student = studentDoc.data();
       
-      // Skip if no transcript
-      if (!student.transcriptId) continue;
-
-      // Calculate match
-      const match = calculateJobMatchAndEligibility(student, job);
-
-      // Only notify if qualified (50%+ match)
-      if (match.eligible) {
+      // Calculate qualification match
+      const qualificationMatch = calculateJobMatchAndEligibility(student, job);
+      
+      // Get student job preferences
+      const preferencesDoc = await db.collection(collections.JOB_PREFERENCES)
+        .doc(studentDoc.id)
+        .get();
+      
+      const preferences = preferencesDoc.exists ? preferencesDoc.data() : null;
+      
+      // Check if job matches student preferences
+      let preferencesMatch = false;
+      let matchReason = 'matches your qualifications';
+      
+      if (preferences) {
+        preferencesMatch = checkJobPreferenceMatch(job, preferences);
+        if (preferencesMatch) {
+          matchReason = 'matches your job interests and qualifications';
+        }
+      }
+      
+      // Notify if qualified OR if matches preferences
+      if (qualificationMatch.eligible || preferencesMatch) {
         notificationPromises.push(
           createNotification(studentDoc.id, {
             type: 'job',
-            title: '🎯 New Job Opportunity Matches Your Profile!',
-            message: `${job.title} at ${job.company || 'a company'} - ${match.score}% match with your qualifications. Apply now in the Jobs section!`,
+            title: '🎯 New Job Opportunity for You!',
+            message: `${job.title} at ${job.company || 'a company'} - This ${matchReason}. Apply now in the Jobs section!`,
             relatedId: jobId
           })
         );
@@ -115,11 +129,71 @@ async function notifyQualifiedStudents(job, jobId) {
 
     await Promise.all(notificationPromises);
     
-    console.log(`✅ Notified ${notifiedCount} qualified students`);
+    console.log(`✅ Notified ${notifiedCount} students about new job`);
     return notifiedCount;
   } catch (error) {
     console.error('❌ Error notifying students:', error);
     return 0;
+  }
+}
+
+// Check if job matches student preferences
+function checkJobPreferenceMatch(job, preferences) {
+  try {
+    let matchCount = 0;
+    let totalCategories = 0;
+
+    // Check industries match
+    if (preferences.industries && preferences.industries.length > 0) {
+      totalCategories++;
+      if (job.industries && job.industries.length > 0) {
+        const industryMatch = job.industries.some(ind => 
+          preferences.industries.includes(ind)
+        );
+        if (industryMatch) matchCount++;
+      }
+    }
+
+    // Check skills match
+    if (preferences.skills && preferences.skills.length > 0) {
+      totalCategories++;
+      if (job.skills && job.skills.length > 0) {
+        const skillMatch = job.skills.some(skill =>
+          preferences.skills.some(pSkill => 
+            pSkill.toLowerCase().includes(skill.toLowerCase()) ||
+            skill.toLowerCase().includes(pSkill.toLowerCase())
+          )
+        );
+        if (skillMatch) matchCount++;
+      }
+    }
+
+    // Check work type match
+    if (preferences.workType && preferences.workType.length > 0) {
+      totalCategories++;
+      if (job.workType && job.workType.length > 0) {
+        const workTypeMatch = job.workType.some(wt =>
+          preferences.workType.includes(wt)
+        );
+        if (workTypeMatch) matchCount++;
+      }
+    }
+
+    // Check location match
+    if (preferences.location) {
+      totalCategories++;
+      if (job.location && job.location.toLowerCase().includes(preferences.location.toLowerCase())) {
+        matchCount++;
+      }
+    }
+
+    // Match if at least 50% of categories match
+    if (totalCategories === 0) return false;
+    const matchPercentage = (matchCount / totalCategories) * 100;
+    return matchPercentage >= 50;
+  } catch (error) {
+    console.error('Error checking preference match:', error);
+    return false;
   }
 }
 
@@ -203,7 +277,11 @@ router.post('/jobs', async (req, res) => {
       experience,
       location,
       salary,
-      deadline 
+      deadline,
+      industries,
+      skills,
+      workType,
+      jobTypes // Accept both workType and jobTypes from frontend
     } = req.body;
 
     // Validation
@@ -230,7 +308,11 @@ router.post('/jobs', async (req, res) => {
       deadline: deadline || null,
       status: 'active',
       postedAt: new Date().toISOString(),
-      applicationsCount: 0
+      applicationsCount: 0,
+      // Job matching tags
+      industries: industries || [],
+      skills: skills || [],
+      workType: workType || jobTypes || [] // Support both field names
     };
 
     const docRef = await db.collection(collections.JOBS).add(jobData);

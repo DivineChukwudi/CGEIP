@@ -954,4 +954,263 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// ==================== ADMISSIONS ====================
+
+// Get all admissions
+router.get('/admissions', async (req, res) => {
+  try {
+    const admissionsSnapshot = await db.collection(collections.ADMISSIONS).get();
+    const admissions = admissionsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        startDate: data.startDate ? data.startDate.toDate().toISOString() : null,
+        endDate: data.endDate ? data.endDate.toDate().toISOString() : null,
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null
+      };
+    });
+    res.json(admissions);
+  } catch (error) {
+    console.error('Get admissions error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new admission
+router.post('/admissions', async (req, res) => {
+  try {
+    const { title, description, startDate, endDate, status } = req.body;
+
+    if (!title || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Title, start date, and end date are required' });
+    }
+
+    const admissionData = {
+      title,
+      description,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      status: status || 'open',
+      applicationCount: 0,
+      createdBy: req.user.uid,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const docRef = await db.collection(collections.ADMISSIONS || 'admissions').add(admissionData);
+    res.status(201).json({
+      id: docRef.id,
+      ...admissionData
+    });
+  } catch (error) {
+    console.error('Create admission error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update admission
+router.put('/admissions/:id', async (req, res) => {
+  try {
+    const { title, description, startDate, endDate, status } = req.body;
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (startDate !== undefined) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = new Date(endDate);
+    if (status !== undefined) updateData.status = status;
+
+    await db.collection(collections.ADMISSIONS).doc(req.params.id).update(updateData);
+    
+    const updatedDoc = await db.collection(collections.ADMISSIONS).doc(req.params.id).get();
+    const data = updatedDoc.data();
+    res.json({
+      id: updatedDoc.id,
+      ...data,
+      startDate: data.startDate ? data.startDate.toDate().toISOString() : null,
+      endDate: data.endDate ? data.endDate.toDate().toISOString() : null,
+      createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+      updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null
+    });
+  } catch (error) {
+    console.error('Update admission error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete admission
+router.delete('/admissions/:id', async (req, res) => {
+  try {
+    await db.collection(collections.ADMISSIONS).doc(req.params.id).delete();
+    res.json({ message: 'Admission deleted successfully' });
+  } catch (error) {
+    console.error('Delete admission error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Publish admission (change status to open)
+router.post('/admissions/publish', async (req, res) => {
+  try {
+    const { admissionId } = req.body;
+    
+    await db.collection(collections.ADMISSIONS).doc(admissionId).update({
+      status: 'open',
+      publishedAt: new Date(),
+      publishedBy: req.user.uid,
+      updatedAt: new Date()
+    });
+
+    const updatedDoc = await db.collection(collections.ADMISSIONS).doc(admissionId).get();
+    const data = updatedDoc.data();
+    res.json({
+      message: 'Admission published successfully',
+      admission: {
+        id: updatedDoc.id,
+        ...data,
+        startDate: data.startDate ? data.startDate.toDate().toISOString() : null,
+        endDate: data.endDate ? data.endDate.toDate().toISOString() : null,
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null
+      }
+    });
+  } catch (error) {
+    console.error('Publish admission error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SYSTEM REPORTS ====================
+
+// Get all system reports
+router.get('/reports/system', async (req, res) => {
+  try {
+    const reportsSnapshot = await db.collection(collections.REPORTS).get();
+    const reports = reportsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        generatedAt: data.generatedAt ? data.generatedAt.toDate().toISOString() : null
+      };
+    });
+    res.json(reports);
+  } catch (error) {
+    console.error('Get reports error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get report metrics
+router.get('/reports/metrics', async (req, res) => {
+  try {
+    const [admissionsSnapshot, applicationsSnapshot, usersSnapshot, admittedSnapshot] = await Promise.all([
+      db.collection(collections.ADMISSIONS || 'admissions').where('status', '==', 'open').get(),
+      db.collection(collections.APPLICATIONS || 'applications').get(),
+      db.collection(collections.USERS).where('role', '==', 'student').get(),
+      db.collection(collections.APPLICATIONS || 'applications').where('status', '==', 'admitted').get()
+    ]);
+
+    const metrics = {
+      activeAdmissions: admissionsSnapshot.size,
+      totalApplications: applicationsSnapshot.size,
+      admittedStudents: admittedSnapshot.size,
+      pendingReviews: applicationsSnapshot.docs.filter(doc => doc.data().status === 'pending').length,
+      totalStudents: usersSnapshot.size
+    };
+
+    res.json(metrics);
+  } catch (error) {
+    console.error('Get metrics error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate new system report
+router.post('/reports/generate', async (req, res) => {
+  try {
+    const [admissionsSnapshot, applicationsSnapshot, usersSnapshot, admittedSnapshot] = await Promise.all([
+      db.collection(collections.ADMISSIONS || 'admissions').get(),
+      db.collection(collections.APPLICATIONS || 'applications').get(),
+      db.collection(collections.USERS).get(),
+      db.collection(collections.APPLICATIONS || 'applications').where('status', '==', 'admitted').get()
+    ]);
+
+    const reportData = {
+      name: `System Report - ${new Date().toLocaleDateString()}`,
+      type: 'system_summary',
+      status: 'completed',
+      generatedAt: new Date(),
+      generatedBy: req.user.uid,
+      metrics: {
+        totalAdmissions: admissionsSnapshot.size,
+        activeAdmissions: admissionsSnapshot.docs.filter(doc => doc.data().status === 'open').length,
+        totalApplications: applicationsSnapshot.size,
+        admittedStudents: admittedSnapshot.size,
+        pendingReviews: applicationsSnapshot.docs.filter(doc => doc.data().status === 'pending').length,
+        totalStudents: usersSnapshot.docs.filter(doc => doc.data().role === 'student').length,
+        totalInstitutions: usersSnapshot.docs.filter(doc => doc.data().role === 'institution').length,
+        totalCompanies: usersSnapshot.docs.filter(doc => doc.data().role === 'company').length
+      }
+    };
+
+    const docRef = await db.collection(collections.REPORTS || 'system_reports').add(reportData);
+    res.status(201).json({
+      id: docRef.id,
+      ...reportData
+    });
+  } catch (error) {
+    console.error('Generate report error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// View specific report
+router.get('/reports/:id', async (req, res) => {
+  try {
+    const reportDoc = await db.collection(collections.REPORTS).doc(req.params.id).get();
+    
+    if (!reportDoc.exists) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const data = reportDoc.data();
+    res.json({
+      id: reportDoc.id,
+      ...data,
+      generatedAt: data.generatedAt ? data.generatedAt.toDate().toISOString() : null
+    });
+  } catch (error) {
+    console.error('View report error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Download report (returns JSON data that can be exported)
+router.get('/reports/:id/download', async (req, res) => {
+  try {
+    const reportDoc = await db.collection(collections.REPORTS).doc(req.params.id).get();
+    
+    if (!reportDoc.exists) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const reportData = reportDoc.data();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="report-${req.params.id}.json"`);
+    res.json({
+      id: reportDoc.id,
+      ...reportData,
+      generatedAt: reportData.generatedAt ? reportData.generatedAt.toDate().toISOString() : null
+    });
+  } catch (error) {
+    console.error('Download report error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authAPI } from '../utils/api';
-import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaUserTag, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle } from 'react-icons/fa';
+import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaUserTag, FaSpinner, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import axios from 'axios';
@@ -65,7 +65,11 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student'
+    role: 'student',
+    location: '',
+    phone: '',
+    website: '',
+    description: ''
   });
   
   const [loading, setLoading] = useState(false);
@@ -189,6 +193,54 @@ export default function Register() {
       setError('Please select an account type');
       setLoading(false);
       return;
+    }
+
+    // Validate institution-specific fields if role is institution
+    if (formData.role === 'institution') {
+      if (!formData.location || !formData.location.trim()) {
+        setError('Please enter your institution location');
+        setLoading(false);
+        return;
+      }
+      if (!formData.phone || !formData.phone.trim()) {
+        setError('Please enter your institution phone number');
+        setLoading(false);
+        return;
+      }
+      if (!formData.website || !formData.website.trim()) {
+        setError('Please enter your institution website');
+        setLoading(false);
+        return;
+      }
+      if (!formData.description || !formData.description.trim()) {
+        setError('Please enter a description of your institution');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Validate company-specific fields if role is company
+    if (formData.role === 'company') {
+      if (!formData.location || !formData.location.trim()) {
+        setError('Please enter your company location');
+        setLoading(false);
+        return;
+      }
+      if (!formData.phone || !formData.phone.trim()) {
+        setError('Please enter your company phone number');
+        setLoading(false);
+        return;
+      }
+      if (!formData.website || !formData.website.trim()) {
+        setError('Please enter your company website');
+        setLoading(false);
+        return;
+      }
+      if (!formData.description || !formData.description.trim()) {
+        setError('Please enter a description of your company');
+        setLoading(false);
+        return;
+      }
     }
 
     // Validation
@@ -407,7 +459,7 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="name">
-              <FaUser /> Full Name
+              <FaUser /> {formData.role === 'institution' ? 'Institution Name' : formData.role === 'company' ? 'Company Name' : 'Full Name'}
             </label>
             <input
               type="text"
@@ -415,7 +467,13 @@ export default function Register() {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Enter your full name"
+              placeholder={
+                formData.role === 'institution' 
+                  ? 'Enter your institution name'
+                  : formData.role === 'company'
+                  ? 'Enter your company name'
+                  : 'Enter your full name'
+              }
               required
               disabled={loading || googleLoading || isGoogleUser}
               style={isGoogleUser ? { background: '#f0f0f0', cursor: 'not-allowed' } : {}}
@@ -466,6 +524,184 @@ export default function Register() {
               <option value="company">Company</option>
             </select>
           </div>
+
+          {/* Institution-specific fields - Show only when institution is selected */}
+          {formData.role === 'institution' && (
+            <>
+              <div style={{
+                background: '#e3f2fd',
+                border: '1px solid #2196f3',
+                color: '#1565c0',
+                padding: '12px 16px',
+                borderRadius: '6px',
+                marginBottom: '15px',
+                fontSize: '13px'
+              }}>
+                <strong>Institution Details</strong> - Please provide information about your institution
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="location">
+                  <FaMapMarkerAlt /> Location
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g., Toronto, Canada"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="phone">
+                  <FaPhone /> Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+1 25055 50199"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="website">
+                  <FaGraduationCap /> Official Website
+                </label>
+                <input
+                  type="url"
+                  id="website"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleChange}
+                  placeholder="https://www.institution.edu.ng"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">
+                  <FaUser /> About Your Institution
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Tell us about your institution - mission, programs, achievements, etc."
+                  rows="4"
+                  required
+                  disabled={loading || googleLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Company-specific fields - Show only when company is selected */}
+          {formData.role === 'company' && (
+            <>
+              <div style={{
+                background: '#f3e5f5',
+                border: '1px solid #9c27b0',
+                color: '#6a1b9a',
+                padding: '12px 16px',
+                borderRadius: '6px',
+                marginBottom: '15px',
+                fontSize: '13px'
+              }}>
+                <strong>Company Details</strong> - Please provide information about your company
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="location">
+                  <FaMapMarkerAlt /> Headquarters Location
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g., Toronto, Canada"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="phone">
+                  <FaPhone /> Business Phone
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+1 25055 50199"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="website">
+                  <FaGraduationCap /> Company Website
+                </label>
+                <input
+                  type="url"
+                  id="website"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleChange}
+                  placeholder="https://www.company.com"
+                  required
+                  disabled={loading || googleLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">
+                  <FaUser /> About Your Company
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Tell us about your company - industry, specialization, hiring needs, company culture, etc."
+                  rows="4"
+                  required
+                  disabled={loading || googleLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+            </>
+          )}
 
           <div className="form-group">
             <label htmlFor="password">

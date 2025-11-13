@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../utils/api';
 import { FaCertificate } from 'react-icons/fa';
-import { FaPlus, FaClock, FaEye, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa';
+import { FaPlus, FaClock, FaEye, FaEdit, FaTrash, FaBuilding, FaBriefcase, FaChartBar, FaCheck, FaTimes, FaUsers, FaGraduationCap, FaBook, FaUserGraduate, FaSearch, FaArrowUp, FaArrowDown, FaFileAlt, FaChartLine } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import { useTabNotifications } from '../hooks/useTabNotifications';
 import NotificationBadge from '../components/NotificationBadge';
@@ -26,6 +26,9 @@ export default function AdminDashboard({ user }) {
   const [selectedTranscript, setSelectedTranscript] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [admissions, setAdmissions] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [reportMetrics, setReportMetrics] = useState(null);
 
   // ==================== SEARCH & SORT STATE ====================
   const [searchTerms, setSearchTerms] = useState({
@@ -34,7 +37,9 @@ export default function AdminDashboard({ user }) {
     courses: '',
     companies: '',
     users: '',
-    transcripts: ''
+    transcripts: '',
+    admissions: '',
+    reports: ''
   });
 
   const [sortConfig, setSortConfig] = useState({
@@ -42,7 +47,9 @@ export default function AdminDashboard({ user }) {
     faculties: { key: 'name', order: 'asc' },
     courses: { key: 'name', order: 'asc' },
     companies: { key: 'name', order: 'asc' },
-    users: { key: 'createdAt', order: 'desc' }
+    users: { key: 'createdAt', order: 'desc' },
+    admissions: { key: 'startDate', order: 'desc' },
+    reports: { key: 'generatedAt', order: 'desc' }
   });
 
   // Notifications - FIXED: Only trigger on tab change to users
@@ -160,6 +167,16 @@ export default function AdminDashboard({ user }) {
       } else if (activeTab === 'transcripts') {
         const data = await adminAPI.getTranscripts();
         setTranscripts(data);
+      } else if (activeTab === 'admissions') {
+        const data = await adminAPI.getAdmissions();
+        setAdmissions(data);
+      } else if (activeTab === 'reports') {
+        const [reportData, metricsData] = await Promise.all([
+          adminAPI.getSystemReports(),
+          adminAPI.getReportMetrics()
+        ]);
+        setReports(reportData);
+        setReportMetrics(metricsData);
       }
     } catch (err) {
       setError(err.message);
@@ -174,6 +191,28 @@ export default function AdminDashboard({ user }) {
   const showSuccess = (message) => {
     setSuccess(message);
     setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    try {
+      // Handle ISO strings
+      if (typeof dateValue === 'string') {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        return date.toLocaleDateString();
+      }
+      // Handle Firestore Timestamp objects
+      if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+        return dateValue.toDate().toLocaleDateString();
+      }
+      // Handle regular Date objects
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleDateString();
+    } catch (err) {
+      return 'Invalid Date';
+    }
   };
 
   const getInstitutionName = (instId) => {
@@ -467,6 +506,85 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
     }
   };
 
+  // ==================== ADMISSIONS MANAGEMENT ====================
+  const handleDeleteAdmission = async (admissionId) => {
+    if (window.confirm('Are you sure you want to delete this admission period?')) {
+      try {
+        await adminAPI.deleteAdmission(admissionId);
+        showSuccess('Admission period deleted successfully!');
+        loadData();
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+  };
+
+  const handleSaveAdmission = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editingItem) {
+        await adminAPI.updateAdmission(editingItem.id, formData);
+        showSuccess('Admission period updated successfully!');
+      } else {
+        await adminAPI.createAdmission(formData);
+        showSuccess('Admission period created successfully!');
+      }
+      setShowModal(false);
+      setFormData({ title: '', description: '', startDate: '', endDate: '', status: 'open' });
+      setEditingItem(null);
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ==================== REPORTS MANAGEMENT ====================
+  const handleGenerateReport = async () => {
+    try {
+      setIsSubmitting(true);
+      await adminAPI.generateSystemReport();
+      showSuccess('Report generation started! Please refresh to see the new report.');
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleViewReport = async (reportId) => {
+    try {
+      const report = await adminAPI.viewReport(reportId);
+      setFormData(report);
+      setModalType('view-report');
+      setShowModal(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDownloadReport = async (reportId) => {
+    try {
+      const report = await adminAPI.viewReport(reportId);
+      const dataStr = JSON.stringify(report, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = window.URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `report-${reportId}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showSuccess('Report downloaded successfully!');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // ==================== USER MANAGEMENT ====================
   const handleDeleteUser = async (userId, userName) => {
     try {
@@ -527,9 +645,21 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
     } else if (tabName === 'transcripts') {
     items = transcripts;
     searchKey = 'transcripts';
+  } else if (tabName === 'admissions') {
+    items = admissions;
+    searchKey = 'admissions';
+  } else if (tabName === 'reports') {
+    items = reports;
+    searchKey = 'reports';
   }
 
     const searched = searchFilter(items, searchTerms[searchKey]);
+    return sortItems(searched, tabName);
+  };
+
+  // Alias for consistency
+  const getFilteredAndSortedData = (items, tabName) => {
+    const searched = searchFilter(items, searchTerms[tabName] || '');
     return sortItems(searched, tabName);
   };
 
@@ -638,6 +768,20 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
           {tabNotifications?.transcripts > 0 && (
             <NotificationBadge count={tabNotifications.transcripts} variant="warning" />
           )}
+        </button>
+
+        <button
+          className={activeTab === 'admissions' ? 'active' : ''}
+          onClick={() => setActiveTab('admissions')}
+        >
+          <FaFileAlt /> Publish Admissions
+        </button>
+
+        <button
+          className={activeTab === 'reports' ? 'active' : ''}
+          onClick={() => setActiveTab('reports')}
+        >
+          <FaChartLine /> System Reports
         </button>
       </div>
 
@@ -1066,6 +1210,167 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                 {transcript.declined && (
                   <span className="text-danger">Declined</span>
                 )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+)}
+
+{/* ==================== ADMISSIONS TAB ==================== */}
+{activeTab === 'admissions' && (
+  <>
+    <div className="section-header">
+      <h2>Publish Admissions</h2>
+      <button className="btn-primary" onClick={() => {
+        setModalType('add-admission');
+        setEditingItem(null);
+        setFormData({ title: '', description: '', startDate: '', endDate: '', status: 'open' });
+        setShowModal(true);
+      }}>
+        <FaPlus /> Create Admission Period
+      </button>
+    </div>
+
+    <div className="search-bar">
+      <FaSearch />
+      <input
+        type="text"
+        placeholder="Search admissions..."
+        value={searchTerms.admissions || ''}
+        onChange={(e) => setSearchTerms({ ...searchTerms, admissions: e.target.value })}
+      />
+    </div>
+
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th><SortButton tabName="admissions" sortKey="title" label="Title" /></th>
+            <th><SortButton tabName="admissions" sortKey="startDate" label="Start Date" /></th>
+            <th><SortButton tabName="admissions" sortKey="endDate" label="End Date" /></th>
+            <th>Status</th>
+            <th>Applications</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {getFilteredAndSortedData(admissions, 'admissions').map((admission) => (
+            <tr key={admission.id}>
+              <td><strong>{admission.title}</strong></td>
+              <td>{formatDate(admission.startDate)}</td>
+              <td>{formatDate(admission.endDate)}</td>
+              <td>
+                <span className={`status-badge status-${admission.status || 'unknown'}`}>
+                  {(admission.status || 'unknown').toUpperCase()}
+                </span>
+              </td>
+              <td>{admission.applicationCount || 0}</td>
+              <td>
+                <button
+                  className="btn-info btn-sm"
+                  onClick={() => {
+                    setEditingItem(admission);
+                    setFormData(admission);
+                    setModalType('edit-admission');
+                    setShowModal(true);
+                  }}
+                >
+                  <FaEdit /> Edit
+                </button>
+                <button
+                  className="btn-danger btn-sm"
+                  onClick={() => handleDeleteAdmission(admission.id)}
+                >
+                  <FaTrash /> Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+)}
+
+{/* ==================== SYSTEM REPORTS TAB ==================== */}
+{activeTab === 'reports' && (
+  <>
+    <div className="section-header">
+      <h2>System Reports & Analytics</h2>
+      <button className="btn-primary" onClick={() => handleGenerateReport()}>
+        <FaPlus /> Generate New Report
+      </button>
+    </div>
+
+    {reportMetrics && (
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Active Admissions</h3>
+          <p className="stat-number">{reportMetrics.activeAdmissions}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Total Applications</h3>
+          <p className="stat-number">{reportMetrics.totalApplications}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Admitted Students</h3>
+          <p className="stat-number">{reportMetrics.admittedStudents}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Pending Reviews</h3>
+          <p className="stat-number">{reportMetrics.pendingReviews}</p>
+        </div>
+      </div>
+    )}
+
+    <div className="search-bar">
+      <FaSearch />
+      <input
+        type="text"
+        placeholder="Search reports..."
+        value={searchTerms.reports || ''}
+        onChange={(e) => setSearchTerms({ ...searchTerms, reports: e.target.value })}
+      />
+    </div>
+
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th><SortButton tabName="reports" sortKey="name" label="Report Name" /></th>
+            <th><SortButton tabName="reports" sortKey="type" label="Type" /></th>
+            <th><SortButton tabName="reports" sortKey="generatedAt" label="Generated" /></th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {getFilteredAndSortedData(reports, 'reports').map((report) => (
+            <tr key={report.id}>
+              <td><strong>{report.name}</strong></td>
+              <td>{report.type}</td>
+              <td>{formatDate(report.generatedAt)}</td>
+              <td>
+                <span className={`status-badge status-${report.status || 'unknown'}`}>
+                  {(report.status || 'unknown').toUpperCase()}
+                </span>
+              </td>
+              <td>
+                <button
+                  className="btn-info btn-sm"
+                  onClick={() => handleViewReport(report.id)}
+                >
+                  <FaEye /> View
+                </button>
+                <button
+                  className="btn-warning btn-sm"
+                  onClick={() => handleDownloadReport(report.id)}
+                >
+                  Download
+                </button>
               </td>
             </tr>
           ))}
@@ -1706,6 +2011,172 @@ const handleDeclineTranscript = async (transcriptId, studentId) => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Admission Modal */}
+        {showModal && (modalType === 'add-admission' || modalType === 'edit-admission') && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>{editingItem ? 'Edit' : 'Create'} Admission Period</h2>
+              <form onSubmit={handleSaveAdmission}>
+                <div className="form-group">
+                  <label>Title *</label>
+                  <input
+                    type="text"
+                    value={formData.title || ''}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="e.g., 2024/2025 Academic Year"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description *</label>
+                  <textarea
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Describe this admission period"
+                    rows="3"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Start Date *</label>
+                  <input
+                    type="date"
+                    value={formData.startDate || ''}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Date *</label>
+                  <input
+                    type="date"
+                    value={formData.endDate || ''}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Status *</label>
+                  <select
+                    value={formData.status || 'open'}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : (editingItem ? 'Update' : 'Create')} Admission
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Report View Modal */}
+        {showModal && modalType === 'view-report' && formData && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>System Report - {formData.name}</h2>
+                <button className="close-modal-btn" onClick={() => setShowModal(false)}>
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="report-details">
+                {/* Report Info */}
+                <div className="info-section">
+                  <h3>Report Information</h3>
+                  <div className="info-grid">
+                    <div className="info-item">
+                      <strong>Report Name:</strong>
+                      <span>{formData.name}</span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Type:</strong>
+                      <span>{formData.type || 'System Summary'}</span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Status:</strong>
+                      <span className={`status-badge status-${formData.status || 'unknown'}`}>
+                        {(formData.status || 'unknown').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="info-item">
+                      <strong>Generated:</strong>
+                      <span>{formatDate(formData.generatedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                {formData.metrics && (
+                  <div className="info-section">
+                    <h3>System Metrics</h3>
+                    <div className="info-grid">
+                      <div className="info-item">
+                        <strong>Total Admissions:</strong>
+                        <span>{formData.metrics.totalAdmissions}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Active Admissions:</strong>
+                        <span>{formData.metrics.activeAdmissions}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Total Applications:</strong>
+                        <span>{formData.metrics.totalApplications}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Admitted Students:</strong>
+                        <span>{formData.metrics.admittedStudents}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Pending Reviews:</strong>
+                        <span>{formData.metrics.pendingReviews}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Total Students:</strong>
+                        <span>{formData.metrics.totalStudents}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Total Institutions:</strong>
+                        <span>{formData.metrics.totalInstitutions}</span>
+                      </div>
+                      <div className="info-item">
+                        <strong>Total Companies:</strong>
+                        <span>{formData.metrics.totalCompanies}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="modal-actions">
+                  <button 
+                    className="btn-warning"
+                    onClick={() => handleDownloadReport(formData.id)}
+                  >
+                    Download Report
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    onClick={() => setShowModal(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -74,7 +74,10 @@ export default function CompanyDashboard({ user }) {
       experience: '',
       location: '',
       salary: '',
-      deadline: ''
+      deadline: '',
+      industries: [],
+      jobTypes: [],
+      skills: []
     });
     setShowModal(true);
   };
@@ -284,81 +287,184 @@ export default function CompanyDashboard({ user }) {
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
               <h2>Post New Job</h2>
               <form onSubmit={handleSubmitJob}>
-                <div className="form-group">
-                  <label>Job Title</label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                  />
+                {/* Basic Information */}
+                <div className="form-section-group">
+                  <h3> Basic Information</h3>
+                  <div className="form-group">
+                    <label>Job Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Senior Software Engineer"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Description</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows="4"
+                      placeholder="Describe the role, responsibilities, and why it's exciting..."
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Requirements</label>
+                    <textarea
+                      value={formData.requirements}
+                      onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                      rows="3"
+                      placeholder="List key requirements for this position..."
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows="4"
-                    required
-                  />
+
+                {/* Industry & Job Type */}
+                <div className="form-section-group">
+                  <h3>Industry & Job Type</h3>
+                  
+                  <div className="form-group">
+                    <label>Industries (Select at least one)</label>
+                    <div className="checkbox-options">
+                      {['Technology', 'Finance', 'Healthcare', 'Education', 'Marketing', 'Engineering', 'Retail', 'Entertainment'].map(ind => (
+                        <label key={ind} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={formData.industries?.includes(ind) || false}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  industries: [...(formData.industries || []), ind]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  industries: (formData.industries || []).filter(i => i !== ind)
+                                });
+                              }
+                            }}
+                          />
+                          {ind}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Job Types (Select all that apply)</label>
+                    <div className="checkbox-options">
+                      {['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance'].map(type => (
+                        <label key={type} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={formData.jobTypes?.includes(type) || false}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  jobTypes: [...(formData.jobTypes || []), type]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  jobTypes: (formData.jobTypes || []).filter(j => j !== type)
+                                });
+                              }
+                            }}
+                          />
+                          {type}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Requirements</label>
-                  <textarea
-                    value={formData.requirements}
-                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    rows="3"
-                    required
-                  />
+
+                {/* Required Skills */}
+                <div className="form-section-group">
+                  <h3>Required Skills</h3>
+                  <div className="form-group">
+                    <label>Key Skills (comma-separated)</label>
+                    <textarea
+                      value={(formData.skills || []).join(', ')}
+                      onChange={(e) => {
+                        const skills = e.target.value
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(s => s.length > 0);
+                        setFormData({ ...formData, skills });
+                      }}
+                      rows="3"
+                      placeholder="e.g., Python, JavaScript, React, Project Management, Communication"
+                    />
+                    <small style={{ color: '#6b7280', display: 'block', marginTop: '0.5rem' }}>
+                      Enter skills separated by commas. These will help match with qualified students.
+                    </small>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Qualifications</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Bachelor's Degree"
-                    value={formData.qualifications}
-                    onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
-                    required
-                  />
+
+                {/* Qualifications & Experience */}
+                <div className="form-section-group">
+                  <h3>Qualifications & Experience</h3>
+                  <div className="form-group">
+                    <label>Qualifications Required</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Bachelor's Degree in Computer Science"
+                      value={formData.qualifications}
+                      onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Experience Required</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., 2-3 years"
+                      value={formData.experience}
+                      onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Experience Required</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 2-3 years"
-                    value={formData.experience}
-                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                    required
-                  />
+
+                {/* Location & Compensation */}
+                <div className="form-section-group">
+                  <h3>Location & Compensation</h3>
+                  <div className="form-group">
+                    <label>Work Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Maseru, Lesotho or Remote"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Salary Range</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., M5,000 - M8,000"
+                      value={formData.salary}
+                      onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Application Deadline</label>
+                    <input
+                      type="date"
+                      value={formData.deadline}
+                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Location</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Salary Range</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., M5,000 - M8,000"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Application Deadline</label>
-                  <input
-                    type="date"
-                    value={formData.deadline}
-                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                    required
-                  />
-                </div>
+
                 <div className="modal-actions">
                   <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                     Cancel

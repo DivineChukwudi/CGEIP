@@ -206,6 +206,55 @@ export const adminAPI = {
     return data;
   },
 
+  getAdmissions: async () => {
+    const { data } = await api.get('/admin/admissions');
+    return data;
+  },
+
+  createAdmission: async (admissionData) => {
+    const { data } = await api.post('/admin/admissions', admissionData);
+    return data;
+  },
+
+  updateAdmission: async (id, admissionData) => {
+    const { data } = await api.put(`/admin/admissions/${id}`, admissionData);
+    return data;
+  },
+
+  deleteAdmission: async (id) => {
+    const { data } = await api.delete(`/admin/admissions/${id}`);
+    return data;
+  },
+
+  // System Reports
+  getSystemReports: async () => {
+    const { data } = await api.get('/admin/reports/system');
+    return data;
+  },
+
+  getReportMetrics: async () => {
+    const { data } = await api.get('/admin/reports/metrics');
+    return data;
+  },
+
+  generateSystemReport: async () => {
+    const { data } = await api.post('/admin/reports/generate');
+    return data;
+  },
+
+  viewReport: async (reportId) => {
+    const { data } = await api.get(`/admin/reports/${reportId}`);
+    return data;
+  },
+
+  downloadReport: async (reportId) => {
+    const response = await api.get(`/admin/reports/${reportId}/download`, {
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    return url;
+  },
+
   // System Management
   getSystemLogs: async () => {
     const { data } = await api.get('/admin/logs');
@@ -442,6 +491,33 @@ export const studentAPI = {
 
   markAllNotificationsAsRead: async () => {
     const { data } = await api.put('/student/notifications/read-all');
+    return data;
+  },
+
+  // Job Preferences
+  getJobPreferences: async () => {
+    try {
+      const { data } = await api.get('/student/job-preferences');
+      return data;
+    } catch (err) {
+      // Return empty preferences if endpoint returns 404
+      if (err.response?.status === 404) {
+        return {
+          industries: [],
+          jobTypes: [],
+          skills: [],
+          workType: [],
+          salaryMin: '',
+          salaryMax: '',
+          location: ''
+        };
+      }
+      throw err;
+    }
+  },
+
+  saveJobPreferences: async (preferences) => {
+    const { data } = await api.put('/student/job-preferences', preferences);
     return data;
   }
 };

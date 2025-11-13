@@ -639,22 +639,22 @@ router.post('/applications', async (req, res) => {
       });
     }
 
-    // Check max 2 applications per COURSE (per year) - in case of rejection, student can retry once
+    // Check max 2 applications per INSTITUTION (per year) - in case of rejection, student can retry
     const currentYear = new Date().getFullYear();
-    const existingCourseApps = await db.collection(collections.APPLICATIONS)
+    const existingInstitutionApps = await db.collection(collections.APPLICATIONS)
       .where('studentId', '==', req.user.uid)
-      .where('courseId', '==', courseId)
+      .where('institutionId', '==', institutionId)
       .get();
 
     // Filter applications from current year only
-    const currentYearApps = existingCourseApps.docs.filter(doc => {
+    const currentYearApps = existingInstitutionApps.docs.filter(doc => {
       const appliedDate = new Date(doc.data().appliedAt);
       return appliedDate.getFullYear() === currentYear;
     });
 
     if (currentYearApps.length >= 2) {
       return res.status(400).json({ 
-        error: `You can only apply to this course a maximum of 2 times per year. You have already submitted ${currentYearApps.length} application(s) for this course in ${currentYear}. Please wait until next year to apply again.`
+        error: `You can only apply to a maximum of 2 courses per institution per year. You have already submitted ${currentYearApps.length} application(s) to this institution in ${currentYear}. Please wait until next year to apply again.`
       });
     }
 
@@ -1347,6 +1347,72 @@ router.get('/institutions', async (req, res) => {
       error: error.message,
       message: 'Failed to fetch institutions'
     });
+  }
+});
+
+// ==================== JOB PREFERENCES ====================
+// Get student job preferences
+router.get('/job-preferences', async (req, res) => {
+  try {
+    const preferencesDoc = await db.collection(collections.JOB_PREFERENCES)
+      .doc(req.user.uid)
+      .get();
+
+    if (!preferencesDoc.exists) {
+      return res.status(404).json({ 
+        error: 'No preferences found'
+      });
+    }
+
+    res.json(preferencesDoc.data());
+  } catch (error) {
+    console.error('Get job preferences error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save/Update student job preferences
+router.put('/job-preferences', async (req, res) => {
+  try {
+    const preferences = {
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+
+    await db.collection(collections.JOB_PREFERENCES)
+      .doc(req.user.uid)
+      .set(preferences, { merge: true });
+
+    // ===================================
+    // Delete old job preference reminder notifications
+    // ===================================
+    // When a student fills in their job preferences, 
+    // we should delete any pending reminder notifications
+    try {
+      const reminders = await db.collection(collections.NOTIFICATIONS)
+        .where('userId', '==', req.user.uid)
+        .where('type', '==', 'job_preference_reminder')
+        .get();
+
+      if (!reminders.empty) {
+        const deletePromises = reminders.docs.map(doc => 
+          db.collection(collections.NOTIFICATIONS).doc(doc.id).delete()
+        );
+        await Promise.all(deletePromises);
+        console.log(`✓ Deleted ${reminders.size} job preference reminder notification(s) for user ${req.user.uid}`);
+      }
+    } catch (reminderError) {
+      console.warn('⚠️ Failed to delete job preference reminders:', reminderError.message);
+      // Don't fail the entire request just because reminder cleanup failed
+    }
+
+    res.json({ 
+      message: 'Job preferences saved successfully',
+      preferences 
+    });
+  } catch (error) {
+    console.error('Save job preferences error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

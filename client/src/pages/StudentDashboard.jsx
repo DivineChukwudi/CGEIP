@@ -47,6 +47,16 @@ export default function StudentDashboard({ user }) {
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobInterest, setJobInterest] = useState('all');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [jobPreferences, setJobPreferences] = useState({
+    industries: [],
+    jobTypes: [],
+    skills: [],
+    workType: [],
+    salaryMin: '',
+    salaryMax: '',
+    location: ''
+  });
+  const [isEditingPreferences, setIsEditingPreferences] = useState(false);
 
   // Tab notifications
   const { tabNotifications, clearTabNotification } = useTabNotifications(user?.role || 'student', user?.uid);
@@ -81,6 +91,11 @@ export default function StudentDashboard({ user }) {
       } else if (activeTab === 'notifications') {
         const data = await studentAPI.getNotifications();
         setNotifications(data);
+      } else if (activeTab === 'job-interests') {
+        const data = await studentAPI.getJobPreferences();
+        if (data) {
+          setJobPreferences(data);
+        }
       } else if (activeTab === 'my-transcript') {
         const data = await studentAPI.getProfile();
         setProfile(data);
@@ -324,6 +339,20 @@ export default function StudentDashboard({ user }) {
     }
   };
 
+  const handleSaveJobPreferences = async (e) => {
+    e.preventDefault();
+    try {
+      await studentAPI.saveJobPreferences(jobPreferences);
+      setSuccess('Job preferences saved successfully! We will match you with relevant opportunities.');
+      setTimeout(() => setSuccess(''), 3000);
+      setIsEditingPreferences(false);
+      loadData();
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const [isUploading, setIsUploading] = useState(false);
   
   const handleTranscriptUpload = async (formData) => {
@@ -437,8 +466,8 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('my-applications')}
         >
           <FaEye /> My Applications
-          {tabNotifications?.applications > 0 && (
-            <NotificationBadge count={tabNotifications.applications} variant="success" />
+          {tabNotifications?.['my-applications'] > 0 && (
+            <NotificationBadge count={tabNotifications['my-applications']} variant="success" />
           )}
         </button>
         <button
@@ -449,9 +478,6 @@ export default function StudentDashboard({ user }) {
           }}
         >
           <FaBriefcase /> Browse Jobs
-          {tabNotifications?.jobs > 0 && (
-            <NotificationBadge count={tabNotifications.jobs} variant="info" />
-          )}
         </button>
         <button
           className={activeTab === 'my-jobs' ? 'active' : ''}
@@ -470,6 +496,15 @@ export default function StudentDashboard({ user }) {
           onClick={() => setActiveTab('profile')}
         >
           <FaUser /> My Profile
+        </button>
+        <button
+          className={activeTab === 'job-interests' ? 'active' : ''}
+          onClick={() => setActiveTab('job-interests')}
+        >
+          <FaBriefcase /> Job Interests
+          {tabNotifications?.['job-interests'] > 0 && (
+            <NotificationBadge count={tabNotifications['job-interests']} variant="warning" />
+          )}
         </button>
         <button
           className={activeTab === 'notifications' ? 'active' : ''}
@@ -1001,6 +1036,238 @@ export default function StudentDashboard({ user }) {
                 </button>
               </form>
             </div>
+          </>
+        )}
+
+        {/* JOB INTERESTS TAB */}
+        {activeTab === 'job-interests' && (
+          <>
+            <div className="section-header">
+              <h2>Job Interests & Preferences</h2>
+              <p className="subtitle">Help us match you with relevant job opportunities</p>
+              <button 
+                className="btn-primary" 
+                onClick={() => setIsEditingPreferences(!isEditingPreferences)}
+              >
+                {isEditingPreferences ? 'Cancel' : 'Edit Preferences'}
+              </button>
+            </div>
+
+            {isEditingPreferences ? (
+              <div className="preferences-form">
+                <form onSubmit={handleSaveJobPreferences}>
+                  <div className="form-section">
+                    <h3>Industries of Interest</h3>
+                    <div className="checkbox-group">
+                      {['Technology', 'Finance', 'Healthcare', 'Education', 'Marketing', 'Engineering', 'Retail', 'Manufacturing', 'Other'].map(industry => (
+                        <label key={industry}>
+                          <input
+                            type="checkbox"
+                            checked={jobPreferences.industries.includes(industry)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  industries: [...jobPreferences.industries, industry]
+                                });
+                              } else {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  industries: jobPreferences.industries.filter(i => i !== industry)
+                                });
+                              }
+                            }}
+                          />
+                          {industry}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-section">
+                    <h3>Job Types</h3>
+                    <div className="checkbox-group">
+                      {['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance'].map(jobType => (
+                        <label key={jobType}>
+                          <input
+                            type="checkbox"
+                            checked={jobPreferences.jobTypes.includes(jobType)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  jobTypes: [...jobPreferences.jobTypes, jobType]
+                                });
+                              } else {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  jobTypes: jobPreferences.jobTypes.filter(j => j !== jobType)
+                                });
+                              }
+                            }}
+                          />
+                          {jobType}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-section">
+                    <h3>Work Type</h3>
+                    <div className="checkbox-group">
+                      {['Remote', 'On-site', 'Hybrid'].map(workType => (
+                        <label key={workType}>
+                          <input
+                            type="checkbox"
+                            checked={jobPreferences.workType.includes(workType)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  workType: [...jobPreferences.workType, workType]
+                                });
+                              } else {
+                                setJobPreferences({
+                                  ...jobPreferences,
+                                  workType: jobPreferences.workType.filter(w => w !== workType)
+                                });
+                              }
+                            }}
+                          />
+                          {workType}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="form-section">
+                    <h3>Key Skills</h3>
+                    <input
+                      type="text"
+                      placeholder="Enter skills (comma-separated): e.g., Python, Project Management, Data Analysis"
+                      value={jobPreferences.skills.join(', ')}
+                      onChange={(e) => {
+                        setJobPreferences({
+                          ...jobPreferences,
+                          skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                        });
+                      }}
+                    />
+                  </div>
+
+                  <div className="form-section">
+                    <h3>Salary Range (Optional)</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                      <input
+                        type="number"
+                        placeholder="Minimum salary"
+                        value={jobPreferences.salaryMin}
+                        onChange={(e) => setJobPreferences({ ...jobPreferences, salaryMin: e.target.value })}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Maximum salary"
+                        value={jobPreferences.salaryMax}
+                        onChange={(e) => setJobPreferences({ ...jobPreferences, salaryMax: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-section">
+                    <h3>Preferred Location</h3>
+                    <input
+                      type="text"
+                      placeholder="e.g., Maseru, Lesotho or Remote"
+                      value={jobPreferences.location}
+                      onChange={(e) => setJobPreferences({ ...jobPreferences, location: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                    <button type="submit" className="btn-primary">Save Preferences</button>
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      onClick={() => setIsEditingPreferences(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="preferences-display">
+                <div className="preference-card">
+                  <h3>Industries</h3>
+                  {jobPreferences.industries.length > 0 ? (
+                    <div className="tags">
+                      {jobPreferences.industries.map(industry => (
+                        <span key={industry} className="tag">{industry}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+
+                <div className="preference-card">
+                  <h3>Job Types</h3>
+                  {jobPreferences.jobTypes.length > 0 ? (
+                    <div className="tags">
+                      {jobPreferences.jobTypes.map(jobType => (
+                        <span key={jobType} className="tag">{jobType}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+
+                <div className="preference-card">
+                  <h3>Work Type</h3>
+                  {jobPreferences.workType.length > 0 ? (
+                    <div className="tags">
+                      {jobPreferences.workType.map(workType => (
+                        <span key={workType} className="tag">{workType}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+
+                <div className="preference-card">
+                  <h3>Skills</h3>
+                  {jobPreferences.skills.length > 0 ? (
+                    <div className="tags">
+                      {jobPreferences.skills.map(skill => (
+                        <span key={skill} className="tag">{skill}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+
+                <div className="preference-card">
+                  <h3>Salary Range</h3>
+                  {jobPreferences.salaryMin || jobPreferences.salaryMax ? (
+                    <p>${jobPreferences.salaryMin || '0'} - ${jobPreferences.salaryMax || 'Not specified'}</p>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+
+                <div className="preference-card">
+                  <h3>Preferred Location</h3>
+                  {jobPreferences.location ? (
+                    <p>{jobPreferences.location}</p>
+                  ) : (
+                    <p className="placeholder">Not specified</p>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
 
