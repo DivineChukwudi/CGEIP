@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CompanyLanding from './CompanyLanding';
 import { companyAPI } from '../utils/api';
 import { FaPlus, FaTrash, FaBriefcase, FaEye, FaGraduationCap, FaCertificate, FaBriefcase as FaWork, FaCheckCircle, FaBell } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
@@ -8,7 +9,7 @@ import axios from 'axios';
 import '../styles/global.css';
 
 export default function CompanyDashboard({ user }) {
-  const [activeTab, setActiveTab] = useState('jobs');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [applicants, setApplicants] = useState([]);
@@ -147,6 +148,13 @@ export default function CompanyDashboard({ user }) {
     <div className="dashboard-container">
       <div className="dashboard-sidebar">
         <button
+          className={activeTab === 'dashboard' ? 'active' : ''}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          <FaBriefcase /> Dashboard
+        </button>
+
+        <button
           className={activeTab === 'jobs' ? 'active' : ''}
           onClick={() => setActiveTab('jobs')}
         >
@@ -175,6 +183,11 @@ export default function CompanyDashboard({ user }) {
 
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
+
+        {/* ==================== DASHBOARD LANDING PAGE ==================== */}
+        {activeTab === 'dashboard' && (
+          <CompanyLanding user={user} onNavigate={setActiveTab} />
+        )}
 
         {user.status === 'pending' && (
           <div className="warning-message">

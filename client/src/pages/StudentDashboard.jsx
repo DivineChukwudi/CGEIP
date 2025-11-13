@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import StudentLanding from './StudentLanding';
 import TranscriptUploadModal from '../components/TranscriptUploadModal';
 import CVUploadModal from '../components/CVUploadModal';
 import { studentAPI } from '../utils/api';
@@ -26,7 +27,7 @@ import '../styles/global.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function StudentDashboard({ user }) {
-  const [activeTab, setActiveTab] = useState('institutions');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [institutions, setInstitutions] = useState([]);
   const [selectedInstitution, setSelectedInstitution] = useState(null);
   const [faculties, setFaculties] = useState([]);
@@ -450,6 +451,12 @@ export default function StudentDashboard({ user }) {
     <div className="dashboard-container">
       <div className="dashboard-sidebar">
         <button
+          className={activeTab === 'dashboard' ? 'active' : ''}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          <FaGraduationCap /> Dashboard
+        </button>
+        <button
           className={activeTab === 'institutions' ? 'active' : ''}
           onClick={() => {
             setActiveTab('institutions');
@@ -534,6 +541,11 @@ export default function StudentDashboard({ user }) {
             {success}
             <button onClick={() => setSuccess('')}>×</button>
           </div>
+        )}
+
+        {/* DASHBOARD LANDING PAGE */}
+        {activeTab === 'dashboard' && (
+          <StudentLanding user={user} onNavigate={setActiveTab} />
         )}
 
         {/* BROWSE INSTITUTIONS TAB */}

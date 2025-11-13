@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import InstitutionLanding from './InstitutionLanding';
 import { institutionAPI } from '../utils/api';
 import { FaGraduationCap, FaUsers, FaCheck, FaTimes, FaPlus, FaEdit, FaTrash, FaBook, FaChartBar, FaBullhorn, FaBell, FaEye, FaDownload, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaFileAlt } from 'react-icons/fa';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
@@ -365,37 +366,9 @@ export default function InstitutionDashboard({ user }) {
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
-        {/* ==================== DASHBOARD TAB ==================== */}
-        {activeTab === 'dashboard' && statistics && (
-          <>
-            <h2>Overview Statistics</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <h3>Total Faculties</h3>
-                <p className="stat-number">{statistics.totalFaculties}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Total Courses</h3>
-                <p className="stat-number">{statistics.totalCourses}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Total Applications</h3>
-                <p className="stat-number">{statistics.totalApplications}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Pending Applications</h3>
-                <p className="stat-number">{statistics.pendingApplications}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Admitted Students</h3>
-                <p className="stat-number">{statistics.admittedStudents}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Enrollment</h3>
-                <p className="stat-number">{statistics.totalEnrolled} / {statistics.totalCapacity}</p>
-              </div>
-            </div>
-          </>
+        {/* ==================== DASHBOARD LANDING PAGE ==================== */}
+        {activeTab === 'dashboard' && (
+          <InstitutionLanding user={user} onNavigate={setActiveTab} />
         )}
 
         {/* ==================== FACULTIES TAB ==================== */}

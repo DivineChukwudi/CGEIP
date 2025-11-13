@@ -158,7 +158,7 @@ export default function CVUploadModal({ onClose, onSubmit }) {
         </div>
 
         <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f0fdf4', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
-          <strong style={{ color: '#047857' }}>📋 Job Application Requirements</strong>
+          <strong style={{ color: '#047857' }}>Job Application Requirements</strong>
           <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#4b5563' }}>
             CV is required (choose file upload or URL). Cover letter and supporting documents are optional but recommended.
           </p>
