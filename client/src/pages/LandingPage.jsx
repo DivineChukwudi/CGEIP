@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaGraduationCap, FaBriefcase, FaBuilding, FaUsers, FaChartLine, FaCheckCircle, FaArrowRight, FaSearch, FaTimes, FaBook, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGlobe, FaEye, FaBullseye, FaHeart, FaHistory, FaPaperPlane } from 'react-icons/fa';
 import '../styles/LandingPage.css';
@@ -23,6 +23,61 @@ export default function LandingPage() {
   // Refs for scrolling
   const aboutRef = useRef(null);
   const contactRef = useRef(null);
+
+  // DIAGNOSTIC LOGGING
+  useEffect(() => {
+    console.log('🚀 LandingPage component mounted');
+    console.log('📍 Current URL:', window.location.href);
+    console.log('📍 Window size:', window.innerWidth, 'x', window.innerHeight);
+    
+    setTimeout(() => {
+      const landingPageElement = document.querySelector('.landing-page');
+      console.log('✅ Landing page element found:', !!landingPageElement);
+      
+      if (landingPageElement) {
+        const styles = window.getComputedStyle(landingPageElement);
+        console.log('🎨 Landing page styles:');
+        console.log('  - display:', styles.display);
+        console.log('  - visibility:', styles.visibility);
+        console.log('  - opacity:', styles.opacity);
+        console.log('  - width:', styles.width);
+        console.log('  - height:', styles.height);
+      }
+
+      // Check header
+      const header = document.querySelector('.landing-header');
+      console.log('📍 Header found:', !!header);
+      if (header) {
+        const headerStyles = window.getComputedStyle(header);
+        console.log('  Header display:', headerStyles.display);
+        console.log('  Header visibility:', headerStyles.visibility);
+        console.log('  Header height:', headerStyles.height);
+      }
+
+      // Check hero section
+      const hero = document.querySelector('.hero-section');
+      console.log('📍 Hero section found:', !!hero);
+      if (hero) {
+        const heroStyles = window.getComputedStyle(hero);
+        console.log('  Hero display:', heroStyles.display);
+        console.log('  Hero visibility:', heroStyles.visibility);
+        console.log('  Hero height:', heroStyles.height);
+        console.log('  Hero background:', heroStyles.backgroundColor);
+      }
+
+      // Check all major sections
+      const sections = document.querySelectorAll('.landing-page > section');
+      console.log('📊 Total sections found:', sections.length);
+      sections.forEach((section, idx) => {
+        const secStyles = window.getComputedStyle(section);
+        console.log(`  Section ${idx} (${section.className}):`, secStyles.display, 'height:', secStyles.height);
+      });
+    }, 100);
+
+    return () => {
+      console.log('🛑 LandingPage component unmounted');
+    };
+  }, []);
 
   const features = [
     {
@@ -170,8 +225,11 @@ export default function LandingPage() {
     }
   };
 
+  console.log('🎯 LandingPage rendering');
+  console.log('⚙️ State values:', { searchQuery, isSearching, showModal });
+  
   return (
-    <div className="landing-page">
+    <div className="landing-page" style={{ display: 'block', width: '100%', minHeight: '100vh', backgroundColor: '#fff' }}>
       {/* Header */}
       <header className="landing-header">
         <div className="landing-container">

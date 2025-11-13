@@ -4,12 +4,12 @@ import '../styles/landing.css';
 
 export default function InstitutionLanding({ user, onNavigate }) {
   return (
-    <div className="landing-container institution-landing">
+    <div className="landing-container institution-landing" style={{ display: 'block', position: 'relative', zIndex: 10 }}>
       {/* Hero Section */}
       <div className="landing-hero">
         <div className="hero-content">
           <h1 className="hero-title">
-            Welcome, <span className="highlight">{user?.displayName || 'Institution'}</span>! 📚
+            Welcome, <span className="highlight">{user?.displayName || 'Institution'}</span>!
           </h1>
           <p className="hero-subtitle">
             Manage your academic programs, admissions, and student applications efficiently

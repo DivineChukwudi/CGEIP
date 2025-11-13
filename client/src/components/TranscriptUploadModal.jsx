@@ -29,10 +29,10 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
   const [extractionSuccess, setExtractionSuccess] = useState(false);
   
   const [subjects, setSubjects] = useState([
-    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0 },
-    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0 },
-    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0 },
-    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0 }
+    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0, isCustom: false },
+    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0, isCustom: false },
+    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0, isCustom: false },
+    { subject: '', grade: '', gradeType: 'percentage', gradeValue: 0, isCustom: false }
   ]);
   const [overallPercentage, setOverallPercentage] = useState('');
   
@@ -69,7 +69,32 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
       
       if (result.success && result.subjects && result.subjects.length > 0) {
         console.log('✅ PDF scanned successfully:', result);
-        setSubjects(result.subjects.length > 0 ? result.subjects : subjects);
+        // Normalize extracted subjects to include expected fields and isCustom flag
+        const normalized = result.subjects.map(item => {
+          let name = '';
+          let grade = '';
+          let gradeType = 'percentage';
+          let gradeValue = 0;
+
+          if (typeof item === 'string') {
+            name = item;
+          } else if (item && typeof item === 'object') {
+            name = item.subject || item.name || '';
+            grade = item.grade || item.gradeText || '';
+            gradeType = item.gradeType || 'percentage';
+            gradeValue = item.gradeValue || 0;
+          }
+
+          return {
+            subject: name,
+            grade,
+            gradeType,
+            gradeValue,
+            isCustom: !!name && !COMMON_SUBJECTS.includes(name)
+          };
+        });
+
+        setSubjects(normalized.length > 0 ? normalized : subjects);
         setOverallPercentage(result.overallPercentage?.toString() || '');
         setExtractionSuccess(true);
         setExtractionError('');
@@ -110,6 +135,17 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
       }
     }
     
+    setSubjects(updated);
+  };
+
+  const handleSelectChange = (index, value) => {
+    const updated = [...subjects];
+    if (value === 'custom') {
+      // mark as custom and clear subject value so the user can type
+      updated[index] = { ...updated[index], isCustom: true, subject: '' };
+    } else {
+      updated[index] = { ...updated[index], isCustom: false, subject: value };
+    }
     setSubjects(updated);
   };
 
@@ -262,7 +298,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
               )}
 
               <div className="section-header">
-                <h3>📝 Your Subjects & Grades</h3>
+                <h3>Your Subjects & Grades</h3>
                 <p className="subtitle">Enter or edit your academic information - {subjects.filter(s => s.subject && s.grade).length}/{subjects.length} completed</p>
               </div>
 
@@ -284,12 +320,12 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                       )}
                     </div>
 
-                    <div className="subject-card-body">
+                      <div className="subject-card-body">
                       <div className="form-group">
                         <label>Subject Name</label>
                         <select
-                          value={subject.subject}
-                          onChange={(e) => updateSubject(index, 'subject', e.target.value)}
+                          value={subject.isCustom ? 'custom' : (COMMON_SUBJECTS.includes(subject.subject) ? subject.subject : '')}
+                          onChange={(e) => handleSelectChange(index, e.target.value)}
                           className="subject-select"
                         >
                           <option value="">Select Subject</option>
@@ -298,10 +334,11 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
                           ))}
                           <option value="custom">Type Custom...</option>
                         </select>
-                        
-                        {subject.subject === 'custom' && (
+
+                        {subject.isCustom && (
                           <input
                             type="text"
+                            value={subject.subject}
                             placeholder="Enter custom subject name"
                             onChange={(e) => updateSubject(index, 'subject', e.target.value)}
                             className="custom-subject-input"

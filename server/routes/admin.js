@@ -482,7 +482,15 @@ router.delete('/courses/:id', async (req, res) => {
 
 router.get('/transcripts', async (req, res) => {
   try {
-    const snapshot = await db.collection(collections.TRANSCRIPTS).get();
+    const { studentId } = req.query;
+    let query = db.collection(collections.TRANSCRIPTS);
+    
+    // Filter by studentId if provided (for institution viewing student documents)
+    if (studentId) {
+      query = query.where('studentId', '==', studentId);
+    }
+    
+    const snapshot = await query.get();
     
     const transcripts = await Promise.all(snapshot.docs.map(async doc => {
       const transcriptData = doc.data();

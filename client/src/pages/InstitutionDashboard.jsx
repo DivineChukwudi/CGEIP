@@ -214,20 +214,25 @@ export default function InstitutionDashboard({ user }) {
       setShowModal(true);
       setError('');
       
-      // Fetch student transcripts
+      // Fetch student transcripts and certificates
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token || !application.studentId) return;
       
-      const { data: transcripts } = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/student/transcripts`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setStudentTranscripts(transcripts || []);
+      try {
+        const { data: transcripts } = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/admin/transcripts?studentId=${application.studentId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        setStudentTranscripts(transcripts || []);
+      } catch (transcriptErr) {
+        console.warn('Could not load transcripts:', transcriptErr);
+        setStudentTranscripts([]);
+      }
     } catch (err) {
       console.error('Error loading application details:', err);
-      setError('Could not load transcripts');
+      setError('Could not load application documents');
     }
   };
 
@@ -724,34 +729,86 @@ export default function InstitutionDashboard({ user }) {
                   </div>
                 </div>
 
-                {/* Uploaded Transcripts Section */}
+                {/* Uploaded Documents Section */}
                 <div className="details-panel">
-                  <h3><FaFileAlt /> Uploaded Transcripts</h3>
+                  <h3><FaFileAlt /> Academic Documents & Certificates</h3>
                   {studentTranscripts && studentTranscripts.length > 0 ? (
-                    <div className="transcripts-list">
+                    <div className="documents-list">
                       {studentTranscripts.map((transcript, idx) => (
-                        <div key={idx} className="transcript-item">
-                          <div className="transcript-info">
-                            <span className="transcript-name">{transcript.fileName || `Transcript ${idx + 1}`}</span>
-                            <span className="transcript-date">
-                              Uploaded: {new Date(transcript.uploadedAt || transcript.createdAt).toLocaleDateString()}
-                            </span>
+                        <div key={idx}>
+                          {/* Main Transcript */}
+                          <div className="document-item">
+                            <div className="document-info">
+                              <span className="document-name">📄 Main Transcript</span>
+                              <span className="document-date">
+                                Uploaded: {new Date(transcript.uploadedAt).toLocaleDateString()}
+                              </span>
+                              <span className="document-meta">
+                                Qualification: {transcript.qualificationLevel || 'N/A'} | GPA: {transcript.gpa || 'N/A'}
+                              </span>
+                            </div>
+                            {transcript.transcriptUrl && (
+                              <a 
+                                href={transcript.transcriptUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn-small"
+                              >
+                                <FaDownload /> Download
+                              </a>
+                            )}
                           </div>
-                          {transcript.fileUrl && (
-                            <a 
-                              href={transcript.fileUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="btn-small"
-                            >
-                              <FaDownload /> Download
-                            </a>
+
+                          {/* Certificates */}
+                          {transcript.certificates && transcript.certificates.length > 0 && (
+                            <div className="certificates-section">
+                              <h4>📋 Certificates ({transcript.certificates.length})</h4>
+                              <div className="certificates-list">
+                                {transcript.certificates.map((certUrl, certIdx) => (
+                                  <div key={certIdx} className="document-item">
+                                    <div className="document-info">
+                                      <span className="document-name">Certificate {certIdx + 1}</span>
+                                    </div>
+                                    <a 
+                                      href={certUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="btn-small"
+                                    >
+                                      <FaDownload /> Download
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Subject Details */}
+                          {transcript.subjects && transcript.subjects.length > 0 && (
+                            <div className="subjects-section">
+                              <h4>📚 Subjects ({transcript.subjects.length})</h4>
+                              <div className="subjects-table">
+                                <div className="subjects-header">
+                                  <div>Subject</div>
+                                  <div>Grade</div>
+                                </div>
+                                {transcript.subjects.map((subject, subjIdx) => (
+                                  <div key={subjIdx} className="subjects-row">
+                                    <div>{subject.subject || 'N/A'}</div>
+                                    <div>{subject.grade || 'N/A'}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="overall-grade">
+                                Overall: <strong>{transcript.overallPercentage || 'N/A'}%</strong>
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="no-data">No transcripts uploaded</p>
+                    <p className="no-data">No documents uploaded</p>
                   )}
                 </div>
 

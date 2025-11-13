@@ -110,7 +110,7 @@ function checkSubjectPrerequisites(student, course) {
 
   console.log(`🎓 DETAILED Subject Check for "${course.name}":`);
   console.log(`   ═══════════════════════════════════════════`);
-  console.log(`   📚 Student Subjects (${studentSubjectData.length}):`);
+  console.log(`   Student Subjects (${studentSubjectData.length}):`);
   studentSubjectData.forEach(s => {
     console.log(`      • ${s.name} ${s.gradeValue ? `(${s.grade})` : ''}`);
   });

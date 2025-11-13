@@ -4,7 +4,7 @@ import '../styles/landing.css';
 
 export default function StudentLanding({ user, onNavigate }) {
   return (
-    <div className="landing-container student-landing">
+    <div className="landing-container student-landing" style={{ display: 'block', position: 'relative', zIndex: 10 }}>
       {/* Hero Section */}
       <div className="landing-hero">
         <div className="hero-content">

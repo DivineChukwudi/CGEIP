@@ -1365,7 +1365,7 @@ export default function StudentDashboard({ user }) {
         {/* VIEW COURSES MODAL */}
         {showModal && modalType === 'view-courses' && (
           (() => {
-            console.log('📚 RENDERING COURSES MODAL');
+            console.log('RENDERING COURSES MODAL');
             console.log('  Selected faculty:', selectedFaculty?.name);
             console.log('  Total courses in state:', courses.length);
             console.log('  Courses array:', courses);
