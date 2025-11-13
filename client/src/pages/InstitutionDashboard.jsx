@@ -1105,14 +1105,14 @@ export default function InstitutionDashboard({ user }) {
                           borderBottom: idx < (formData.requiredSubjects || []).length - 1 ? '1px solid #e5e7eb' : 'none'
                         }}>
                           <div style={{ fontSize: '11px', color: '#6b7280', width: '60px', fontWeight: '500' }}>
-                            {subject.isCustom ? '✏️ Custom' : '📋 List'}
+                            {subject.isCustom ? 'Custom' : 'List'}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                             <select
-                              value={subject.isDropdown ? subject.subjectName : 'custom'}
+                              value={subject.isCustom ? '' : (subject.subjectName || '')}
                               onChange={(e) => {
                                 const updated = [...(formData.requiredSubjects || [])];
-                                if (e.target.value === 'custom') {
+                                if (e.target.value === '') {
                                   updated[idx] = { ...subject, isDropdown: false, isCustom: true, subjectName: '' };
                                 } else {
                                   updated[idx] = { ...subject, isDropdown: true, isCustom: false, subjectName: e.target.value };
@@ -1121,7 +1121,7 @@ export default function InstitutionDashboard({ user }) {
                               }}
                               style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
                             >
-                              <option value="custom"> Enter Custom Subject...</option>
+                              <option value="">Enter Custom Subject...</option>
                               <option disabled>─ Common Subjects ─</option>
                               {COMMON_SUBJECTS.map((s) => (
                                 <option key={s} value={s}>{s}</option>
@@ -1137,7 +1137,8 @@ export default function InstitutionDashboard({ user }) {
                                   setFormData({ ...formData, requiredSubjects: updated });
                                 }}
                                 placeholder="e.g., Advanced Mathematics, Physics, etc."
-                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #2563eb' }}
+                                autoFocus
+                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '2px solid #2563eb', width: '100%', boxSizing: 'border-box' }}
                               />
                             )}
                           </div>
@@ -1258,10 +1259,10 @@ export default function InstitutionDashboard({ user }) {
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                             <select
-                              value={subject.isDropdown ? subject.subjectName : 'custom'}
+                              value={subject.isCustom ? '' : (subject.subjectName || '')}
                               onChange={(e) => {
                                 const updated = [...(formData.additionalSubjects || [])];
-                                if (e.target.value === 'custom') {
+                                if (e.target.value === '') {
                                   updated[idx] = { ...subject, isDropdown: false, isCustom: true, subjectName: '' };
                                 } else {
                                   updated[idx] = { ...subject, isDropdown: true, isCustom: false, subjectName: e.target.value };
@@ -1270,7 +1271,7 @@ export default function InstitutionDashboard({ user }) {
                               }}
                               style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
                             >
-                              <option value="custom">📝 Enter Custom Subject...</option>
+                              <option value="">📝  Subject...</option>
                               <option disabled>─ Common Subjects ─</option>
                               {COMMON_SUBJECTS.map((s) => (
                                 <option key={s} value={s}>{s}</option>
@@ -1286,7 +1287,8 @@ export default function InstitutionDashboard({ user }) {
                                   setFormData({ ...formData, additionalSubjects: updated });
                                 }}
                                 placeholder="e.g., Advanced Mathematics, Physics, etc."
-                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #10b981' }}
+                                autoFocus
+                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '2px solid #10b981', width: '100%', boxSizing: 'border-box' }}
                               />
                             )}
                           </div>
