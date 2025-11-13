@@ -8,6 +8,27 @@ import NotificationBadge from '../components/NotificationBadge';
 import axios from 'axios';
 import '../styles/global.css';
 
+// Common subjects list for dropdown
+const COMMON_SUBJECTS = [
+  'Mathematics',
+  'English',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'History',
+  'Geography',
+  'Computer Science',
+  'Economics',
+  'Literature',
+  'Statistics',
+  'Accounting',
+  'Business Studies',
+  'Information Technology',
+  'Psychology',
+  'Sociology',
+  'Languages'
+];
+
 export default function InstitutionDashboard({ user }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [faculties, setFaculties] = useState([]);
@@ -143,7 +164,6 @@ export default function InstitutionDashboard({ user }) {
       description: '',
       duration: '',
       requirements: '',
-      level: 'Diploma',
       capacity: 50,
       minimumOverallPercentage: 0,
       requiredSubjects: [],
@@ -162,7 +182,6 @@ export default function InstitutionDashboard({ user }) {
       description: course.description,
       duration: course.duration,
       requirements: course.requirements,
-      level: course.level,
       capacity: course.capacity,
       minimumOverallPercentage: course.minimumOverallPercentage || 0,
       requiredSubjects: course.requiredSubjects || [],
@@ -984,31 +1003,15 @@ export default function InstitutionDashboard({ user }) {
                       required
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div className="form-group">
-                      <label>Duration *</label>
-                      <input
-                        type="text"
-                        value={formData.duration}
-                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                        placeholder="e.g., 3 years"
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Level *</label>
-                      <select
-                        value={formData.level}
-                        onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                        required
-                      >
-                        <option value="Certificate">Certificate</option>
-                        <option value="Diploma">Diploma</option>
-                        <option value="Degree">Degree</option>
-                        <option value="Masters">Masters</option>
-                        <option value="PhD">PhD</option>
-                      </select>
-                    </div>
+                  <div className="form-group">
+                    <label>Duration *</label>
+                    <input
+                      type="text"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                      placeholder="e.g., 3 years"
+                      required
+                    />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="form-group">
@@ -1063,44 +1066,105 @@ export default function InstitutionDashboard({ user }) {
                     <label style={{ display: 'block', marginBottom: '0.5rem' }}>
                       Required Subjects (Students MUST have all of these)
                     </label>
+                    <small style={{ color: '#6b7280', marginBottom: '0.75rem', display: 'block' }}>
+                      Select from dropdown or choose "Enter Custom Subject" to add your own
+                    </small>
                     <div style={{ 
                       background: '#f9fafb', 
                       padding: '1rem', 
                       borderRadius: '0.5rem',
                       border: '1px solid #e5e7eb'
                     }}>
+                      {/* Column Headers */}
+                      {(formData.requiredSubjects || []).length > 0 && (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr 1fr auto',
+                          gap: '0.75rem',
+                          marginBottom: '0.75rem',
+                          paddingBottom: '0.75rem',
+                          borderBottom: '2px solid #d1d5db',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#374151'
+                        }}>
+                          <div style={{ width: '60px' }}>Type</div>
+                          <div>Subject Name</div>
+                          <div style={{ textAlign: 'center' }}>Min %</div>
+                          <div style={{ textAlign: 'center' }}>Action</div>
+                        </div>
+                      )}
                       {(formData.requiredSubjects || []).map((subject, idx) => (
                         <div key={idx} style={{
                           display: 'grid',
-                          gridTemplateColumns: '2fr 1fr auto',
+                          gridTemplateColumns: 'auto 1fr 1fr auto',
                           gap: '0.75rem',
                           marginBottom: idx < (formData.requiredSubjects || []).length - 1 ? '0.75rem' : 0,
-                          alignItems: 'end',
+                          alignItems: 'center',
                           paddingBottom: idx < (formData.requiredSubjects || []).length - 1 ? '0.75rem' : 0,
                           borderBottom: idx < (formData.requiredSubjects || []).length - 1 ? '1px solid #e5e7eb' : 'none'
                         }}>
-                          <input
-                            type="text"
-                            value={subject.subjectName}
-                            onChange={(e) => {
-                              const updated = [...(formData.requiredSubjects || [])];
-                              updated[idx].subjectName = e.target.value;
-                              setFormData({ ...formData, requiredSubjects: updated });
-                            }}
-                            placeholder="e.g., Mathematics"
-                          />
-                          <input
-                            type="number"
-                            value={subject.minimumMark}
-                            onChange={(e) => {
-                              const updated = [...(formData.requiredSubjects || [])];
-                              updated[idx].minimumMark = parseInt(e.target.value) || 0;
-                              setFormData({ ...formData, requiredSubjects: updated });
-                            }}
-                            min="0"
-                            max="100"
-                            placeholder="Min %"
-                          />
+                          <div style={{ fontSize: '11px', color: '#6b7280', width: '60px', fontWeight: '500' }}>
+                            {subject.isCustom ? '✏️ Custom' : '📋 List'}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <select
+                              value={subject.isDropdown ? subject.subjectName : 'custom'}
+                              onChange={(e) => {
+                                const updated = [...(formData.requiredSubjects || [])];
+                                if (e.target.value === 'custom') {
+                                  updated[idx] = { ...subject, isDropdown: false, isCustom: true, subjectName: '' };
+                                } else {
+                                  updated[idx] = { ...subject, isDropdown: true, isCustom: false, subjectName: e.target.value };
+                                }
+                                setFormData({ ...formData, requiredSubjects: updated });
+                              }}
+                              style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
+                            >
+                              <option value="custom"> Enter Custom Subject...</option>
+                              <option disabled>─ Common Subjects ─</option>
+                              {COMMON_SUBJECTS.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                            {subject.isCustom && (
+                              <input
+                                type="text"
+                                value={subject.subjectName}
+                                onChange={(e) => {
+                                  const updated = [...(formData.requiredSubjects || [])];
+                                  updated[idx].subjectName = e.target.value;
+                                  setFormData({ ...formData, requiredSubjects: updated });
+                                }}
+                                placeholder="e.g., Advanced Mathematics, Physics, etc."
+                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #2563eb' }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              value={subject.minimumMark}
+                              onChange={(e) => {
+                                const updated = [...(formData.requiredSubjects || [])];
+                                updated[idx].minimumMark = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                setFormData({ ...formData, requiredSubjects: updated });
+                              }}
+                              min="0"
+                              max="100"
+                              placeholder="0"
+                              style={{ 
+                                padding: '0.5rem', 
+                                textAlign: 'center',
+                                borderRadius: '0.375rem',
+                                border: '1px solid #d1d5db',
+                                width: '100%'
+                              }}
+                            />
+                            <small style={{ display: 'block', textAlign: 'center', color: '#9ca3af', marginTop: '0.25rem' }}>
+                              {subject.minimumMark}%
+                            </small>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
@@ -1108,22 +1172,26 @@ export default function InstitutionDashboard({ user }) {
                               setFormData({ ...formData, requiredSubjects: updated });
                             }}
                             style={{
-                              padding: '0.5rem 1rem',
+                              padding: '0.5rem 0.75rem',
                               background: '#ef4444',
                               color: 'white',
                               border: 'none',
                               borderRadius: '0.375rem',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              fontSize: '12px',
+                              height: 'fit-content'
                             }}
+                            title="Remove this subject"
                           >
-                            Remove
+                            ✕ Remove
                           </button>
                         </div>
                       ))}
                       <button
                         type="button"
                         onClick={() => {
-                          const updated = [...(formData.requiredSubjects || []), { subjectName: '', minimumMark: 0 }];
+                          const updated = [...(formData.requiredSubjects || []), { subjectName: '', minimumMark: 0, isDropdown: false, isCustom: false }];
                           setFormData({ ...formData, requiredSubjects: updated });
                         }}
                         style={{
@@ -1147,44 +1215,105 @@ export default function InstitutionDashboard({ user }) {
                     <label style={{ display: 'block', marginBottom: '0.5rem' }}>
                       Optional Additional Subjects (Nice to have - increases match score)
                     </label>
+                    <small style={{ color: '#6b7280', marginBottom: '0.75rem', display: 'block' }}>
+                      Select from dropdown or choose "Enter Custom Subject" to add bonus subjects
+                    </small>
                     <div style={{ 
                       background: '#f9fafb', 
                       padding: '1rem', 
                       borderRadius: '0.5rem',
                       border: '1px solid #e5e7eb'
                     }}>
+                      {/* Column Headers */}
+                      {(formData.additionalSubjects || []).length > 0 && (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr 1fr auto',
+                          gap: '0.75rem',
+                          marginBottom: '0.75rem',
+                          paddingBottom: '0.75rem',
+                          borderBottom: '2px solid #d1d5db',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#374151'
+                        }}>
+                          <div style={{ width: '60px' }}>Type</div>
+                          <div>Subject Name</div>
+                          <div style={{ textAlign: 'center' }}>Preferred %</div>
+                          <div style={{ textAlign: 'center' }}>Action</div>
+                        </div>
+                      )}
                       {(formData.additionalSubjects || []).map((subject, idx) => (
                         <div key={idx} style={{
                           display: 'grid',
-                          gridTemplateColumns: '2fr 1fr auto',
+                          gridTemplateColumns: 'auto 1fr 1fr auto',
                           gap: '0.75rem',
                           marginBottom: idx < (formData.additionalSubjects || []).length - 1 ? '0.75rem' : 0,
-                          alignItems: 'end',
+                          alignItems: 'center',
                           paddingBottom: idx < (formData.additionalSubjects || []).length - 1 ? '0.75rem' : 0,
                           borderBottom: idx < (formData.additionalSubjects || []).length - 1 ? '1px solid #e5e7eb' : 'none'
                         }}>
-                          <input
-                            type="text"
-                            value={subject.subjectName}
-                            onChange={(e) => {
-                              const updated = [...(formData.additionalSubjects || [])];
-                              updated[idx].subjectName = e.target.value;
-                              setFormData({ ...formData, additionalSubjects: updated });
-                            }}
-                            placeholder="e.g., Physics"
-                          />
-                          <input
-                            type="number"
-                            value={subject.preferredMinimumMark}
-                            onChange={(e) => {
-                              const updated = [...(formData.additionalSubjects || [])];
-                              updated[idx].preferredMinimumMark = parseInt(e.target.value) || 0;
-                              setFormData({ ...formData, additionalSubjects: updated });
-                            }}
-                            min="0"
-                            max="100"
-                            placeholder="Preferred %"
-                          />
+                          <div style={{ fontSize: '11px', color: '#6b7280', width: '60px', fontWeight: '500' }}>
+                            {subject.isCustom ? 'Custom' : 'List'}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <select
+                              value={subject.isDropdown ? subject.subjectName : 'custom'}
+                              onChange={(e) => {
+                                const updated = [...(formData.additionalSubjects || [])];
+                                if (e.target.value === 'custom') {
+                                  updated[idx] = { ...subject, isDropdown: false, isCustom: true, subjectName: '' };
+                                } else {
+                                  updated[idx] = { ...subject, isDropdown: true, isCustom: false, subjectName: e.target.value };
+                                }
+                                setFormData({ ...formData, additionalSubjects: updated });
+                              }}
+                              style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
+                            >
+                              <option value="custom">📝 Enter Custom Subject...</option>
+                              <option disabled>─ Common Subjects ─</option>
+                              {COMMON_SUBJECTS.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                            {subject.isCustom && (
+                              <input
+                                type="text"
+                                value={subject.subjectName}
+                                onChange={(e) => {
+                                  const updated = [...(formData.additionalSubjects || [])];
+                                  updated[idx].subjectName = e.target.value;
+                                  setFormData({ ...formData, additionalSubjects: updated });
+                                }}
+                                placeholder="e.g., Advanced Mathematics, Physics, etc."
+                                style={{ padding: '0.5rem', fontSize: '14px', borderRadius: '0.375rem', border: '1px solid #10b981' }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              value={subject.preferredMinimumMark}
+                              onChange={(e) => {
+                                const updated = [...(formData.additionalSubjects || [])];
+                                updated[idx].preferredMinimumMark = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                setFormData({ ...formData, additionalSubjects: updated });
+                              }}
+                              min="0"
+                              max="100"
+                              placeholder="0"
+                              style={{ 
+                                padding: '0.5rem', 
+                                textAlign: 'center',
+                                borderRadius: '0.375rem',
+                                border: '1px solid #d1d5db',
+                                width: '100%'
+                              }}
+                            />
+                            <small style={{ display: 'block', textAlign: 'center', color: '#9ca3af', marginTop: '0.25rem' }}>
+                              {subject.preferredMinimumMark}%
+                            </small>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
@@ -1192,22 +1321,26 @@ export default function InstitutionDashboard({ user }) {
                               setFormData({ ...formData, additionalSubjects: updated });
                             }}
                             style={{
-                              padding: '0.5rem 1rem',
+                              padding: '0.5rem 0.75rem',
                               background: '#ef4444',
                               color: 'white',
                               border: 'none',
                               borderRadius: '0.375rem',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              fontSize: '12px',
+                              height: 'fit-content'
                             }}
+                            title="Remove this subject"
                           >
-                            Remove
+                            ✕ Remove
                           </button>
                         </div>
                       ))}
                       <button
                         type="button"
                         onClick={() => {
-                          const updated = [...(formData.additionalSubjects || []), { subjectName: '', preferredMinimumMark: 0 }];
+                          const updated = [...(formData.additionalSubjects || []), { subjectName: '', preferredMinimumMark: 0, isDropdown: false, isCustom: false }];
                           setFormData({ ...formData, additionalSubjects: updated });
                         }}
                         style={{
