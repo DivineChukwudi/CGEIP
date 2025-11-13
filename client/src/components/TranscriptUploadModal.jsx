@@ -187,7 +187,7 @@ export default function TranscriptUploadModal({ onClose, onSubmit }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content extra-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>📄 Upload Academic Transcript</h2>
+          <h2>Upload Academic Transcript</h2>
           <div className="step-indicator">
             <span className={step >= 1 ? 'active' : ''}>1. Upload&nbsp;&nbsp;&nbsp;&nbsp;</span>
             <span className={step >= 2 ? 'active' : ''}>2. Enter Details&nbsp;&nbsp;&nbsp;&nbsp;</span>
