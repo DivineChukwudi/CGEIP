@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaBriefcase, FaGraduationCap, FaFileUpload, FaCheckCircle, FaArrowRight, FaBell } from 'react-icons/fa';
-import '../styles/landing.css';
+import '../styles/StudentLanding.css';
 
 export default function StudentLanding({ user, onNavigate }) {
   return (

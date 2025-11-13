@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaBook, FaUsers, FaChartBar, FaCheckCircle, FaArrowRight, FaGraduationCap, FaBullhorn } from 'react-icons/fa';
-import '../styles/landing.css';
+import '../styles/InstitutionLanding.css';
 
 export default function InstitutionLanding({ user, onNavigate }) {
   return (

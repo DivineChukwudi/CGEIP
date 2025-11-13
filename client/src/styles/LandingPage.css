@@ -1,14 +1,11 @@
-/* CRITICAL: Force landing page to display */
+/* Landing Page Styles - Compact and Clean */
 .landing-page {
-  display: block !important;
-  width: 100% !important;
-  min-height: 100vh !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: relative !important;
-  overflow-x: hidden !important;
+  width: 100%;
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+  display: block;
+  overflow-x: hidden;
 }
 
 /* Override any global fade animations */
@@ -56,7 +53,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 0;
+  padding: 12px 0;
 }
 
 .landing-header .logo {
@@ -148,7 +145,7 @@ body {
 
 /* ===== HERO SECTION ===== */
 .hero-section {
-  padding: 100px 0;
+  padding: 40px 0 50px;
   background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
   display: block !important;
   width: 100%;
@@ -157,7 +154,7 @@ body {
 .hero-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  gap: 30px;
   align-items: center;
 }
 
@@ -169,7 +166,7 @@ body {
   font-size: 56px;
   line-height: 1.1;
   color: #0f172a;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   font-weight: 700;
   letter-spacing: -1px;
 }
@@ -182,11 +179,11 @@ body {
   font-size: 18px;
   color: #475569;
   line-height: 1.7;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .search-section {
-  margin: 40px 0;
+  margin: 20px 0;
   display: block;
 }
 
@@ -300,7 +297,7 @@ body {
 
 /* ===== STATS SECTION ===== */
 .stats-section {
-  padding: 60px 0;
+  padding: 40px 0;
   background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
   color: white;
   display: block !important;
@@ -315,7 +312,7 @@ body {
 }
 
 .stat-item {
-  padding: 40px 20px;
+  padding: 20px 20px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
 }
@@ -334,7 +331,7 @@ body {
 
 /* ===== FEATURES SECTION ===== */
 .features-section {
-  padding: 100px 0;
+  padding: 50px 0;
   background: #ffffff;
   display: block !important;
   width: 100%;
@@ -360,11 +357,11 @@ body {
 .features-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 32px;
+  gap: 20px;
 }
 
 .feature-card {
-  padding: 40px;
+  padding: 24px;
   background: white;
   border-radius: 8px;
   border: 1px solid #e8eaed;
@@ -378,16 +375,16 @@ body {
 }
 
 .feature-icon {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 24px;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 16px;
   background: #f0f9ff;
   color: #2563eb;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  font-size: 32px;
+  font-size: 28px;
 }
 
 .feature-card h3 {
@@ -404,7 +401,7 @@ body {
 
 /* ===== BENEFITS SECTION ===== */
 .benefits-section {
-  padding: 100px 0;
+  padding: 50px 0;
   background: #f9fafb;
   display: block !important;
   width: 100%;
@@ -413,7 +410,7 @@ body {
 .benefits-content {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
-  gap: 80px;
+  gap: 40px;
   align-items: center;
 }
 
@@ -454,7 +451,7 @@ body {
 
 .visual-card {
   background: white;
-  padding: 48px;
+  padding: 32px;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   text-align: center;
@@ -479,7 +476,7 @@ body {
 
 /* ===== ABOUT SECTION ===== */
 .about-section {
-  padding: 100px 0;
+  padding: 50px 0;
   background: #f9fafb;
   display: block !important;
   width: 100%;
@@ -493,7 +490,7 @@ body {
 
 .about-story {
   background: white;
-  padding: 48px;
+  padding: 32px;
   border-radius: 8px;
   border: 1px solid #e8eaed;
 }
@@ -526,12 +523,12 @@ body {
 .about-vmv-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 32px;
+  gap: 20px;
 }
 
 .vmv-card {
   background: white;
-  padding: 40px;
+  padding: 24px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   transition: all 0.3s;
@@ -543,9 +540,9 @@ body {
 }
 
 .vmv-icon {
-  font-size: 48px;
+  font-size: 40px;
   color: #2563eb;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .vmv-card h3 {
@@ -580,7 +577,7 @@ body {
 
 .about-motto {
   background: #2563eb;
-  padding: 60px 48px;
+  padding: 40px 32px;
   border-radius: 8px;
   text-align: center;
   color: white;
@@ -608,7 +605,7 @@ body {
 
 .about-services {
   background: white;
-  padding: 48px;
+  padding: 32px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
 }
@@ -624,12 +621,12 @@ body {
 .services-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 32px;
+  gap: 20px;
 }
 
 .service-item {
   text-align: center;
-  padding: 32px 24px;
+  padding: 20px 16px;
   background: #f9fafb;
   border-radius: 8px;
 }
@@ -654,7 +651,7 @@ body {
 
 /* ===== CONTACT SECTION ===== */
 .contact-section {
-  padding: 100px 0;
+  padding: 50px 0;
   background: white;
   display: block !important;
   width: 100%;
@@ -663,7 +660,7 @@ body {
 .contact-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  gap: 40px;
 }
 
 .contact-info h3 {
@@ -689,7 +686,7 @@ body {
 .contact-item {
   display: flex;
   gap: 16px;
-  padding: 20px;
+  padding: 16px;
   background: #f9fafb;
   border-radius: 8px;
 }
@@ -928,7 +925,7 @@ body {
 
 /* ===== CTA SECTION ===== */
 .cta-section {
-  padding: 100px 0;
+  padding: 50px 0;
   background: #2563eb;
   color: white;
   text-align: center;
@@ -953,7 +950,7 @@ body {
 .landing-footer {
   background: #1e40af;
   color: white;
-  padding: 60px 0 24px;
+  padding: 40px 0 16px;
   display: block !important;
   width: 100%;
 }
@@ -961,7 +958,7 @@ body {
 .footer-content {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
-  gap: 60px;
+  gap: 40px;
   margin-bottom: 40px;
 }
 
@@ -1024,7 +1021,7 @@ body {
 .modal-content-landing {
   background: white;
   border-radius: 8px;
-  padding: 32px;
+  padding: 24px;
   max-width: 600px;
   width: 100%;
   max-height: 90vh;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaBriefcase, FaUsers, FaCheckCircle, FaArrowRight, FaChartBar, FaTrophy, FaRocket } from 'react-icons/fa';
-import '../styles/landing.css';
+import '../styles/CompanyLanding.css';
 
 export default function CompanyLanding({ user, onNavigate }) {
   return (
